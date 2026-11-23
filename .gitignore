@@ -1,0 +1,15 @@
+# Dependencies & Test Outputs
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+_site/
+
+# Local Build Artifacts & OS Files
+HTML_Slide_Tool_단독실행본.html
+*.zip
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
