@@ -146,7 +146,23 @@ function renderChartWidgetInnerHtml(data) {
 }
 function isFloatingCardStudioOpen() { if (typeof fcStudioPopupWin !== 'undefined' && fcStudioPopupWin && !fcStudioPopupWin.closed) return true; const m = document.getElementById('floatingCardEditorModal'); return Boolean(m && !m.classList.contains('hidden')); }
 function getSelectedChartWidget() {
-  if (isFloatingCardStudioOpen()) { const fcDoc = (typeof getFcStudioDoc === 'function') ? getFcStudioDoc() : document, fcEditor = fcDoc.getElementById('fcRichBodyEditor') || document.getElementById('fcRichBodyEditor'); if (fcEditor && fcEditor.dataset.activeChartId) { const fcW = fcEditor.querySelector(`[data-chart-uid="${fcEditor.dataset.activeChartId}"]`); if (fcW) return fcW; } }
+  const isFcActive = (typeof isFloatingCardCanvasActive === 'function') ? isFloatingCardCanvasActive() : isFloatingCardStudioOpen();
+  if (isFcActive) {
+    const fcEditor = (typeof getActiveFcPreviewCanvas === 'function') ? getActiveFcPreviewCanvas() : document.getElementById('fcRichBodyEditor');
+    if (fcEditor) {
+      if (selectedElement && fcEditor.contains(selectedElement)) {
+        const direct = selectedElement.classList.contains('ppt-chart-widget')
+          ? selectedElement
+          : (selectedElement.closest('.ppt-chart-widget') || selectedElement.querySelector('.ppt-chart-widget'));
+        if (direct && fcEditor.contains(direct)) return direct;
+      }
+      if (fcEditor.dataset.activeChartId) {
+        const fcW = fcEditor.querySelector(`[data-chart-uid="${fcEditor.dataset.activeChartId}"]`);
+        if (fcW) return fcW;
+      }
+    }
+    return null;
+  }
   if (!selectedElement) return null;
   if (selectedElement.classList.contains('ppt-chart-widget')) return selectedElement;
   return selectedElement.querySelector('.ppt-chart-widget') || selectedElement.closest('.ppt-chart-widget');
@@ -164,7 +180,7 @@ function readChartData(widget) {
     return p;
   } catch (e) { return getDefaultChartData('bar-v'); }
 }
-function recordChartChangeHistory(label) { if (isFloatingCardStudioOpen()) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); } else saveHistorySnapshot(label || '차트/표 편집'); }
+function recordChartChangeHistory(label) { const isFcActive = (typeof isFloatingCardCanvasActive === 'function') ? isFloatingCardCanvasActive() : isFloatingCardStudioOpen(); if (isFcActive) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); } else saveHistorySnapshot(label || '차트/표 편집'); }
 function writeChartDataAndRender(widget, data) { widget.setAttribute('data-chart-json', JSON.stringify(data)); widget.innerHTML = renderChartWidgetInnerHtml(data); syncChartInspectorUI(widget); }
 function syncTableCellSizeInputs(cellEl) {
   if (!cellEl) return;
@@ -283,6 +299,7 @@ function insertChartOrTable(type, targetMode) {
       cw.setAttribute('contenteditable', 'false');
       cw.style.width = '100%';
       fcEd.appendChild(cw);
+      fcEd.dataset.activeChartId = uid;
       const data = getDefaultChartData(type || 'bar-v');
       writeChartDataAndRender(cw, data);
       if (typeof selectElementForInspector === 'function') selectElementForInspector(cw, false);

@@ -1,5 +1,14 @@
 # Changelog
 
+## [v5.3.8] - 2026-11-23 — 전수 검사: 비모달 플로팅 카드 패널 열림 상태에서 배경 슬라이드 차트/표 편집 하이재킹 및 히스토리 오기록 결함 해결
+
+### Fixed
+- **[P0] 플로팅 카드 미리보기 패널이 열려 있을 때 배경 슬라이드 차트/표 편집이 카드 내부 차트로 가로채이던 결함 해결 (`js/charts.js`)**: `getSelectedChartWidget()`가 `isFloatingCardStudioOpen()` 대신 `isFloatingCardCanvasActive()`를 기준으로 분기하고, 플로팅 카드 내부에서도 현재 선택된 차트(`selectedElement`)를 우선 인식하도록 교정.
+- **[P0] 플로팅 카드 패널이 열려 있을 때 배경 슬라이드 차트/표 편집 내역이 메인 Undo 스택 대신 플로팅 카드 스택에 기록되던 결함 해결 (`js/charts.js`)**: `recordChartChangeHistory()`를 `isFloatingCardCanvasActive()` 기준으로 통일.
+- **[P1] 메인 스튜디오로 플로팅 카드에 새 차트/표 삽입 시 `fcEd.dataset.activeChartId` 즉시 동기화 (`js/charts.js`)**.
+
+---
+
 ## [v5.3.7] - 2026-11-23 — 전수 검사: 플로팅 카드 저장 시 트리거 연결 유실 및 메인 히스토리 누락 치명적 결함 해결
 
 ### Fixed
