@@ -1,0 +1,555 @@
+/* ==================== EDIT MODE VISUAL CUES & CONTROLS ==================== */
+body.edit-mode {
+  user-select: text;
+}
+
+body.edit-mode [data-editable],
+body.edit-mode #headerSectionBadge,
+body.edit-mode .header-editable {
+  outline: 1px dashed transparent;
+  border-radius: 4px;
+  transition: outline-color 0.15s ease, background-color 0.15s ease;
+  cursor: text;
+}
+
+body.edit-mode [data-editable]:hover,
+body.edit-mode #headerSectionBadge:hover,
+body.edit-mode .header-editable:hover {
+  outline-color: var(--accent-color);
+  background-color: rgba(0, 85, 255, 0.06);
+}
+
+body.edit-mode [data-editable]:focus,
+body.edit-mode #headerSectionBadge:focus,
+body.edit-mode .header-editable:focus {
+  outline: 2px solid var(--accent-color);
+  background-color: rgba(255, 255, 255, 0.96);
+  color: #111111 !important;
+}
+
+body.edit-mode .slide-card,
+body.edit-mode .slide-header-bar {
+  position: relative;
+  outline: 1px dashed #CBD5E1;
+  outline-offset: -4px;
+}
+body.edit-mode .slide-header-bar:hover {
+  outline-color: var(--accent-color, #0055FF);
+}
+
+body.edit-mode .ppt-free-obj {
+  cursor: move;
+}
+
+body.edit-mode [data-trigger-fx="reveal"] {
+  outline: 1.5px dashed #F59E0B;
+  outline-offset: 2px;
+}
+
+/* Card, Sub-box & Tier Edit Controls (Floating Overlay — Zero Layout Shift) */
+.card-edit-controls,
+body.edit-mode .slide-card > .card-edit-controls {
+  display: none;
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 25 !important;
+  margin: 0 !important;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+body.edit-mode .slide-card:hover > .card-edit-controls,
+body.edit-mode .slide-card.is-selected > .card-edit-controls,
+body.edit-mode .slide-card.ppt-multi-selected > .card-edit-controls,
+body.edit-mode .card-edit-controls:focus-within {
+  display: flex;
+}
+
+.sub-box-del-btn {
+  display: none;
+}
+
+body.edit-mode .sub-box:hover {
+  outline: 1.5px solid var(--accent-color);
+}
+
+body.edit-mode .sub-box:hover .sub-box-del-btn {
+  display: inline-flex;
+}
+
+body.edit-mode .hierarchy-tier:hover {
+  outline: 1.5px dashed var(--accent-color);
+  outline-offset: -2px;
+}
+
+/* Media Slot & Inline Media Edit Overlays */
+.card-media-controls {
+  display: none;
+}
+
+body:not(.edit-mode) .card-media-controls,
+body:not(.edit-mode) .img-edit-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.edit-mode .card-inline-media:hover .card-media-controls,
+body.edit-mode .card-inline-media.is-selected .card-media-controls {
+  display: flex;
+}
+
+.img-edit-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+body.edit-mode .image-slot-box:hover .img-edit-overlay,
+body.edit-mode .image-slot-box.has-image:hover .img-edit-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+body:not(.edit-mode) .image-slot-box {
+  cursor: default !important;
+}
+
+/* ==================== MULTI-SELECTION & MARQUEE BOX ==================== */
+body.edit-mode .ppt-multi-selected {
+  outline: 2px dashed #0055FF !important;
+  outline-offset: -2px;
+  box-shadow: 0 0 0 2px rgba(0, 85, 255, 0.18) !important;
+}
+
+#pptMarqueeBox {
+  position: fixed;
+  border: 1.5px dashed #0055FF;
+  background-color: rgba(0, 85, 255, 0.10);
+  pointer-events: none;
+  z-index: 58;
+  display: none;
+}
+
+/* ==================== UNIFIED FLOATING SELECTION OVERLAY ==================== */
+#pptSelectionOverlay {
+  position: fixed;
+  pointer-events: none;
+  border: 2px solid var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.14);
+  border-radius: 6px;
+  z-index: 56;
+  display: none;
+}
+
+body.edit-mode #pptSelectionOverlay.visible {
+  display: block;
+}
+
+#pptOverlayPill {
+  position: absolute;
+  top: -32px;
+  left: -2px;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #111111;
+  color: #FFFFFF;
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-family: 'JetBrains Mono', 'Pretendard', sans-serif;
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+}
+
+.ov-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #FFFFFF;
+  border: 2px solid var(--accent-color);
+  border-radius: 2px;
+  pointer-events: auto;
+  z-index: 46;
+}
+.ov-nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.ov-n  { top: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.ov-ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.ov-e  { top: 50%; right: -5px; transform: translateY(-50%); cursor: ew-resize; }
+.ov-se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+.ov-s  { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.ov-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.ov-w  { top: 50%; left: -5px; transform: translateY(-50%); cursor: ew-resize; }
+
+/* ==================== SMART GUIDES, SNAP LINES & GROUP BADGE ==================== */
+#pptSmartGuidesLayer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 47;
+}
+.smart-guide-line-v {
+  position: fixed;
+  width: 1px;
+  background-color: #F43F5E;
+  box-shadow: 0 0 4px rgba(244, 63, 94, 0.55);
+  pointer-events: none;
+}
+.smart-guide-line-h {
+  position: fixed;
+  height: 1px;
+  background-color: #F43F5E;
+  box-shadow: 0 0 4px rgba(244, 63, 94, 0.55);
+  pointer-events: none;
+}
+.smart-guide-gap-badge {
+  position: fixed;
+  background-color: #F43F5E;
+  color: #FFFFFF;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+body.edit-mode [data-group-id] {
+  outline: 1.5px dotted #7C3AED;
+  outline-offset: 2px;
+}
+
+/* ==================== STABILIZE EDIT MODE HOVER (PRESERVE USER DRAG TRANSLATE) ==================== */
+body.edit-mode .slide-card,
+body.edit-mode .slide-card:hover,
+body.edit-mode .sub-box:hover,
+body.edit-mode .card-inline-media:hover,
+body.edit-mode .image-slot-box:hover,
+body.edit-mode .ppt-free-obj:hover,
+body.edit-mode .hierarchy-tier:hover,
+body.edit-mode .card-inner-textbox:hover,
+body.edit-mode .card-embedded-obj:hover {
+  scale: none !important;
+  zoom: 1 !important;
+  transition: outline-color 0.12s ease, box-shadow 0.12s ease !important;
+}
+body.edit-mode .slide-card:not([data-offset-x]):not([data-offset-y]),
+body.edit-mode .slide-card:not([data-offset-x]):not([data-offset-y]):hover {
+  transform: none !important;
+}
+body.edit-mode .card-inner-textbox:hover,
+body.edit-mode .card-embedded-obj:hover {
+  outline: 1.5px dashed var(--accent-color, #0055FF);
+  outline-offset: 2px;
+}
+body.edit-mode [data-editable]:focus,
+body.edit-mode #headerSectionBadge:focus,
+body.edit-mode .header-editable:focus {
+  outline: 2px solid var(--accent-color);
+  background-color: rgba(255, 255, 255, 0.96);
+  color: inherit !important;
+}
+
+/* Ensure Floating Card Studio Modal is always selectable & editable */
+#floatingCardEditorModal,
+#floatingCardEditorModal input,
+#floatingCardEditorModal select,
+#fcRichBodyEditor,
+#fcRichBodyEditor * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+#fcRichBodyEditor [contenteditable="true"]:focus {
+  outline: 1.5px dashed var(--accent-color, #0055FF);
+  border-radius: 6px;
+}
+
+/* Floating Card Live Preview Drag-Resize Handles */
+#fcPreviewResizeBox {
+  position: relative;
+  margin: 0 auto;
+  max-width: 100%;
+}
+.fc-resizer-e {
+  position: absolute;
+  top: 50%;
+  right: -7px;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 36px;
+  border-radius: 9999px;
+  background: var(--accent-color, #0055FF);
+  cursor: ew-resize;
+  z-index: 20;
+}
+.fc-resizer-s {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--accent-color, #0055FF);
+  cursor: ns-resize;
+  z-index: 20;
+}
+.fc-resizer-se {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: #111111;
+  border: 2px solid #FFFFFF;
+  cursor: nwse-resize;
+  z-index: 21;
+}
+
+/* Resizable Floating Card Studio Dialog */
+#fcEditorDialogPanel {
+  position: relative;
+  min-width: 360px;
+  min-height: 360px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+}
+#fcEditorDialogPanel.fc-maximized {
+  width: calc(100vw - 24px) !important;
+  height: calc(100vh - 24px) !important;
+  max-width: calc(100vw - 24px) !important;
+  max-height: calc(100vh - 24px) !important;
+}
+.ppt-chart-widget td.chart-cell-selected,
+.ppt-chart-widget th.chart-cell-selected {
+  outline: 2px solid #F43F5E !important;
+  outline-offset: -2px;
+}
+
+/* Resizable Blocks inside Floating Card Studio (#fcRichBodyEditor) */
+#fcRichBodyEditor .fc-resizable-item {
+  position: relative;
+  transition: outline-color 0.15s ease;
+}
+#fcRichBodyEditor .fc-resizable-item:hover,
+#fcRichBodyEditor .fc-resizable-item.fc-item-selected {
+  outline: 1.5px dashed var(--accent-color, #0055FF);
+  outline-offset: 2px;
+}
+#fcRichBodyEditor .fc-item-resize-grip {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--accent-color, #0055FF);
+  border: 2px solid #FFFFFF;
+  cursor: nwse-resize;
+  z-index: 30;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+#fcRichBodyEditor .fc-item-move-grip {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(17, 17, 17, 0.85);
+  color: #FFE600;
+  font-family: 'JetBrains Mono', 'Pretendard', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: move;
+  z-index: 31;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+#fcRichBodyEditor .fc-resizable-item:hover .fc-item-move-grip,
+#fcRichBodyEditor .fc-resizable-item.fc-item-selected .fc-item-move-grip {
+  opacity: 1;
+}
+
+/* Floating Card Studio Live Background Layer (supports independent blur without blurring text) */
+#fcPreviewResizeBox {
+  overflow: hidden;
+}
+#fcEditorBgPreviewLayer,
+#fcEditorHoverBgPreviewLayer,
+#fcEditorBgTintLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity 0.25s ease, filter 0.2s ease;
+}
+#fcEditorBgPreviewLayer,
+#fcEditorHoverBgPreviewLayer {
+  z-index: 0;
+}
+#fcEditorHoverBgPreviewLayer {
+  opacity: 0;
+}
+#fcPreviewResizeBox:hover #fcEditorHoverBgPreviewLayer.has-hover-img {
+  opacity: 1;
+}
+#fcEditorBgTintLayer {
+  z-index: 1;
+}
+#fcRichBodyEditor {
+  position: relative;
+  z-index: 2;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+#fcRichBodyEditor .fc-item-resize-grip {
+  width: 16px;
+  height: 16px;
+  right: 3px;
+  bottom: 3px;
+  user-select: none;
+}
+#fcRichBodyEditor .fc-item-resize-grip-e {
+  position: absolute;
+  right: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--accent-color, #0055FF);
+  border: 1.5px solid #FFFFFF;
+  cursor: ew-resize;
+  z-index: 30;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+#fcRichBodyEditor .fc-item-resize-grip-s {
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--accent-color, #0055FF);
+  border: 1.5px solid #FFFFFF;
+  cursor: ns-resize;
+  z-index: 30;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+#fcRichBodyEditor .fc-resizable-item:hover .fc-item-resize-grip-e,
+#fcRichBodyEditor .fc-resizable-item.fc-item-selected .fc-item-resize-grip-e,
+#fcRichBodyEditor .fc-resizable-item:hover .fc-item-resize-grip-s,
+#fcRichBodyEditor .fc-resizable-item.fc-item-selected .fc-item-resize-grip-s {
+  opacity: 1;
+}
+
+/* Keep inline .kw inside sentence flow with NO box outline in edit mode */
+body.edit-mode span.kw,
+body.edit-mode span.kw:hover,
+body.edit-mode span.kw:focus {
+  outline: none !important;
+  background-color: transparent;
+  border-bottom: 1.5px dashed #EAB308;
+  border-radius: 2px;
+}
+body.edit-mode.focus-mode span.kw {
+  background-color: #FFE600 !important;
+  color: #111111 !important;
+}
+
+.fc-tab-btn.active {
+  background-color: var(--accent-color, #0055FF) !important;
+  color: #FFFFFF !important;
+  border-color: var(--accent-color, #0055FF) !important;
+}
+
+#fcPreviewResizeBox {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, background-color 0.25s ease;
+}
+#fcPreviewResizeBox[data-fc-has-hover="true"]:hover > #fcEditorBgTintLayer {
+  background-color: var(--card-hover-bg, var(--fc-base-tint, transparent)) !important;
+}
+#fcPreviewResizeBox[data-fx="hover-lift"]:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px -6px var(--fx-shadow-color, rgba(0, 0, 0, 0.16));
+}
+#fcPreviewResizeBox[data-fx="hover-zoom"]:hover {
+  transform: scale(1.02);
+  box-shadow: 0 16px 32px -8px var(--fx-shadow-color, rgba(0, 0, 0, 0.18));
+}
+#fcPreviewResizeBox[data-fx="hover-glow"]:hover {
+  box-shadow: 0 0 24px 2px var(--fx-shadow-color, rgba(0, 85, 255, 0.38));
+}
+#fcPreviewResizeBox[data-fx-border="on"]:hover {
+  outline: var(--fx-border-width, 2px) solid var(--fx-border-color, var(--accent-color, #0055FF));
+  outline-offset: 2px;
+}
+
+/* ==================== PHASE 4: PASTEBOARD, RULERS, PERSISTENT GUIDES, CONNECTORS & SLIDE LOCK ==================== */
+body.edit-mode.pasteboard-mode #slideStage { overflow: visible !important; }
+body.edit-mode.pasteboard-mode .slide.active,
+body.edit-mode.pasteboard-mode .slide.active .ppt-free-layer { overflow: visible !important; }
+body.edit-mode.pasteboard-mode .slide.active { outline: 2px dashed rgba(0, 85, 255, 0.45); outline-offset: 2px; }
+#pptRulerTop {
+  position: fixed; top: 48px; left: 0; right: 0; height: 20px;
+  background: rgba(248, 250, 252, 0.94); border-bottom: 1px solid #CBD5E1; z-index: 36;
+  cursor: col-resize; user-select: none; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #475569;
+}
+#pptRulerLeft {
+  position: fixed; top: 68px; bottom: 48px; left: 0; width: 22px;
+  background: rgba(248, 250, 252, 0.94); border-right: 1px solid #CBD5E1; z-index: 36;
+  cursor: row-resize; user-select: none; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #475569;
+}
+.ppt-persistent-guide { position: absolute; z-index: 42; pointer-events: auto; }
+.ppt-persistent-guide[data-guide-axis="x"] { top: 0; bottom: 0; width: 1.5px; background: #06B6D4; box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.25); cursor: ew-resize; }
+.ppt-persistent-guide[data-guide-axis="y"] { left: 0; right: 0; height: 1.5px; background: #06B6D4; box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.25); cursor: ns-resize; }
+.ppt-connectors-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 19; overflow: visible; }
+body.edit-mode .slide[data-slide-locked="true"]::after {
+  content: '🔒 SLIDE LOCKED (잠금 해제 후 편집 가능)';
+  position: absolute; top: 12px; right: 16px; padding: 4px 10px; border-radius: 9999px;
+  background: rgba(17, 17, 17, 0.86); color: #FFE600; font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 800; z-index: 60; pointer-events: none;
+}
+
+/* 2D Bento Drag-to-Split / Empty-Slot Drop Preview Overlay */
+#pptBentoDropPreview {
+  position: relative;
+  z-index: 45;
+  pointer-events: none;
+  border: 2.5px dashed var(--accent-color, #0055FF);
+  background: rgba(0, 85, 255, 0.14);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+  transition: all 0.08s ease;
+}
+#pptBentoDropPreview > span {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--accent-color, #0055FF);
+  color: #FFFFFF;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(0, 85, 255, 0.35);
+}

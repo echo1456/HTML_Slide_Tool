@@ -1,0 +1,52 @@
+/* ==================== BASE RESET & ROOT VARIABLES ==================== */
+:root {
+  --accent-color: #0055FF;
+  --header-bg: #F5F5F7;
+  --header-fg: #111111;
+  --footer-bg: #F5F5F7;
+  --footer-fg: #111111;
+  --font-sans-stack: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif-stack: 'Noto Serif KR', 'AppleMyungjo', 'Batang', 'Gungsuh', Georgia, serif;
+  --font-mono-stack: 'JetBrains Mono', 'SF Mono', 'Consolas', 'D2Coding', ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: #F5F5F7;
+  color: #111111;
+  font-family: var(--font-sans-stack);
+}
+
+/* Custom Scrollbar */
+.safe-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.safe-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+/* Strictly hide Tailwind Safelist dummy element across all modes (prevents edit-mode badge leakage) */
+#pptTailwindSafelist {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  left: -99999px !important;
+  top: -99999px !important;
+}

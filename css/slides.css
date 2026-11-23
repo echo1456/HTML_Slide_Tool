@@ -1,0 +1,1898 @@
+/* ==================== SLIDE LAYOUT & TRANSITIONS ==================== */
+.slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s;
+  display: flex;
+  flex-direction: column;
+  background-color: #F5F5F7;
+  isolation: isolate;
+}
+
+.slide.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Per-Slide Custom Transition Effects */
+.slide[data-transition="none"] {
+  transition: none !important;
+  transform: none !important;
+}
+.slide[data-transition="fade"] {
+  transform: none !important;
+  transition: opacity 0.45s ease, visibility 0.45s !important;
+}
+.slide[data-transition="slide-left"] {
+  transform: translateX(48px);
+  transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.42s !important;
+}
+.slide[data-transition="slide-left"].active {
+  transform: translateX(0);
+}
+.slide[data-transition="slide-up"] {
+  transform: translateY(36px);
+  transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.42s !important;
+}
+.slide[data-transition="slide-up"].active {
+  transform: translateY(0);
+}
+.slide[data-transition="zoom"] {
+  transform: scale(0.93);
+  transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.42s !important;
+}
+.slide[data-transition="zoom"].active {
+  transform: scale(1);
+}
+.slide[data-transition="flip"] {
+  transform: perspective(1200px) rotateY(-12deg) scale(0.96);
+  transition: opacity 0.48s cubic-bezier(0.22, 1, 0.36, 1), transform 0.48s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.48s !important;
+}
+.slide[data-transition="flip"].active {
+  transform: perspective(1200px) rotateY(0deg) scale(1);
+}
+
+/* Unified 16:9 Logical Stage (1440x810): Identical Layout & Proportions Across Windowed, Fullscreen, Tablet & Mobile */
+body.scaled-stage #slideStage {
+  background-color: #E5E7EB;
+}
+body.scaled-stage .slide {
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: var(--stage-w, 1440px);
+  height: var(--stage-h, 810px);
+  transform-origin: center center;
+  transform: translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px))) scale(var(--stage-scale, 1));
+  box-shadow: 0 12px 36px -8px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+}
+body.is-fullscreen #appTopHeader,
+body.is-fullscreen #pptContextualTopBar,
+body.is-fullscreen #pptLeftFilmstrip {
+  display: none !important;
+}
+body.is-fullscreen #slideStage {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 20;
+}
+body.is-fullscreen .slide {
+  box-shadow: none !important;
+}
+body.is-fullscreen footer {
+  position: fixed !important;
+  bottom: 12px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: max-content !important;
+  max-width: 96vw !important;
+  white-space: nowrap !important;
+  flex-wrap: nowrap !important;
+  gap: 10px !important;
+  padding: 6px 16px !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(15, 23, 42, 0.16) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24) !important;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  z-index: 45 !important;
+}
+body.is-fullscreen footer > div {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  gap: 6px !important;
+}
+body.is-fullscreen footer button,
+body.is-fullscreen footer span {
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+body.is-fullscreen footer:hover,
+body.is-fullscreen footer:focus-within {
+  opacity: 1 !important;
+}
+body.scaled-stage .slide.active,
+body.scaled-stage .slide[data-transition].active {
+  transform: translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px))) scale(var(--stage-scale, 1)) !important;
+}
+body.scaled-stage .slide[data-transition="slide-left"]:not(.active) {
+  transform: translate(calc(-50% + var(--stage-pan-x, 0px) + 84px), calc(-50% + var(--stage-pan-y, 0px))) scale(var(--stage-scale, 1)) !important;
+}
+body.scaled-stage .slide[data-transition="slide-up"]:not(.active) {
+  transform: translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px) + 64px)) scale(var(--stage-scale, 1)) !important;
+}
+body.scaled-stage .slide[data-transition="zoom"]:not(.active) {
+  transform: translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px))) scale(calc(var(--stage-scale, 1) * 0.88)) !important;
+}
+body.scaled-stage .slide[data-transition="flip"]:not(.active) {
+  transform: translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px))) perspective(1400px) rotateY(-18deg) scale(calc(var(--stage-scale, 1) * 0.94)) !important;
+}
+body.scaled-stage .slide.transition-instant-reset {
+  transition: none !important;
+}
+body.space-pan-ready #slideStage { cursor: grab !important; }
+body.space-pan-dragging #slideStage,
+body.space-pan-dragging #slideStage * { cursor: grabbing !important; user-select: none !important; }
+body.scaled-stage .slide .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+body.scaled-stage .slide .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+body.scaled-stage .slide .md\:grid-cols-4,
+body.scaled-stage .slide .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+body.scaled-stage .slide .md\:grid-cols-12,
+body.scaled-stage .slide .lg\:grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+body.scaled-stage .slide .md\:col-span-4 { grid-column: span 4 / span 4 !important; }
+body.scaled-stage .slide .md\:col-span-5,
+body.scaled-stage .slide .lg\:col-span-5 { grid-column: span 5 / span 5 !important; }
+body.scaled-stage .slide .md\:col-span-7,
+body.scaled-stage .slide .lg\:col-span-7 { grid-column: span 7 / span 7 !important; }
+body.scaled-stage .slide .md\:col-span-8 { grid-column: span 8 / span 8 !important; }
+body.scaled-stage .slide .md\:border-b-0,
+body.scaled-stage .slide .lg\:border-b-0 { border-bottom-width: 0px !important; }
+body.scaled-stage .slide .md\:border-r,
+body.scaled-stage .slide .lg\:border-r { border-right-width: 1px !important; }
+body.scaled-stage .slide .md\:p-14:not([style*="padding"]) { padding: 3.5rem !important; }
+body.scaled-stage .slide .md\:p-12:not([style*="padding"]) { padding: 3rem !important; }
+body.scaled-stage .slide .md\:p-10:not([style*="padding"]) { padding: 2.5rem !important; }
+body.scaled-stage .slide .md\:px-12:not([style*="padding"]) { padding-left: 3rem !important; padding-right: 3rem !important; }
+body.scaled-stage .slide .md\:text-7xl:not([style*="font-size"]) { font-size: 4.5rem !important; line-height: 1.06 !important; }
+body.scaled-stage .slide .md\:text-6xl:not([style*="font-size"]) { font-size: 3.75rem !important; }
+body.scaled-stage .slide .md\:text-4xl:not([style*="font-size"]) { font-size: 2.25rem !important; }
+body.scaled-stage .slide .md\:text-2xl:not([style*="font-size"]) { font-size: 1.5rem !important; }
+body.scaled-stage .slide .md\:text-xl:not([style*="font-size"]) { font-size: 1.25rem !important; }
+body.scaled-stage .slide .md\:text-lg:not([style*="font-size"]) { font-size: 1.125rem !important; }
+body.scaled-stage .slide .md\:text-base:not([style*="font-size"]) { font-size: 1rem !important; }
+
+/* 9:16 Portrait Deck Layout Adaptation (810x1440 mobile/Shorts/Reels friendly grid flow) */
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .md\:grid-cols-3:not([data-bento-2d="true"]),
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .md\:grid-cols-12:not([data-bento-2d="true"]),
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .lg\:grid-cols-12:not([data-bento-2d="true"]) {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .md\:grid-cols-4:not([data-bento-2d="true"]),
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .lg\:grid-cols-4:not([data-bento-2d="true"]) {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .md\:col-span-4,
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .md\:col-span-5,
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .lg\:col-span-5,
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .md\:col-span-7,
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .lg\:col-span-7,
+body.scaled-stage[data-aspect-ratio="9:16"] .slide .md\:col-span-8 {
+  grid-column: span 1 / span 1 !important;
+}
+
+/* Customizable Top Header & Bottom Footer Chrome Bars */
+#appTopHeader {
+  background-color: var(--header-bg, #F5F5F7);
+  color: var(--header-fg, #111111);
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+#appTopHeader[data-chrome-dark="true"] {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+#appTopHeader[data-chrome-dark="true"] .text-ink {
+  color: var(--header-fg, #F9FAFB) !important;
+}
+#appTopHeader[data-chrome-dark="true"] .text-muted {
+  color: rgba(249, 250, 251, 0.72) !important;
+}
+#appTopHeader[data-chrome-dark="true"] #headerSectionBadge,
+#appTopHeader[data-chrome-dark="true"] #headerSlideCounterPill {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  color: var(--header-fg, #F9FAFB) !important;
+}
+
+#appBottomFooter {
+  background-color: var(--footer-bg, #F5F5F7);
+  color: var(--footer-fg, #111111);
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+#appBottomFooter[data-chrome-dark="true"] {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+#appBottomFooter[data-chrome-dark="true"] button {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: var(--footer-fg, #F9FAFB) !important;
+}
+#appBottomFooter[data-chrome-dark="true"] button:hover {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+}
+#appBottomFooter[data-chrome-dark="true"] #progressBarContainer > div {
+  background-color: rgba(255, 255, 255, 0.20) !important;
+}
+
+
+/* Prevent flex-1 grid/flex slide body from expanding past the bottom edge of .slide */
+.slide-grid-body {
+  min-height: 0 !important;
+}
+
+/* ==================== BACKGROUND & LAYER STACKING ==================== */
+.slide-bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.slide-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.slide > :not(.slide-bg-layer):not(.slide-bg-overlay):not(.ppt-free-layer) {
+  position: relative;
+  z-index: 10;
+}
+
+/* Card Dedicated Background Layers (Normal Image, Hover Image, and Translucent Tint Overlay) */
+.card-bg-layer,
+.card-hover-bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: inherit;
+  transition: filter 0.25s ease, opacity 0.28s ease, transform 0.28s ease;
+}
+
+.card-hover-bg-layer {
+  opacity: 0;
+}
+
+body:not(.edit-mode) .slide-card:hover > .card-hover-bg-layer {
+  opacity: 1;
+}
+
+.card-bg-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background-color: var(--card-bg-color, transparent);
+  transition: background-color 0.22s ease, background-image 0.22s ease;
+}
+
+body:not(.edit-mode) .slide-card:hover > .card-bg-tint {
+  background-color: var(--card-hover-bg, var(--card-bg-color, transparent)) !important;
+}
+
+.slide-card > :not(.card-bg-layer):not(.card-hover-bg-layer):not(.card-bg-tint):not(.card-edit-controls) {
+  position: relative;
+  z-index: 2;
+}
+
+/* Media (Image/Video) Gradient Overlay Layer */
+.media-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ==================== DARK THEME ADAPTATION PER SLIDE ==================== */
+.slide.theme-dark {
+  color: #F9FAFB;
+}
+.slide.theme-dark .text-ink:not([style*="color"]) {
+  color: #F9FAFB !important;
+}
+.slide.theme-dark .text-muted:not([style*="color"]) {
+  color: #D1D5DB !important;
+}
+.slide.theme-dark .text-subtle:not([style*="color"]) {
+  color: #9CA3AF !important;
+}
+.slide.theme-dark .border-borderline {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+.slide.theme-dark .bg-white,
+.slide.theme-dark .bg-white\/50,
+.slide.theme-dark .bg-white\/60,
+.slide.theme-dark .bg-canvas {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ==================== FOCUS MODE KEYWORD HIGHLIGHTING ==================== */
+.kw {
+  transition: background-color 0.2s ease, color 0.2s ease, padding 0.2s ease;
+  border-radius: 3px;
+}
+
+body.focus-mode .kw {
+  background-color: #FFE600;
+  color: #111111 !important;
+  padding: 0 4px;
+  font-weight: 700;
+}
+
+/* ==================== CARD SURFACE, MEDIA FRAMES & SUB-ELEMENTS ==================== */
+.slide-card {
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.sub-box {
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.hierarchy-tier {
+  position: relative;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.text-pill-span {
+  display: inline-block;
+  vertical-align: baseline;
+  line-height: 1.3;
+  transition: all 0.15s ease;
+}
+
+/* Clean Borderless Editorial Card Media Frame */
+.card-inline-media {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 120px;
+  border-radius: 0px;
+  border: none;
+  background-color: rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: height 0.2s ease, width 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-inline-media.has-media {
+  border: none;
+  background-color: transparent;
+  min-height: 0;
+}
+
+/* Card Split Orientation Modes (Top / Bottom / Left / Right Media Layout) */
+.slide-card.card-media-split-left {
+  display: grid !important;
+  grid-template-columns: var(--media-split-ratio, 45%) 1fr;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+.slide-card.card-media-split-right {
+  display: grid !important;
+  grid-template-columns: 1fr var(--media-split-ratio, 45%);
+  gap: 1.5rem;
+  align-items: stretch;
+}
+.slide-card.card-media-split-left .card-inline-media,
+.slide-card.card-media-split-right .card-inline-media {
+  height: 100% !important;
+  min-height: 200px;
+}
+.slide-card.card-media-split-right .card-inline-media {
+  order: 2;
+}
+.slide-card.card-media-split-right > :not(.card-inline-media):not(.card-bg-layer):not(.card-hover-bg-layer):not(.card-bg-tint):not(.card-edit-controls) {
+  order: 1;
+}
+
+/* PowerPoint Freeform Layer & Objects Base */
+.ppt-free-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ppt-free-obj {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  transition: box-shadow 0.15s ease;
+}
+
+.ppt-free-obj .shape-inner-text {
+  width: 100%;
+  word-break: keep-all;
+  outline: none;
+}
+
+/* Aspect Ratio Transition Frame (Slide 16) */
+.cinema-viewport {
+  transition: all 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ==================== PRESENTATION MODE REACTIVE INTERACTIONS ==================== */
+body:not(.edit-mode) .slide:not(.theme-dark) .slide-card.hover-reactive:hover {
+  background-color: var(--card-hover-bg, #FFFFFF) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  border-color: var(--accent-color) !important;
+}
+
+body:not(.edit-mode) .slide.theme-dark .slide-card.hover-reactive:hover {
+  background-color: var(--card-hover-bg, rgba(255, 255, 255, 0.12)) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
+  border-color: var(--accent-color) !important;
+}
+
+/* Multi-Type Reactive Animations */
+body:not(.edit-mode) [data-fx] {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, background-color 0.25s ease, border-color 0.25s ease, filter 0.25s ease !important;
+}
+body:not(.edit-mode) [data-fx="hover-lift"]:hover {
+  transform: translate(var(--el-tx, 0px), calc(var(--el-ty, 0px) - 5px)) !important;
+  background-color: var(--card-hover-bg, var(--card-bg-color, inherit)) !important;
+  box-shadow: 0 14px 28px -6px var(--fx-shadow-color, rgba(0, 0, 0, 0.14)) !important;
+}
+body:not(.edit-mode) [data-fx="hover-zoom"]:hover {
+  transform: scale(1.035) !important;
+  background-color: var(--card-hover-bg, inherit) !important;
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.16) !important;
+  z-index: 25;
+}
+body:not(.edit-mode) [data-fx="hover-glow"]:hover {
+  box-shadow: 0 0 24px 2px var(--fx-shadow-color, rgba(0, 85, 255, 0.38)) !important;
+  background-color: var(--card-hover-bg, inherit) !important;
+}
+body:not(.edit-mode) [data-fx="hover-tilt"] {
+  transform-style: preserve-3d;
+}
+
+@keyframes fxPulseBounce {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.95); }
+  70% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+body:not(.edit-mode) .fx-pulse-active {
+  animation: fxPulseBounce 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+body:not(.edit-mode) .fx-highlight-toggled {
+  outline: 3px solid var(--accent-color) !important;
+  box-shadow: 0 12px 30px rgba(0, 85, 255, 0.25) !important;
+  background-color: var(--card-hover-bg, #FEF3C7) !important;
+  color: #111111 !important;
+}
+
+@keyframes fxFadeUpEnter {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+body:not(.edit-mode) .slide.active [data-fx="entrance-fadeup"] {
+  animation: fxFadeUpEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Spotlight Focus & Sibling Dimming */
+body:not(.edit-mode) .slide-grid-body:has(> [data-fx="hover-spotlight"]:hover) > [data-fx="hover-spotlight"]:not(:hover),
+body:not(.edit-mode) .sub-box-group:has(> [data-fx="hover-spotlight"]:hover) > [data-fx="hover-spotlight"]:not(:hover),
+body:not(.edit-mode) [data-spotlight-group]:has([data-fx="hover-spotlight"]:hover) [data-fx="hover-spotlight"]:not(:hover) {
+  opacity: 0.42 !important;
+  filter: grayscale(35%) brightness(0.92);
+  transform: scale(0.985) !important;
+}
+body:not(.edit-mode) [data-fx="hover-spotlight"]:hover {
+  opacity: 1 !important;
+  filter: none !important;
+  background-color: var(--card-hover-bg, #FFFFFF) !important;
+  box-shadow: 0 18px 36px -10px var(--fx-shadow-color, rgba(0, 0, 0, 0.16)) !important;
+  transform: translateY(-4px) scale(1.015) !important;
+  z-index: 25;
+}
+body:not(.edit-mode) [data-fx="hover-spotlight"] .spotlight-detail {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease, margin-top 0.28s ease;
+}
+body:not(.edit-mode) [data-fx="hover-spotlight"]:hover .spotlight-detail {
+  max-height: 220px;
+  opacity: 1;
+  margin-top: 0.75rem;
+}
+
+/* Interactive Action Link Elements in Presentation Mode */
+body:not(.edit-mode) [data-goto-slide],
+body:not(.edit-mode) [data-goto-url] {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+body:not(.edit-mode) [data-goto-slide]:hover,
+body:not(.edit-mode) [data-goto-url]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(0, 85, 255, 0.22);
+}
+
+/* Button-Triggered Target Reactions (Presentation Mode) */
+body:not(.edit-mode) [data-trigger-fx="reveal"] {
+  opacity: 0;
+  transform: translateY(16px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+body:not(.edit-mode) [data-trigger-fx="reveal"].is-triggered {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+body:not(.edit-mode) [data-trigger-fx="spotlight"].is-triggered {
+  transform: scale(1.035) translateY(-4px) !important;
+  box-shadow: 0 0 0 3px var(--accent-color), 0 20px 40px -10px rgba(0, 85, 255, 0.28) !important;
+  z-index: 30;
+}
+body:not(.edit-mode) [data-trigger-fx="expand"] {
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+body:not(.edit-mode) [data-trigger-fx="expand"].is-triggered {
+  transform: scaleX(1.08) scaleY(0.92) !important;
+  box-shadow: 0 16px 32px rgba(0, 85, 255, 0.22) !important;
+  border-color: var(--accent-color) !important;
+}
+body:not(.edit-mode) [data-trigger-fx="flip-pulse"].is-triggered {
+  animation: triggerFlipPulse 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 0 0 0 2px var(--accent-color) !important;
+}
+@keyframes triggerFlipPulse {
+  0% { transform: perspective(900px) rotateY(0deg) scale(1); }
+  45% { transform: perspective(900px) rotateY(14deg) scale(1.05); }
+  100% { transform: perspective(900px) rotateY(0deg) scale(1.01); }
+}
+
+
+/* ==================== GENERAL ENTRANCE & EMPHASIS ANIMATIONS ([data-anim]) ==================== */
+@keyframes animFadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes animFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes animSlideLeft {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes animSlideRight {
+  from { opacity: 0; transform: translateX(-32px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes animZoomIn {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes animFlipIn {
+  from { opacity: 0; transform: perspective(900px) rotateY(-18deg); }
+  to { opacity: 1; transform: perspective(900px) rotateY(0deg); }
+}
+@keyframes animBounceIn {
+  0% { opacity: 0; transform: scale(0.85); }
+  60% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes animPulseLoop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+body:not(.edit-mode) .slide.active [data-anim="fade-up"] {
+  animation: animFadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both;
+}
+body:not(.edit-mode) .slide.active [data-anim="fade-in"] {
+  animation: animFadeIn 0.55s ease var(--anim-delay, 0s) both;
+}
+body:not(.edit-mode) .slide.active [data-anim="slide-left"] {
+  animation: animSlideLeft 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both;
+}
+body:not(.edit-mode) .slide.active [data-anim="slide-right"] {
+  animation: animSlideRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both;
+}
+body:not(.edit-mode) .slide.active [data-anim="zoom-in"] {
+  animation: animZoomIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both;
+}
+body:not(.edit-mode) .slide.active [data-anim="flip-in"] {
+  animation: animFlipIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both;
+}
+body:not(.edit-mode) .slide.active [data-anim="bounce-in"] {
+  animation: animBounceIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both;
+}
+body:not(.edit-mode) .slide.active [data-anim="pulse-loop"] {
+  animation: animPulseLoop 2.2s ease-in-out var(--anim-delay, 0s) infinite;
+}
+
+/* Preview replay helper inside Studio */
+.anim-preview-playing[data-anim="fade-up"] { animation: animFadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="fade-in"] { animation: animFadeIn 0.55s ease both !important; }
+.anim-preview-playing[data-anim="slide-left"] { animation: animSlideLeft 0.55s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="slide-right"] { animation: animSlideRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="zoom-in"] { animation: animZoomIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="flip-in"] { animation: animFlipIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="bounce-in"] { animation: animBounceIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="pulse-loop"] { animation: animPulseLoop 1.2s ease-in-out 2 !important; }
+
+/* ==================== CHARTS & DATA TABLES ==================== */
+.ppt-chart-widget {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #FFFFFF;
+  border: 1px solid #E2E4E9;
+  border-radius: 14px;
+  padding: 14px 16px;
+  overflow: hidden;
+}
+
+.slide.theme-dark .ppt-chart-widget {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.ppt-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ppt-data-table th {
+  background-color: var(--chart-header-bg, var(--accent-color, #0055FF));
+  color: #FFFFFF;
+  font-weight: 700;
+  padding: 8px 10px;
+  text-align: left;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ppt-data-table td {
+  padding: 7px 10px;
+  border: 1px solid #E2E4E9;
+  color: inherit;
+}
+
+.ppt-data-table.zebra-enabled tr:nth-child(even) td {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+/* ==================== TEXT-CONTOUR vs BOX ANIMATION BASIS ([data-fx-basis]) ==================== */
+body:not(.edit-mode) [data-fx-basis="content"] {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+body:not(.edit-mode) [data-fx-basis="content"][data-fx="hover-lift"]:hover {
+  transform: translateY(-4px) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+}
+body:not(.edit-mode) [data-fx-basis="content"][data-fx="hover-zoom"]:hover {
+  transform: scale(1.06) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+body:not(.edit-mode) [data-fx-basis="content"][data-fx="hover-glow"]:hover {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 0 10px var(--accent-color, #0055FF)) drop-shadow(0 0 2px var(--accent-color, #0055FF));
+}
+body:not(.edit-mode) [data-fx-basis="content"].fx-highlight-toggled {
+  outline: none !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  color: var(--accent-color, #0055FF) !important;
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+body:not(.edit-mode) .ppt-free-obj[data-fx-basis="content"][data-fx="hover-glow"]:hover {
+  box-shadow: none !important;
+  filter: drop-shadow(0 0 14px var(--accent-color, #0055FF)) !important;
+}
+
+/* ==================== INLINE DRAGGED TEXT SPOTLIGHT & FX (.fx-text-span) ==================== */
+.fx-text-span {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 0 2px;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, filter 0.25s ease, background-color 0.25s ease, color 0.25s ease, text-shadow 0.25s ease !important;
+}
+body.edit-mode .fx-text-span {
+  outline: 1px dashed var(--accent-color, #0055FF);
+  outline-offset: 1px;
+}
+
+/* Text-level spotlight: when hovering an inline .fx-text-span[data-fx="hover-spotlight"], dim sibling text & non-hovered spans inside the same text block */
+body:not(.edit-mode) [data-text-spotlight-container]:has(.fx-text-span[data-fx="hover-spotlight"]:hover) {
+  color: rgba(107, 114, 128, 0.38) !important;
+}
+body:not(.edit-mode) [data-text-spotlight-container]:has(.fx-text-span[data-fx="hover-spotlight"]:hover) .fx-text-span:not(:hover) {
+  opacity: 0.35 !important;
+  filter: blur(0.4px);
+}
+body:not(.edit-mode) .fx-text-span[data-fx="hover-spotlight"]:hover {
+  opacity: 1 !important;
+  filter: none !important;
+  color: var(--accent-color, #0055FF) !important;
+  background-color: var(--card-hover-bg, rgba(0, 85, 255, 0.10)) !important;
+  transform: scale(1.06) translateY(-1px) !important;
+  font-weight: 800;
+  padding: 0 5px;
+}
+
+/* ==================== FLOATING POPUP CARD OVERLAY (PRESENTATION MODE) ==================== */
+body:not(.edit-mode) [data-floating-card-id] {
+  cursor: pointer;
+}
+#floatingCardLightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#floatingCardLightbox.open {
+  display: flex;
+  animation: floatingBackdropFade 0.22s ease both;
+}
+@keyframes floatingBackdropFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes floatingCardZoomIn {
+  from { opacity: 0; transform: scale(0.84) translateY(18px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+#floatingCardLightboxContent {
+  animation: floatingCardZoomIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ==================== ROBUST TEXT & HEADING REACTIVE ANIMATIONS (SLIDE 01 & ALL HEADINGS) ==================== */
+body:not(.edit-mode) h1[data-fx],
+body:not(.edit-mode) h2[data-fx],
+body:not(.edit-mode) h3[data-fx],
+body:not(.edit-mode) p[data-fx],
+body:not(.edit-mode) [data-editable][data-fx] {
+  display: inline-block;
+  cursor: pointer;
+  transform-origin: center center;
+}
+body:not(.edit-mode) [data-fx="hover-lift"]:hover {
+  transform: translateY(-6px) !important;
+  box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.14) !important;
+}
+body:not(.edit-mode) [data-fx-basis="content"][data-fx="hover-lift"]:hover {
+  transform: translateY(-6px) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+body:not(.edit-mode) [data-fx-basis="content"][data-fx="hover-zoom"]:hover {
+  transform: scale(1.07) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+body:not(.edit-mode) [data-fx-basis="content"][data-fx="hover-glow"]:hover {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 0 12px var(--accent-color, #0055FF)) drop-shadow(0 0 3px var(--accent-color, #0055FF)) !important;
+}
+
+/* ==================== INLINE DRAGGED TEXT REACTIVE FX & SPOTLIGHT (.fx-text-span) ==================== */
+.fx-text-span {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 0 3px;
+  cursor: pointer;
+  transform-origin: center center;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, filter 0.25s ease, background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease !important;
+}
+body.edit-mode .fx-text-span {
+  outline: 1.5px dashed var(--accent-color, #0055FF);
+  outline-offset: 1px;
+}
+body:not(.edit-mode) .fx-text-span[data-fx="hover-lift"]:hover {
+  transform: translateY(-4px) !important;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.18));
+}
+body:not(.edit-mode) .fx-text-span[data-fx="hover-zoom"]:hover {
+  transform: scale(1.12) !important;
+  color: var(--accent-color, #0055FF) !important;
+}
+body:not(.edit-mode) .fx-text-span[data-fx="hover-glow"]:hover {
+  color: var(--accent-color, #0055FF) !important;
+  filter: drop-shadow(0 0 10px var(--accent-color, #0055FF)) !important;
+}
+body:not(.edit-mode) .fx-text-span[data-fx="click-highlight"].fx-highlight-toggled {
+  background-color: var(--card-hover-bg, #FFE600) !important;
+  color: #111111 !important;
+  padding: 1px 6px;
+  font-weight: 800;
+}
+
+/* Text-level spotlight: dim entire sentence EXCEPT the hovered .fx-text-span */
+body:not(.edit-mode) [data-text-spotlight-container]:has(.fx-text-span[data-fx="hover-spotlight"]:hover) {
+  color: rgba(156, 163, 175, 0.35) !important;
+  transition: color 0.25s ease;
+}
+body:not(.edit-mode) [data-text-spotlight-container]:has(.fx-text-span[data-fx="hover-spotlight"]:hover) > *:not(.fx-text-span:hover),
+body:not(.edit-mode) [data-text-spotlight-container]:has(.fx-text-span[data-fx="hover-spotlight"]:hover) .fx-text-span:not(:hover) {
+  opacity: 0.32 !important;
+  filter: blur(0.4px);
+}
+body:not(.edit-mode) .fx-text-span[data-fx="hover-spotlight"]:hover {
+  opacity: 1 !important;
+  filter: none !important;
+  color: var(--accent-color, #0055FF) !important;
+  background-color: var(--card-hover-bg, rgba(0, 85, 255, 0.12)) !important;
+  transform: scale(1.08) translateY(-2px) !important;
+  font-weight: 800;
+  padding: 1px 6px;
+  box-shadow: 0 6px 16px rgba(0, 85, 255, 0.18);
+}
+
+/* ==================== CUSTOM FX SHADOW & BORDER CONTROLS + INLINE SPAN FLOW ==================== */
+body:not(.edit-mode) [data-fx="hover-lift"]:hover {
+  transform: translate(var(--el-tx, 0px), calc(var(--el-ty, 0px) - 5px)) !important;
+  background-color: var(--card-hover-bg, var(--card-bg-color, inherit)) !important;
+  box-shadow: 0 14px 28px -6px var(--fx-shadow-color, rgba(0, 0, 0, 0.16)) !important;
+}
+body:not(.edit-mode) [data-fx="hover-zoom"]:hover {
+  transform: translate(var(--el-tx, 0px), var(--el-ty, 0px)) scale(1.035) !important;
+  background-color: var(--card-hover-bg, var(--card-bg-color, inherit)) !important;
+  box-shadow: 0 16px 32px -8px var(--fx-shadow-color, rgba(0, 0, 0, 0.18)) !important;
+  z-index: 25;
+}
+body:not(.edit-mode) [data-fx="hover-glow"]:hover {
+  box-shadow: 0 0 24px 2px var(--fx-shadow-color, rgba(0, 85, 255, 0.38)) !important;
+  background-color: var(--card-hover-bg, var(--card-bg-color, inherit)) !important;
+}
+body:not(.edit-mode) [data-fx-shadow="off"]:hover,
+body:not(.edit-mode) [data-fx-shadow="off"].fx-highlight-toggled {
+  box-shadow: none !important;
+  filter: none !important;
+}
+body:not(.edit-mode) [data-fx-border="on"]:hover {
+  outline: var(--fx-border-width, 2px) solid var(--fx-border-color, var(--accent-color, #0055FF)) !important;
+  outline-offset: 2px;
+}
+body:not(.edit-mode) [data-fx-border="off"]:hover {
+  outline: none !important;
+}
+body:not(.edit-mode) [data-fx-basis="content"]:not([data-fx-shadow="off"]):hover {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 6px 14px var(--fx-shadow-color, rgba(0, 85, 255, 0.35))) !important;
+}
+body:not(.edit-mode) [data-fx-basis="content"][data-fx-shadow="off"]:hover {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* Keep dragged text .fx-text-span inline inside sentence flow with NO box overlay */
+.fx-text-span {
+  display: inline !important;
+  border-radius: 3px;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.25s ease, filter 0.25s ease, background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease !important;
+}
+body:not(.edit-mode) .fx-text-span:hover {
+  display: inline-block !important;
+}
+body.edit-mode .fx-text-span {
+  outline: none !important;
+  border-bottom: 1.5px dotted var(--accent-color, #0055FF);
+}
+
+/* Top Title Card inside Slide Grid */
+.slide-card.slide-title-card {
+  grid-column: 1 / -1;
+}
+
+/* Floating Card Lightbox custom positioning */
+#floatingCardLightboxContent.fc-pos-custom {
+  position: fixed !important;
+  margin: 0 !important;
+}
+
+/* Floating Card Lightbox: Support Background Image + Translucent Color Overlay simultaneously */
+#floatingCardLightboxContent {
+  position: relative;
+  overflow: hidden;
+}
+#floatingCardLightboxContent > .fc-bg-img-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: inherit;
+}
+#floatingCardLightboxContent > .fc-bg-tint-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+#floatingCardLightboxBody {
+  position: relative;
+  z-index: 2;
+}
+
+/* Strictly prevent .fx-text-span from ever being displaced by inline-block or transform */
+.fx-text-span {
+  display: inline !important;
+  position: static !important;
+  transform: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 3px;
+}
+body.edit-mode .fx-text-span {
+  outline: none !important;
+  border-bottom: 1.5px dashed var(--accent-color, #0055FF) !important;
+  background-color: rgba(0, 85, 255, 0.06);
+}
+
+/* Floating Card Lightbox Hover Background Image & Tint */
+#floatingCardLightboxContent > .fc-hover-bg-img-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+body:not(.edit-mode) #floatingCardLightboxContent[data-fc-has-hover="true"]:hover > .fc-hover-bg-img-layer,
+body:not(.edit-mode) #floatingCardLightboxContent[data-fx]:hover > .fc-hover-bg-img-layer {
+  opacity: 1;
+}
+body:not(.edit-mode) #floatingCardLightboxContent[data-fc-has-hover="true"]:hover > .fc-bg-tint-layer,
+body:not(.edit-mode) #floatingCardLightboxContent[data-fx]:hover > .fc-bg-tint-layer {
+  background-color: var(--card-hover-bg, var(--fc-base-tint, transparent)) !important;
+}
+
+/* Universal Element Hover Background Image + Translucent Color Overlay */
+[data-el-hover-bg-img] {
+  position: relative;
+}
+body:not(.edit-mode) [data-el-hover-bg-img]:hover {
+  background-image: linear-gradient(var(--card-hover-bg, rgba(239, 246, 255, 0.55)), var(--card-hover-bg, rgba(239, 246, 255, 0.55))), var(--el-hover-bg-img) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Multi-Floating-Card Simultaneous Display Mode */
+#floatingCardLightbox.fc-multi-open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  overflow-y: auto;
+  animation: floatingBackdropFade 0.22s ease both;
+}
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item {
+  position: relative;
+  overflow: hidden;
+  animation: floatingCardZoomIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item.fc-pos-custom {
+  position: fixed !important;
+  margin: 0 !important;
+}
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item > .fc-bg-img-layer,
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item > .fc-hover-bg-img-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: inherit;
+  transition: opacity 0.28s ease;
+}
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item > .fc-hover-bg-img-layer {
+  opacity: 0;
+}
+body:not(.edit-mode) #floatingCardLightbox.fc-multi-open .fc-multi-card-item[data-fc-has-hover="true"]:hover > .fc-hover-bg-img-layer,
+body:not(.edit-mode) #floatingCardLightbox.fc-multi-open .fc-multi-card-item[data-fx]:hover > .fc-hover-bg-img-layer {
+  opacity: 1;
+}
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item > .fc-bg-tint-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+body:not(.edit-mode) #floatingCardLightbox.fc-multi-open .fc-multi-card-item[data-fc-has-hover="true"]:hover > .fc-bg-tint-layer,
+body:not(.edit-mode) #floatingCardLightbox.fc-multi-open .fc-multi-card-item[data-fx]:hover > .fc-bg-tint-layer {
+  background-color: var(--card-hover-bg, var(--fc-base-tint, transparent)) !important;
+}
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item > .fc-multi-card-body {
+  position: relative;
+  z-index: 2;
+}
+
+/* Prevent parent card default .hover-reactive from double-lifting when hovering an inner [data-fx] element */
+body:not(.edit-mode) .slide-card.hover-reactive:not([data-fx]):has([data-fx]:hover) {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Card-Owned Textbox & Embedded Shapes */
+.card-inner-textbox {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto !important;
+  min-height: 28px;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+.ppt-free-obj[data-shape-type="textbox"] {
+  align-items: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.ppt-free-obj[data-shape-type="textbox"] .shape-inner-text {
+  min-height: 100%;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+/* Interactive Table Cell Column / Row Resize Handles (Edit Mode Only) */
+.ppt-data-table th,
+.ppt-data-table td {
+  position: relative;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+body:not(.edit-mode) .table-col-resizer,
+body:not(.edit-mode) .table-row-resizer {
+  display: none !important;
+}
+body.edit-mode .table-col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 15;
+}
+body.edit-mode .table-col-resizer:hover {
+  background-color: rgba(244, 63, 94, 0.55);
+}
+body.edit-mode .table-row-resizer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 5px;
+  cursor: row-resize;
+  z-index: 15;
+}
+body.edit-mode .table-row-resizer:hover {
+  background-color: rgba(244, 63, 94, 0.55);
+}
+.card-embedded-obj {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  word-break: keep-all;
+}
+.card-embedded-obj .shape-inner-text {
+  width: 100%;
+  outline: none;
+}
+
+/* ==================== PHASE 2, 5, 6, 7 & 8 STYLES ==================== */
+.ppt-bullet-list { list-style-type: disc; padding-left: 1.35em; margin: 0.25em 0; }
+.ppt-bullet-list ul { list-style-type: circle; padding-left: 1.25em; margin: 0.15em 0; }
+.ppt-number-list { list-style-type: decimal; padding-left: 1.45em; margin: 0.25em 0; }
+.ppt-number-list ol { list-style-type: lower-alpha; padding-left: 1.35em; margin: 0.15em 0; }
+.ppt-bullet-list li, .ppt-number-list li { margin-bottom: 0.2em; }
+.ppt-inline-link {
+  color: var(--accent-color, #0055FF); text-decoration: underline;
+  text-underline-thickness: 1.5px; text-underline-offset: 3px; font-weight: 700; cursor: pointer;
+}
+.slide sup, .slide sub { font-size: 0.72em; line-height: 0; position: relative; vertical-align: baseline; }
+.slide sup { top: -0.45em; }
+.slide sub { bottom: -0.22em; }
+[data-text-autofit="true"] { overflow: hidden !important; }
+.ppt-audio-widget {
+  display: flex; flex-direction: column; justify-content: center; gap: 6px;
+  padding: 10px 14px; background: #FFFFFF; border: 1.5px solid #E2E4E9; border-radius: 14px;
+}
+.ppt-embed-widget {
+  display: flex; flex-direction: column; overflow: hidden;
+  background: #FFFFFF; border: 1.5px solid #E2E4E9; border-radius: 14px;
+}
+body:not(.edit-mode) .embed-widget-drag-bar, body:not(.edit-mode) .ppt-audio-widget button, body:not(.edit-mode) .yt-local-hint-bar { display: none !important; }
+body.edit-mode .ppt-embed-widget iframe { pointer-events: none; }
+.ppt-data-table tr.table-summary-row td {
+  font-weight: 800; background-color: rgba(0, 85, 255, 0.08);
+  border-top: 2px solid var(--accent-color, #0055FF);
+}
+
+@keyframes fxFloatWave { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+@keyframes fxHoverShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px) rotate(-1deg); } 50% { transform: translateX(4px) rotate(1deg); } 75% { transform: translateX(-2px); } }
+@keyframes fxClickFlip { 0% { transform: perspective(900px) rotateY(0deg) scale(1); } 50% { transform: perspective(900px) rotateY(18deg) scale(1.04); } 100% { transform: perspective(900px) rotateY(0deg) scale(1); } }
+body:not(.edit-mode) [data-fx="hover-float"]:hover { animation: fxFloatWave 1.6s ease-in-out infinite !important; box-shadow: 0 14px 28px -6px rgba(0, 85, 255, 0.16) !important; }
+body:not(.edit-mode) [data-fx="hover-shake"]:hover { animation: fxHoverShake 0.45s ease-in-out !important; }
+body:not(.edit-mode) [data-fx="hover-rotate"]:hover { transform: rotate(-2.5deg) scale(1.03) !important; box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.14) !important; }
+body:not(.edit-mode) .fx-flip-active { animation: fxClickFlip 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes animSlideDown { from { opacity: 0; transform: translateY(-28px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes animZoomOut { from { opacity: 0; transform: scale(1.14); } to { opacity: 1; transform: scale(1); } }
+@keyframes animRotateIn { from { opacity: 0; transform: rotate(-6deg) scale(0.94); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
+@keyframes animBlurIn { from { opacity: 0; filter: blur(10px); transform: scale(0.98); } to { opacity: 1; filter: blur(0px); transform: scale(1); } }
+@keyframes animFloatLoop { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-7px); } }
+@keyframes animShakeAttention { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+
+body:not(.edit-mode) .slide.active [data-anim="slide-down"] { animation: animSlideDown 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both; }
+body:not(.edit-mode) .slide.active [data-anim="zoom-out"] { animation: animZoomOut 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both; }
+body:not(.edit-mode) .slide.active [data-anim="rotate-in"] { animation: animRotateIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both; }
+body:not(.edit-mode) .slide.active [data-anim="blur-in"] { animation: animBlurIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both; }
+body:not(.edit-mode) .slide.active [data-anim="float-loop"] { animation: animFloatLoop 2.6s ease-in-out var(--anim-delay, 0s) infinite; }
+body:not(.edit-mode) .slide.active [data-anim="shake-attention"] { animation: animShakeAttention 0.65s ease-in-out var(--anim-delay, 0s) both; }
+
+.anim-preview-playing[data-anim="slide-down"] { animation: animSlideDown 0.55s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="zoom-out"] { animation: animZoomOut 0.55s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="rotate-in"] { animation: animRotateIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="blur-in"] { animation: animBlurIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both !important; }
+.anim-preview-playing[data-anim="float-loop"] { animation: animFloatLoop 1.5s ease-in-out 2 !important; }
+.anim-preview-playing[data-anim="shake-attention"] { animation: animShakeAttention 0.65s ease-in-out both !important; }
+
+body:not(.edit-mode) [data-build-order].build-step-pending { opacity: 0 !important; transform: translateY(14px) scale(0.98) !important; pointer-events: none !important; }
+body:not(.edit-mode) [data-build-order].build-step-revealed { opacity: 1; transform: translateY(0) scale(1); transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1); }
+body.edit-mode [data-build-order] { position: relative; }
+body.edit-mode [data-build-order]::before {
+  content: 'STEP ' attr(data-build-order);
+  position: absolute; top: 4px; left: 6px; padding: 1px 6px; border-radius: 9999px;
+  background: #7C3AED; color: #FFFFFF; font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 800; z-index: 28; pointer-events: none;
+}
+
+.ppt-slide-master-layer { position: absolute; inset: 0; pointer-events: none; z-index: 16; }
+body.edit-mode .slide[data-slide-hidden="true"] { opacity: 0.58 !important; }
+body.edit-mode .slide[data-slide-hidden="true"]::before {
+  content: '👁‍🗨 숨김 슬라이드 (발표 시 자동 건너뜀)';
+  position: absolute; top: 12px; left: 16px; padding: 4px 10px; border-radius: 9999px;
+  background: #E11D48; color: #FFFFFF; font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 800; z-index: 60; pointer-events: none;
+}
+
+#pptLaserDot {
+  position: fixed; width: 16px; height: 16px; border-radius: 9999px;
+  background: radial-gradient(circle, #FFFFFF 0%, #FF1E42 45%, rgba(255, 30, 66, 0) 75%);
+  box-shadow: 0 0 14px 4px rgba(255, 30, 66, 0.85);
+  pointer-events: none; z-index: 98; transform: translate(-50%, -50%);
+}
+
+body:not(.edit-mode) .ppt-slide-comment-badge { display: none !important; }
+.ppt-slide-comment-badge {
+  position: absolute; bottom: 14px; right: 18px; z-index: 35;
+  padding: 5px 11px; border-radius: 9999px;
+  background: #FEF3C7; color: #92400E; border: 1.5px solid #F59E0B;
+  font-family: 'Pretendard', sans-serif; font-size: 11px; font-weight: 800;
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.25); cursor: pointer;
+}
+
+/* Auto-compacted grid cards when multiple rows exist so cards NEVER overflow slide bottom edge */
+.slide-grid-body.has-multi-rows {
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+.slide-grid-body.has-multi-rows > .slide-card {
+  overflow: hidden !important;
+}
+.slide-grid-body.has-multi-rows > .slide-card:not([style*="padding"]) {
+  padding: 16px 20px !important;
+}
+.slide-grid-body.has-multi-rows > .slide-card h1:not([style*="font-size"]) {
+  font-size: 2.1rem !important;
+  line-height: 1.12 !important;
+}
+.slide-grid-body.has-multi-rows > .slide-card h2:not([style*="font-size"]),
+.slide-grid-body.has-multi-rows > .slide-card h3:not([style*="font-size"]) {
+  font-size: 1.15rem !important;
+  margin-bottom: 6px !important;
+}
+.slide-grid-body.has-multi-rows > .slide-card p:not([style*="font-size"]) {
+  font-size: 0.875rem !important;
+  line-height: 1.4 !important;
+}
+.slide-grid-body.has-multi-rows > .slide-card .my-auto {
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+.slide-grid-body.has-multi-rows > .slide-card .pt-4.mt-6,
+.slide-grid-body.has-multi-rows > .slide-card .pt-4.mt-5 {
+  padding-top: 6px !important;
+  margin-top: 6px !important;
+}
+
+/* ==================== 24x24 2D BENTO GRID ENGINE (ASYMMETRIC LAYOUTS) ==================== */
+.slide-grid-body[data-bento-2d="true"] {
+  display: grid !important;
+  grid-template-columns: repeat(24, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(24, minmax(0, 1fr)) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  align-content: stretch !important;
+  align-items: stretch !important;
+  position: relative;
+}
+.slide-grid-body[data-bento-2d="true"] > .slide-card {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin-top: 0 !important;
+  align-self: stretch !important;
+  overflow: hidden;
+}
+
+/* ==================== v4.8.0: INTERACTIVE HTML WIDGETS, AFFORDANCE HINTS & LIVE TOOLTIP ==================== */
+.ppt-interactive-widget,
+.card-embedded-obj.ppt-interactive-widget,
+.ppt-free-obj.ppt-interactive-widget {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0;
+  border-radius: 14px;
+  background: #FFFFFF;
+  border: 1px solid #E2E4E9;
+  box-shadow: 0 4px 16px -6px rgba(15, 23, 42, 0.08);
+  overflow: visible;
+}
+.card-embedded-obj.ppt-interactive-widget {
+  flex: 1 1 auto;
+  min-height: 240px;
+}
+.iw-edit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 8px;
+  background: #111827;
+  color: #FFFFFF;
+  border-top-left-radius: 13px;
+  border-top-right-radius: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  z-index: 24;
+  flex-shrink: 0;
+}
+.iw-edit-bar button {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+}
+.iw-edit-bar button:hover {
+  background: var(--accent-color, #0055FF);
+}
+body:not(.edit-mode) .iw-edit-bar {
+  display: none !important;
+}
+
+/* 1. Before / After Image Comparison Slider */
+.iw-ba-stage {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 220px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0F172A;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+body:not(.edit-mode) .iw-ba-stage {
+  cursor: ew-resize;
+}
+.iw-ba-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.iw-ba-before-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: inset(0 calc(100% - var(--ba-pos, 50%)) 0 0);
+  -webkit-clip-path: inset(0 calc(100% - var(--ba-pos, 50%)) 0 0);
+  pointer-events: none;
+}
+.iw-ba-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--ba-pos, 50%);
+  width: 2px;
+  background: #FFFFFF;
+  transform: translateX(-50%);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.55), 0 0 2px rgba(0, 0, 0, 0.8);
+  z-index: 6;
+  pointer-events: none;
+  transition: width 0.12s ease;
+}
+body:not(.edit-mode) .iw-ba-stage:hover .iw-ba-divider {
+  width: 3px;
+}
+.iw-ba-handle {
+  display: none !important;
+}
+.iw-ba-badge {
+  position: absolute;
+  top: 12px;
+  z-index: 5;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: rgba(17, 24, 39, 0.78);
+  color: #FFFFFF;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(4px);
+}
+.iw-ba-badge-before { left: 12px; transition: opacity 0.15s ease; }
+.iw-ba-badge-after { right: 12px; background: var(--accent-color, #0055FF); transition: opacity 0.15s ease; }
+body:not(.edit-mode) .iw-ba-badge { pointer-events: none; }
+
+/* 2. Interactive Image / Diagram Hotspot Pins */
+.iw-hs-stage {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 240px;
+  border-radius: 12px;
+  background: #F8FAFC;
+}
+.iw-hs-base-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+  pointer-events: none;
+}
+.iw-hs-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 12;
+  cursor: pointer;
+}
+.iw-hs-pin.is-open {
+  z-index: 30;
+}
+.iw-hs-dot {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--accent-color, #0055FF);
+  color: #FFFFFF;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 4px 14px rgba(0, 85, 255, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 900;
+  transition: transform 0.16s ease, background-color 0.16s ease;
+}
+.iw-hs-pin:hover .iw-hs-dot,
+.iw-hs-pin.is-open .iw-hs-dot {
+  transform: scale(1.14);
+  background: #111827;
+}
+@keyframes iwPinPulse {
+  0% { transform: scale(1); opacity: 0.72; }
+  70% { transform: scale(1.95); opacity: 0; }
+  100% { transform: scale(1.95); opacity: 0; }
+}
+body:not(.edit-mode):not([data-interactive-hints="off"]) .iw-hs-dot::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid var(--accent-color, #0055FF);
+  animation: iwPinPulse 2.1s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+.iw-hs-popover {
+  position: absolute;
+  width: 224px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1.5px solid #E2E8F0;
+  box-shadow: 0 16px 34px -8px rgba(15, 23, 42, 0.25);
+  color: #111827;
+  text-align: left;
+  display: none;
+  z-index: 35;
+  cursor: default;
+}
+.iw-hs-pin.is-open .iw-hs-popover {
+  display: block;
+  animation: iwFadeInPop 0.18s ease-out both;
+}
+@keyframes iwFadeInPop {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.iw-hs-pin[data-pop-side="right"] .iw-hs-popover { left: 36px; right: auto; }
+.iw-hs-pin[data-pop-side="left"] .iw-hs-popover { right: 36px; left: auto; }
+.iw-hs-pin[data-pop-v="bottom"] .iw-hs-popover { top: -8px; bottom: auto; }
+.iw-hs-pin[data-pop-v="top"] .iw-hs-popover { bottom: -8px; top: auto; }
+
+/* 3. Interactive Tabbed Card */
+.iw-tabs-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 14px;
+  gap: 10px;
+}
+.iw-tabs-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  flex-shrink: 0;
+}
+.iw-tab-btn {
+  flex: 1;
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: transparent;
+  color: #4B5563;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
+  text-align: center;
+}
+.iw-tab-btn:hover:not(.is-active) {
+  color: #111827;
+  background: rgba(255, 255, 255, 0.55);
+}
+.iw-tab-btn.is-active {
+  background: #FFFFFF;
+  color: var(--accent-color, #0055FF);
+  border-color: #E2E8F0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+.iw-tabs-panels {
+  flex: 1;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+}
+.iw-tab-panel {
+  display: none;
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #F8FAFC;
+  border: 1px solid #E5E7EB;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+.iw-tab-panel.is-active {
+  display: flex;
+  animation: iwFadeInPop 0.22s ease-out both;
+}
+
+/* 4. True 3D Front / Back Flip Card */
+.iw-flip-scene {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 220px;
+  perspective: 1200px;
+  cursor: pointer;
+}
+.iw-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  transform-style: preserve-3d;
+  transition: transform 0.62s cubic-bezier(0.22, 1, 0.36, 1);
+}
+body:not(.edit-mode) .iw-flip-scene.is-flipped .iw-flip-inner {
+  transform: rotateY(180deg);
+}
+.iw-flip-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 12px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: auto;
+}
+.iw-flip-front {
+  background: #FFFFFF;
+  color: #111827;
+  border: 1px solid #E2E8F0;
+}
+.iw-flip-back {
+  background: #111827;
+  color: #F9FAFB;
+  border: 1px solid #1E293B;
+  transform: rotateY(180deg);
+}
+/* Flat, mirror-free editing of Back Face in Edit Mode */
+body.edit-mode .iw-flip-scene {
+  cursor: default;
+}
+body.edit-mode .iw-flip-scene.is-editing-back .iw-flip-inner {
+  transform: none !important;
+}
+body.edit-mode .iw-flip-scene.is-editing-back .iw-flip-front {
+  display: none !important;
+}
+body.edit-mode .iw-flip-scene.is-editing-back .iw-flip-back {
+  transform: none !important;
+  position: relative;
+  z-index: 4;
+}
+.iw-flip-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 9999px;
+}
+body[data-interactive-hints="off"] .iw-flip-cue {
+  opacity: 0.4;
+}
+
+/* 5. Interactive Affordance Hints (Subtle Click Cue Dot on Triggers & Floating Popup Cards) */
+body:not(.edit-mode):not([data-interactive-hints="off"]) [data-floating-card-ids],
+body:not(.edit-mode):not([data-interactive-hints="off"]) [data-floating-card-id],
+body:not(.edit-mode):not([data-interactive-hints="off"]) [data-trigger-target] {
+  position: relative;
+}
+body:not(.edit-mode):not([data-interactive-hints="off"]) .slide-card[data-floating-card-ids]::after,
+body:not(.edit-mode):not([data-interactive-hints="off"]) .slide-card[data-floating-card-id]::after {
+  content: '✦ CLICK';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(0, 85, 255, 0.12);
+  color: var(--accent-color, #0055FF);
+  border: 1px solid rgba(0, 85, 255, 0.28);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 15;
+}
+
+/* 6. Live Chart Hover Tooltip & Scenario Toggle Pills */
+#pptChartTooltip {
+  position: fixed;
+  z-index: 110;
+  pointer-events: none;
+  padding: 7px 11px;
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.45);
+  font-family: 'Pretendard', sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  backdrop-filter: blur(8px);
+  display: none;
+  max-width: 240px;
+}
+body:not(.edit-mode) .ppt-chart-widget [data-chart-part]:hover {
+  filter: brightness(1.12);
+  transform: scale(1.03);
+}
+.chart-scenario-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 7px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+}
+.chart-scenario-btn {
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #4B5563;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+.chart-scenario-btn.is-active {
+  background: var(--accent-color, #0055FF);
+  color: #FFFFFF;
+  box-shadow: 0 1px 4px rgba(0, 85, 255, 0.35);
+}
+.card-embedded-obj.ppt-interactive-widget .iw-embed-card-btn { display: none !important; }
+
+/* ==================== v4.9.0: MOBILE PRESENTATION VIEWER POLISH & WIDGET MEDIA ==================== */
+.iw-panel-media,
+.iw-flip-media {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 767px) {
+  body:not(.edit-mode) #appTopHeader {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    height: 44px !important;
+  }
+  body:not(.edit-mode) #headerSectionBadge {
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body:not(.edit-mode) #appBottomFooter {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    height: 50px !important;
+  }
+  body:not(.edit-mode) #appBottomFooter button {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  #floatingCardLightboxContent {
+    max-width: 94vw !important;
+    max-height: 86vh !important;
+  }
+}
+
+/* ==================== v5.0.7: DARK THEME HIGH-CONTRAST PROTECTION (WIDGETS, HIGHLIGHTS & CHARTS) ==================== */
+.slide.theme-dark .hl-mark:not([style*="color"]) {
+  color: #111111 !important;
+}
+.slide.theme-dark .ppt-chart-widget svg text {
+  fill: #E2E8F0 !important;
+}
+.slide.theme-dark .ppt-interactive-widget {
+  background: #1E293B;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.slide.theme-dark .iw-tabs-header {
+  background: #0F172A;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.slide.theme-dark .iw-tab-btn {
+  color: #CBD5E1;
+}
+.slide.theme-dark .iw-tab-btn:hover:not(.is-active) {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+.slide.theme-dark .iw-tab-btn.is-active {
+  background: #1E293B;
+  color: #38BDF8;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+.slide.theme-dark .iw-tab-panel {
+  background: #0F172A;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #F8FAFC;
+}
+/* Keep white-surface Flip Front & Hotspot Popover readable on Dark Slides */
+.slide.theme-dark .iw-flip-front:not([data-flip-theme]),
+.slide.theme-dark .iw-flip-front[data-flip-theme="light"],
+.slide.theme-dark .iw-flip-front[data-flip-theme="warm"],
+.slide.theme-dark .iw-hs-popover {
+  color: #111827 !important;
+}
+.slide.theme-dark .iw-flip-front:not([data-flip-theme]) .text-ink:not([style*="color"]),
+.slide.theme-dark .iw-flip-front[data-flip-theme="light"] .text-ink:not([style*="color"]),
+.slide.theme-dark .iw-flip-front[data-flip-theme="warm"] .text-ink:not([style*="color"]),
+.slide.theme-dark .iw-hs-popover .text-ink:not([style*="color"]) {
+  color: #111827 !important;
+}
+.slide.theme-dark .iw-flip-front:not([data-flip-theme]) .text-muted:not([style*="color"]),
+.slide.theme-dark .iw-flip-front[data-flip-theme="light"] .text-muted:not([style*="color"]),
+.slide.theme-dark .iw-flip-front[data-flip-theme="warm"] .text-muted:not([style*="color"]),
+.slide.theme-dark .iw-hs-popover .text-muted:not([style*="color"]) {
+  color: #4B5563 !important;
+}
+
+/* ==================== v5.0.13: LIGHT-THEME ADAPTATION FOR DARK-COVER TEMPLATES & DARK CARD CONTRAST ==================== */
+/* When a dark-authored slide (e.g. Showcase Cover, Proposal Closing, Quote, Cover) is switched to a Light Brand Kit / Light Theme */
+.slide.theme-light .text-white:not(.bg-gopro):not(.bg-ink):not(.bg-emerald-600):not(.bg-rose-600):not(.bg-violet-600):not(.bg-indigo-600):not(.bg-amber-600):not(.iw-flip-back):not(.iw-edit-bar):not(.iw-ba-badge):not(.card-theme-dark):not(button):not(th),
+.slide.theme-light .text-white\/80:not(.card-theme-dark),
+.slide.theme-light .text-white\/75:not(.card-theme-dark),
+.slide.theme-light .text-white\/70:not(.card-theme-dark),
+.slide.theme-light .text-white\/60:not(.card-theme-dark) {
+  color: #111827 !important;
+}
+.slide.theme-light .text-white\/80:not(.card-theme-dark),
+.slide.theme-light .text-white\/75:not(.card-theme-dark) {
+  color: #374151 !important;
+}
+.slide.theme-light .text-white\/70:not(.card-theme-dark),
+.slide.theme-light .text-white\/60:not(.card-theme-dark) {
+  color: #4B5563 !important;
+}
+.slide.theme-light .text-sky-300:not(.card-theme-dark) {
+  color: var(--accent-color, #0055FF) !important;
+}
+.slide.theme-light .border-white\/15:not(.card-theme-dark),
+.slide.theme-light .border-white\/20:not(.card-theme-dark) {
+  border-color: #E2E4E9 !important;
+}
+.slide.theme-light .bg-white\/10:not(.card-theme-dark) {
+  background-color: rgba(15, 23, 42, 0.05) !important;
+}
+/* Protect intentionally dark pills, buttons, flip backs, edit bars, badges & dark cards inside light slides */
+.slide.theme-light .bg-ink,
+.slide.theme-light .bg-ink .text-white,
+.slide.theme-light .bg-gopro,
+.slide.theme-light .bg-gopro .text-white,
+.slide.theme-light .img-edit-overlay,
+.slide.theme-light .img-edit-overlay .text-white,
+.slide.theme-light .iw-edit-bar,
+.slide.theme-light .iw-edit-bar .text-white,
+.slide.theme-light .iw-flip-back,
+.slide.theme-light .iw-flip-back .text-white,
+.slide.theme-light .iw-flip-back .text-white\/80,
+.slide.theme-light .iw-flip-back .text-sky-300,
+.slide.theme-light .ppt-free-obj[data-shape-type="linkButton"],
+.slide.theme-light .ppt-free-obj[data-shape-type="triggerButton"],
+.slide.theme-light .ppt-free-obj[data-shape-type="pill"] {
+  color: #FFFFFF !important;
+}
+.slide.theme-light .iw-flip-back .text-white\/80 { color: rgba(255, 255, 255, 0.84) !important; }
+.slide.theme-light .iw-flip-back .text-sky-300 { color: #7DD3FC !important; }
+
+/* Dark Card (.card-theme-dark) on Light Slides: auto-invert ink/muted/subtle text for crisp contrast */
+.slide-card.card-theme-dark {
+  color: #F9FAFB;
+}
+.slide-card.card-theme-dark .text-ink:not([style*="color"]) {
+  color: #F9FAFB !important;
+}
+.slide-card.card-theme-dark .text-muted:not([style*="color"]) {
+  color: #D1D5DB !important;
+}
+.slide-card.card-theme-dark .text-subtle:not([style*="color"]) {
+  color: #9CA3AF !important;
+}
+.slide-card.card-theme-dark .border-borderline {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+.slide-card.card-theme-dark .hl-mark:not([style*="color"]),
+.slide-card.card-theme-dark .iw-flip-front:not([data-flip-theme]) .text-ink:not([style*="color"]),
+.slide-card.card-theme-dark .iw-hs-popover .text-ink:not([style*="color"]) {
+  color: #111827 !important;
+}
+.slide-card.card-theme-dark .iw-flip-front:not([data-flip-theme]) .text-muted:not([style*="color"]),
+.slide-card.card-theme-dark .iw-hs-popover .text-muted:not([style*="color"]) {
+  color: #4B5563 !important;
+}
