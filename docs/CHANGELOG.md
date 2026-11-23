@@ -1,5 +1,15 @@
 # Changelog
 
+## [v5.3.3] - 2026-11-23 — 전수 검사 4건 해결 (플로팅 카드 텍스트 서식·히스토리 통합 완성 및 텍스트 편집기 잠금 가드 12종 보강)
+
+### Fixed
+- **[P0] `getTargetTextEl()`의 플로팅 카드 캔버스(`#fcRichBodyEditor`) 텍스트 인식 및 배경 슬라이드 오적용 방지 (`js/text-editor.js`)**: `data-editable` 속성이 없는 카드 내부 `<p>`/`<h3>`/`<li>` 클릭 시 배경 슬라이드의 `lastFocusedEditable`로 서식이 새어 나가던 결함을 해결하고, 카드 내부 텍스트에만 정확히 적용되도록 개선.
+- **[P0] `isCurrentSlideLocked()`의 플로팅 카드 편집 컨텍스트 예외 처리 (`js/state.js`)**: 배경 슬라이드가 잠겨 있어도 플로팅 카드 편집 중에는 메인 스튜디오의 모든 서식·색상·글꼴·그라데이션 도구가 정상 동작하도록 통일.
+- **[P1] 메인 스튜디오로 플로팅 카드 텍스트 서식 변경 시 `Ctrl+Z` 실행 취소 자동 연동 (`js/history.js`)**: `saveHistorySnapshot()`이 플로팅 카드 내부 편집을 감지해 `recordFcSnapshot()`으로 라우팅.
+- **[P1] 텍스트 편집기 잠금 가드 12종 보강 (`js/text-editor.js`)**: `applyLineHeight`, `applyLetterSpacing`, `toggleTextList`, `clearAllTextFormatting`, `setParagraphSpacing`, `setTextVerticalAlign`, `toggleWordBreakMode`, `applyTextShadowPreset`, `applyTextStrokeStyle`, `applyInlineTextLink`, `removeInlineTextLink`, `insertSymbolAtCursor`에 잠긴 슬라이드 보호 적용.
+
+---
+
 ## [v5.3.2] - 2026-11-23 — 전수 QA 6건 마감 (즉시 테스트 모드 플로팅 카드 자동 닫힘 · 플로팅 카드 복사/붙여넣기·T 단축키·도형/이미지/유튜브/미세이동 잠금 우회 · GitHub Pages 아티팩트 v4 업그레이드)
 
 ### Fixed

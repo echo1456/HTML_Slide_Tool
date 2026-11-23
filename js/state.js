@@ -1,4 +1,4 @@
-window.PPTStudio = window.PPTStudio || { version: 'v5.3.2', offlineRuntimeRules: new Set() };
+window.PPTStudio = window.PPTStudio || { version: 'v5.3.3', offlineRuntimeRules: new Set() };
 
 function openModalSafe(elOrId) {
   const modal = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -30,7 +30,8 @@ let totalSlides = 19;
 let isEditMode = false;
 let isInteractiveTestMode = false;
 function isActiveEditing() { return Boolean(isEditMode && !isInteractiveTestMode); }
-function isCurrentSlideLocked(notify) {
+function isCurrentSlideLocked(notify, slideOnly) {
+  if (!slideOnly && typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) return false;
   const s = (typeof slides !== 'undefined' && Array.isArray(slides)) ? slides[currentSlide - 1] : null;
   const locked = Boolean(s && s.getAttribute('data-slide-locked') === 'true');
   if (locked && notify && typeof showToast === 'function') showToast('잠긴 슬라이드에서는 요소를 추가하거나 변경할 수 없습니다.');

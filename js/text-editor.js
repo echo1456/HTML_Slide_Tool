@@ -152,11 +152,25 @@ function syncToolbarWithTarget(targetEl) {
 }
 
 function getTargetTextEl() {
+  const isFcCtx = typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive();
+  const fcEd = isFcCtx && typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : null;
   const sel = window.getSelection();
   if (sel && sel.anchorNode) {
     const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+    if (fcEd && node && fcEd.contains(node)) {
+      const fcHit = node.closest('[data-editable], h1, h2, h3, h4, p, li, blockquote, .fc-text-box');
+      if (fcHit && fcEd.contains(fcHit)) return fcHit;
+    }
     const ed = node ? node.closest('[data-editable], #headerSectionBadge, .header-editable') : null;
-    if (ed) return ed;
+    if (ed && (!fcEd || fcEd.contains(ed))) return ed;
+  }
+  if (fcEd) {
+    if (selectedElement && fcEd.contains(selectedElement)) {
+      if (selectedElement.matches('[data-editable], h1, h2, h3, h4, p, li, blockquote, .fc-text-box')) return selectedElement;
+      const innerFc = selectedElement.querySelector('[data-editable], h1, h2, h3, h4, p, li, blockquote');
+      if (innerFc) return innerFc;
+    }
+    return fcEd.querySelector('h1, h2, h3, h4, p, li, blockquote, [data-editable]') || fcEd;
   }
   if (selectedElement) {
     if (selectedElement.hasAttribute('data-editable')) return selectedElement;
@@ -346,12 +360,16 @@ function setSelectedFontSizePx(pxVal, isLiveInput) {
 }
 
 function applyLineHeight(val, isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   if (val === '' || val === null || val === undefined) return;
   const num = parseFloat(val), cssVal = !isNaN(num) ? String(Math.max(0.8, Math.min(3.5, num))) : String(val);
   const targets = getMultiTextTargets();
   if (targets.length > 0) { targets.forEach(t => { t.style.lineHeight = cssVal; }); positionSelectionOverlay(); if (!isLiveInput) saveHistorySnapshot('행간 변경'); }
 }
 function applyLetterSpacing(val, isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   if (val === '' || val === null || val === undefined) return;
   const str = String(val).trim(), cssVal = /^-?\d+(?:\.\d+)?$/.test(str) ? `${Math.max(-0.2, Math.min(1.0, parseFloat(str)))}em` : str;
   const targets = getMultiTextTargets();
@@ -984,6 +1002,8 @@ function updateTextCharCounter(explicitEl) {
   badge.textContent = `${rawText.length}자 (공백제외 ${rawText.replace(/\s+/g, '').length}자)`;
 }
 function toggleTextList(listType) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const tagTarget = listType === 'ol' ? 'OL' : 'UL', listClass = listType === 'ol' ? 'ppt-number-list' : 'ppt-bullet-list', target = getTargetTextEl();
   if (!target) return;
   const existingList = target.closest('ul, ol') || target.querySelector(':scope > ul, :scope > ol');
@@ -1041,6 +1061,8 @@ function adjustListIndent(dir) {
   return false;
 }
 function clearAllTextFormatting() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const usable = getUsableTextRange();
   if (usable && (!selectedElements || selectedElements.length <= 1)) {
     const textOnly = usable.range.toString(); usable.range.deleteContents();
@@ -1066,13 +1088,19 @@ function clearAllTextFormatting() {
   if (typeof recordRepeatableAction === 'function') recordRepeatableAction('전체 서식 지우기', () => clearAllTextFormatting());
   saveHistorySnapshot('전체 서식 지우기');
 }
-function setParagraphSpacing(side, rawPx, isLiveInput) { const px = Math.max(0, Math.min(120, Math.round(Number(rawPx) || 0))), targets = getMultiTextTargets(); if (targets.length === 0) return; targets.forEach(t => { if (side === 'top') t.style.marginTop = px > 0 ? `${px}px` : ''; else t.style.marginBottom = px > 0 ? `${px}px` : ''; }); positionSelectionOverlay(); if (!isLiveInput) saveHistorySnapshot('문단 여백 조절'); }
+function setParagraphSpacing(side, rawPx, isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+ const px = Math.max(0, Math.min(120, Math.round(Number(rawPx) || 0))), targets = getMultiTextTargets(); if (targets.length === 0) return; targets.forEach(t => { if (side === 'top') t.style.marginTop = px > 0 ? `${px}px` : ''; else t.style.marginBottom = px > 0 ? `${px}px` : ''; }); positionSelectionOverlay(); if (!isLiveInput) saveHistorySnapshot('문단 여백 조절'); }
 function setTextVerticalAlign(pos) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const rawTargets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : (getTargetTextEl() ? [getTargetTextEl()] : [])); if (rawTargets.length === 0) return;
   rawTargets.forEach(el => { if (el.tagName === 'TD' || el.tagName === 'TH') { el.style.verticalAlign = pos; return; } const box = el.closest('.card-inner-textbox, .ppt-free-obj[data-shape-type="textbox"], .card-embedded-obj, .sub-box') || el; box.style.display = 'flex'; box.style.flexDirection = 'column'; box.style.justifyContent = pos === 'top' ? 'flex-start' : (pos === 'bottom' ? 'flex-end' : 'center'); });
   positionSelectionOverlay(); if (typeof recordRepeatableAction === 'function') recordRepeatableAction(`세로 정렬 (${pos})`, () => setTextVerticalAlign(pos)); saveHistorySnapshot(`세로 정렬 (${pos})`);
 }
-function toggleWordBreakMode() { const targets = getMultiTextTargets(); if (targets.length === 0) return; const firstCs = window.getComputedStyle(targets[0]), nextBreakAll = (targets[0].style.wordBreak || firstCs.wordBreak) !== 'break-all'; targets.forEach(t => { t.style.wordBreak = nextBreakAll ? 'break-all' : 'keep-all'; }); syncToolbarWithTarget(targets[targets.length - 1]); saveHistorySnapshot('줄바꿈 규칙 변경'); }
+function toggleWordBreakMode() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+ const targets = getMultiTextTargets(); if (targets.length === 0) return; const firstCs = window.getComputedStyle(targets[0]), nextBreakAll = (targets[0].style.wordBreak || firstCs.wordBreak) !== 'break-all'; targets.forEach(t => { t.style.wordBreak = nextBreakAll ? 'break-all' : 'keep-all'; }); syncToolbarWithTarget(targets[targets.length - 1]); saveHistorySnapshot('줄바꿈 규칙 변경'); }
 function transformSelectedTextCase(mode) {
   const convertStr = (str) => mode === 'upper' ? str.toUpperCase() : (mode === 'lower' ? str.toLowerCase() : str.replace(/\b([a-zA-Z])([a-zA-Z]*)/g, (_, f, r) => f.toUpperCase() + r.toLowerCase()));
   const usable = getUsableTextRange();
@@ -1100,11 +1128,15 @@ function toggleSubSup(cmd) {
   saveHistorySnapshot('위/아래첨자');
 }
 function applyTextShadowPreset(preset, isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const targets = getMultiTextTargets(); if (targets.length === 0) return; const colorHex = $studio('textShadowColorPicker')?.value || '#000000'; let shadowCss = '';
   if (preset === 'soft') shadowCss = `0 2px 8px ${hexToRgba(colorHex, 28)}`; else if (preset === 'strong') shadowCss = `0 4px 16px ${hexToRgba(colorHex, 55)}`; else if (preset === 'hard') shadowCss = `2px 2px 0px ${hexToRgba(colorHex, 88)}`; else if (preset === 'glow') shadowCss = `0 0 12px ${hexToRgba(colorHex, 55)}, 0 0 24px ${hexToRgba(colorHex, 28)}`;
   targets.forEach(t => { t.style.textShadow = shadowCss; }); if (!isLiveInput) { if (typeof recordRepeatableAction === 'function') recordRepeatableAction(`글자 그림자 (${preset})`, () => applyTextShadowPreset(preset, false)); saveHistorySnapshot('글자 그림자'); }
 }
 function applyTextStrokeStyle(isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const widthPx = Math.max(0, Math.min(6, Number($studio('textStrokeWidthInput')?.value || 0))), colorHex = $studio('textStrokeColorPicker')?.value || '#111111', targets = getMultiTextTargets();
   if (targets.length === 0) return;
   targets.forEach(t => { if (widthPx > 0) { t.style.webkitTextStroke = `${widthPx}px ${colorHex}`; t.style.paintOrder = 'stroke fill'; } else { t.style.webkitTextStroke = ''; t.style.paintOrder = ''; } });
@@ -1134,6 +1166,8 @@ function toggleInlineTextLinkBar() {
   if (willOpen) { const inp = $studio('inlineTextLinkInput'); if (inp) inp.focus(); }
 }
 function applyInlineTextLink() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const inp = $studio('inlineTextLinkInput');
   const rawVal = (inp?.value || '').trim();
   if (!rawVal) { showToast('연결할 URL 또는 이동할 슬라이드 번호를 입력해 주세요.'); return; }
@@ -1157,6 +1191,8 @@ function applyInlineTextLink() {
   } catch (e) {}
 }
 function removeInlineTextLink() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const sel = window.getSelection();
   let anchor = sel && sel.anchorNode ? (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode) : null;
   if (!anchor && lastFocusedEditable) anchor = lastFocusedEditable;
@@ -1166,6 +1202,8 @@ function removeInlineTextLink() {
   if (target) { const links = Array.from(target.querySelectorAll('a[data-inline-link]')); if (links.length > 0) { links.forEach(lk => { const p = lk.parentNode; while (lk.firstChild) p.insertBefore(lk.firstChild, lk); p.removeChild(lk); }); target.normalize(); saveHistorySnapshot('부분 하이퍼링크 해제'); } }
 }
 function insertSymbolAtCursor(sym) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   if (!sym) return; const sel = window.getSelection();
   if (sel && sel.rangeCount > 0) { const r = sel.getRangeAt(0), anc = r.commonAncestorContainer.nodeType === 3 ? r.commonAncestorContainer.parentElement : r.commonAncestorContainer; if (anc && anc.closest('#slideStage')) { r.deleteContents(); const tn = document.createTextNode(sym); r.insertNode(tn); const nextR = document.createRange(); nextR.setStartAfter(tn); nextR.collapse(true); sel.removeAllRanges(); sel.addRange(nextR); if (typeof markUnsavedChanges === 'function') markUnsavedChanges(); updateTextCharCounter(); saveHistorySnapshot(`기호 삽입 (${sym})`); return; } }
   const target = getTargetTextEl(); if (target) { target.appendChild(document.createTextNode(sym)); updateTextCharCounter(target); saveHistorySnapshot(`기호 삽입 (${sym})`); }

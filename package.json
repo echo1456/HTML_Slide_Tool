@@ -1,6 +1,6 @@
 {
   "name": "html-slide-tool",
-  "version": "5.3.2",
+  "version": "5.3.3",
   "private": true,
   "description": "Zero-bundler Strict-CSP Interactive HTML Presentation Studio & PWA",
   "scripts": {

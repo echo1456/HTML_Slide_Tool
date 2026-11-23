@@ -56,6 +56,14 @@ function setNextHistoryActionLabel(label) { __nextHistoryActionLabel = (label ||
 function saveHistorySnapshot(explicitLabel, forceFull) {
   if (__isRestoringHistory) return;
   if (__deferHistoryDuringLiveDrag) { __deferredHistoryDirty = true; return; }
+  if (!forceFull && typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const fcEd = typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : null;
+    const inFc = fcEd && ((selectedElement && fcEd.contains(selectedElement)) || (document.activeElement && fcEd.contains(document.activeElement)));
+    if (inFc && typeof recordFcSnapshot === 'function') {
+      recordFcSnapshot();
+      return;
+    }
+  }
   const stage = document.getElementById('slideStage');
   if (!stage) return;
   const slideNodes = Array.from(stage.querySelectorAll('.slide'));
