@@ -243,7 +243,7 @@ function bindGlobalEditorListeners() {
     const handle = e.target.closest('.ov-handle');
     if (!handle || !isActiveEditing()) return;
     const curSlideForResize = slides[currentSlide - 1];
-    if (curSlideForResize && curSlideForResize.getAttribute('data-slide-locked') === 'true') {
+    if (!(selectedElement && selectedElement.closest('#fcRichBodyEditor')) && curSlideForResize && curSlideForResize.getAttribute('data-slide-locked') === 'true') {
       showToast('잠긴 슬라이드의 요소는 크기를 조절할 수 없습니다.');
       return;
     }
@@ -644,7 +644,7 @@ function bindGlobalEditorListeners() {
     ovDragHandle.addEventListener('mousedown', (e) => {
       if (!isActiveEditing()) return;
       const curSlideForDrag = slides[currentSlide - 1];
-      if (curSlideForDrag && curSlideForDrag.getAttribute('data-slide-locked') === 'true') {
+      if (!(selectedElement && selectedElement.closest('#fcRichBodyEditor')) && curSlideForDrag && curSlideForDrag.getAttribute('data-slide-locked') === 'true') {
         showToast('잠긴 슬라이드의 요소는 이동할 수 없습니다.');
         return;
       }

@@ -614,7 +614,7 @@ function syncInspectorGeometry(el) {
 function applyInspectorGeometry() {
   if (!selectedElement) return;
   const activeSlideEl = slides[currentSlide - 1];
-  if ((activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') || selectedElement.getAttribute('data-layer-locked') === 'true') {
+  if ((typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) || selectedElement.getAttribute('data-layer-locked') === 'true') {
     showToast('잠긴 요소나 슬라이드의 좌표/크기는 변경할 수 없습니다.');
     syncInspectorGeometry(selectedElement);
     return;
@@ -2771,7 +2771,7 @@ function toggleElementAspectLock() {
 function applyInspectorPixelGeometry() {
   if (!selectedElement) return;
   const activeSlideEl = slides[currentSlide - 1];
-  if ((activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') || selectedElement.getAttribute('data-layer-locked') === 'true') {
+  if ((typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) || selectedElement.getAttribute('data-layer-locked') === 'true') {
     showToast('잠긴 요소나 슬라이드의 픽셀 크기는 변경할 수 없습니다.');
     syncPixelAndPaddingInputs(selectedElement);
     return;
@@ -2802,7 +2802,7 @@ function applyInspectorPixelGeometry() {
 
 function applyElementPaddingPx(rawPx) {
   const activeSlideEl = slides[currentSlide - 1];
-  if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) {
     showToast('잠긴 슬라이드의 여백은 변경할 수 없습니다.');
     return;
   }

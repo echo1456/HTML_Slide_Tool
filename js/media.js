@@ -500,7 +500,7 @@ function insertFreeShape(type) {
 
 function updateSelectedShapeStyle(prop, val, isLiveInput) {
   const activeSlideEl = slides[currentSlide - 1];
-  if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') return;
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) return;
   const rawTargets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
   const targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true' && (el.classList.contains('ppt-free-obj') || el.classList.contains('card-embedded-obj') || el.classList.contains('sub-box') || el.classList.contains('card-inner-textbox') || el.classList.contains('slide-card')));
   if (targets.length === 0) return;
@@ -564,7 +564,7 @@ function updateSelectedShapeStyle(prop, val, isLiveInput) {
 
 function toggleSelectedShapeShadow() {
   const activeSlideEl = slides[currentSlide - 1];
-  if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') { showToast('잠긴 슬라이드에서는 그림자를 변경할 수 없습니다.'); return; }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const rawTargets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
   const targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true' && (el.classList.contains('ppt-free-obj') || el.classList.contains('card-embedded-obj') || el.classList.contains('sub-box') || el.classList.contains('slide-card')));
   if (targets.length === 0) return;

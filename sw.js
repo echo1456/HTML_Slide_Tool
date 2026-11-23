@@ -1,5 +1,5 @@
 /* HTML Slide Tool — Offline-First PWA Service Worker (Auto-versioned by build.py) */
-const CACHE_NAME = 'html-slide-tool-v5.3.3';
+const CACHE_NAME = 'html-slide-tool-v5.3.4';
 const APP_SHELL_ASSETS = [
   './',
   './index.html',

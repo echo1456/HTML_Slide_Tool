@@ -1,5 +1,13 @@
 # Changelog
 
+## [v5.3.4] - 2026-11-23 — 전수 검사: 플로팅 카드 통합 편집 시 배경 슬라이드 잠금 우회 10개 지점 일괄 통일
+
+### Fixed
+- **[P0] 직접 `data-slide-locked` 검사로 인해 배경 슬라이드가 잠겨 있을 때 플로팅 카드 편집이 차단되던 10개 지점 일괄 해결 (`js/text-editor.js`, `js/media.js`, `js/effects.js`, `js/selection.js`, `js/main.js`)**:
+  - `execFormat`(굵게·기울임·밑줄·취소선·정렬), `toggleSubSup`, `resetCurrentContextStyle`, `updateSelectedShapeStyle`, `toggleSelectedShapeShadow`, `applyReactiveEffectToSelected`, `applyInspectorGeometry`, `applyInspectorPixelGeometry`, `applyElementPaddingPx`, 선택 오버레이 드래그/리사이즈 핸들이 모두 `isCurrentSlideLocked()` / `#fcRichBodyEditor` 컨텍스트를 존중하도록 통일.
+
+---
+
 ## [v5.3.3] - 2026-11-23 — 전수 검사 4건 해결 (플로팅 카드 텍스트 서식·히스토리 통합 완성 및 텍스트 편집기 잠금 가드 12종 보강)
 
 ### Fixed

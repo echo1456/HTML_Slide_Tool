@@ -377,11 +377,7 @@ function applyLetterSpacing(val, isLiveInput) {
 }
 
 function execFormat(command) {
-  const activeSlideEl = slides[currentSlide - 1];
-  if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') {
-    showToast('잠긴 슬라이드의 텍스트 서식은 변경할 수 없습니다.');
-    return;
-  }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   if (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true') {
     showToast('잠긴 레이어의 텍스트 서식은 변경할 수 없습니다.');
     return;
@@ -1109,8 +1105,7 @@ function transformSelectedTextCase(mode) {
   targets.forEach(t => { const walker = document.createTreeWalker(t, NodeFilter.SHOW_TEXT, null); let n; while ((n = walker.nextNode())) n.nodeValue = convertStr(n.nodeValue); }); saveHistorySnapshot('대소문자 변환');
 }
 function toggleSubSup(cmd) {
-  const activeSlideEl = slides[currentSlide - 1];
-  if ((activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') || (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true')) {
+  if ((typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) || (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true')) {
     showToast('잠긴 요소나 슬라이드는 수정할 수 없습니다.');
     return;
   }
@@ -1237,11 +1232,7 @@ function toggleTextboxAutoWidth() {
 }
 
 function resetCurrentContextStyle() {
-  const activeSlideEl = slides[currentSlide - 1];
-  if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') {
-    showToast('잠긴 슬라이드에서는 서식을 초기화할 수 없습니다.');
-    return;
-  }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   if (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true') {
     showToast('잠긴 레이어의 서식은 초기화할 수 없습니다.');
     return;

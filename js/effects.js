@@ -118,7 +118,7 @@ function applyReactiveBorderSettings(isLiveInput) {
 
 function applyReactiveEffectToSelected(fxType) {
   const activeSlideEl = slides[currentSlide - 1];
-  if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') { showToast('잠긴 슬라이드에서는 반응형 모션을 변경할 수 없습니다.'); return; }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   if (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true') { showToast('잠긴 레이어에서는 반응형 모션을 변경할 수 없습니다.'); return; }
   const sel = window.getSelection();
   const hasRange = sel && sel.rangeCount > 0;
