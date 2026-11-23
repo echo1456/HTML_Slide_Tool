@@ -1013,10 +1013,24 @@ function positionSelectionOverlay() {
     selectedElements = [selectedElement];
   }
   syncMultiSelectVisuals();
+  if (selectedElement && selectedElement.ownerDocument !== document) {
+    overlay.classList.remove('visible');
+    return;
+  }
   const rect = getSelectionGroupRect();
   if (!rect) {
     overlay.classList.remove('visible');
     return;
+  }
+  const fcClipBox = (selectedElement && selectedElement.closest) ? selectedElement.closest('#fcRichBodyEditor') : null;
+  const detachBtn = document.getElementById('ovDetachBtn');
+  if (detachBtn) detachBtn.classList.toggle('hidden', Boolean(fcClipBox));
+  if (fcClipBox) {
+    const clipR = fcClipBox.getBoundingClientRect();
+    if (rect.bottom < clipR.top + 4 || rect.top > clipR.bottom - 4) {
+      overlay.classList.remove('visible');
+      return;
+    }
   }
   overlay.style.left = rect.left + 'px';
   overlay.style.top = rect.top + 'px';

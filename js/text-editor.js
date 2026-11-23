@@ -154,7 +154,9 @@ function syncToolbarWithTarget(targetEl) {
 function getTargetTextEl() {
   const isFcCtx = typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive();
   const fcEd = isFcCtx && typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : null;
-  const sel = window.getSelection();
+  const fcWin = (fcEd && fcEd.ownerDocument && fcEd.ownerDocument.defaultView) ? fcEd.ownerDocument.defaultView : window;
+  const fcSel = (fcWin && typeof fcWin.getSelection === 'function') ? fcWin.getSelection() : null;
+  const sel = (fcSel && fcSel.anchorNode) ? fcSel : window.getSelection();
   if (sel && sel.anchorNode) {
     const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
     if (fcEd && node && fcEd.contains(node)) {

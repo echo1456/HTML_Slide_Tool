@@ -324,6 +324,10 @@ body.edit-mode .header-editable:focus {
   max-height: calc(100vh - 16px);
 }
 #fcEditorDialogPanel.fc-maximized {
+  position: fixed !important;
+  left: 12px !important;
+  top: 12px !important;
+  margin: 0 !important;
   width: calc(100vw - 24px) !important;
   height: calc(100vh - 24px) !important;
   max-width: calc(100vw - 24px) !important;

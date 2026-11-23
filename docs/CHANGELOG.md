@@ -1,5 +1,36 @@
 # Changelog
 
+## [v5.3.7] - 2026-11-23 — 전수 검사: 플로팅 카드 저장 시 트리거 연결 유실 및 메인 히스토리 누락 치명적 결함 해결
+
+### Fixed
+- **[P0] 플로팅 카드 편집 후 `💾 플로팅 카드 저장 및 연결` 시 슬라이드 트리거 연결이 유실되던 치명적 결함 해결 (`js/floating-cards.js`)**:
+  - 통합 편집 중 `#fcRichBodyEditor` 내부 요소를 클릭해 `selectedElement`가 바뀐 상태에서 저장 버튼을 누르면, 원래 연결하려던 슬라이드 요소가 잊히고 새 버튼도 생성되지 않던 버그를 `fcOriginTriggerElement` 보존 로직으로 해결.
+  - 원래 슬라이드 트리거가 있었으면 해당 슬라이드 요소에 정확히 연결하고, 없었으면 활성 슬라이드에 새 `🪟 <제목>` 링크 버튼을 자동 생성해 연결.
+- **[P0] 플로팅 카드 저장 직후 메인 슬라이드 Undo 스택 기록 누락 해결 (`js/floating-cards.js`)**: 링크 연결 및 히스토리 저장 직전에 `setActiveEditingContext('slide')`로 전환해 저장 결과가 메인 Undo 스택에 정상 커밋되도록 수정.
+
+---
+
+## [v5.3.6] - 2026-11-23 — 전수 검사: 플로팅 카드 최대화/창분리 위치 이탈 · 팝업 닫힘 컨텍스트 복귀 · 스크롤 오버레이 클리핑 · 크로스윈도우 텍스트 선택 5건 해결
+
+### Fixed
+- **[P0] 드래그 이동 후 `⛶ 최대화` 및 `새 창 분리` 시 플로팅 카드 패널이 화면 밖으로 밀리던 결함 해결 (`css/editor.css`, `js/floating-cards.js`)**: `#fcEditorDialogPanel.fc-maximized`에 `position/left/top` 고정 규칙 추가, 팝업 분리/복귀 시 인라인 좌표 초기화.
+- **[P0] 분리된 플로팅 카드 창을 브라우저 `X`로 닫을 때 `✦ 카드 편집중` 컨텍스트가 고착되던 결함 해결 (`js/floating-cards.js`)**: `dockFcStudioBackToMain(true)`에서 `activeEditingContext`를 `'slide'`로 복귀하고 잔여 선택 초기화.
+- **[P0] 플로팅 카드 내부 선택 오버레이 UX 정교화 (`js/selection.js`, `js/floating-cards.js`)**: 카드 내부 요소 선택 시 불필요한 `⤢ 그리드 분리` 버튼 자동 숨김, `#fcRichBodyEditor` 스크롤 시 오버레이 실시간 추적 및 뷰포트 이탈 시 숨김, 분리 창 요소 선택 시 메인 창 오버레이 오표시 차단.
+- **[P1] 새 창 분리된 플로팅 카드의 텍스트 선택 영역을 메인 스튜디오 `getTargetTextEl()`에서 인식하도록 크로스윈도우 선택 지원 (`js/text-editor.js`)**.
+- **[P1] `openFloatingCardLightbox` 다중 카드 클릭 이벤트 `addEventListener` 통일 (`js/floating-cards.js`)**.
+
+---
+
+## [v5.3.5] - 2026-11-23 — 전수 검사: 플로팅 카드 발표 라이트박스 위젯·유튜브·3D 플립·음소거 정화 4건 해결
+
+### Fixed
+- **[P0] 플로팅 카드 발표 라이트박스(`hydrateFloatingCardSurface`) 위젯 편집 바 노출 방지 (`js/floating-cards.js`)**: 발표 모드 팝업 렌더링 시 `.iw-edit-bar`, `.embed-widget-drag-bar`, `.yt-local-hint-bar`, `.card-edit-controls`, `.ppt-slide-comment-badge`를 자동 제거하고 `.iw-flip-scene.is-editing-back`을 초기화.
+- **[P0] 플로팅 카드 내부 YouTube 임베드 프로토콜 자동 보정 (`js/floating-cards.js`)**: 라이트박스 오픈 시 `hydrateYouTubeEmbedsForProtocol(bodyTargetEl)`를 호출해 `https://`↔`file://` 환경 전환 시에도 오류 153 없이 정상 재생.
+- **[P0] 3D 플립 카드 뒷면 편집 상태 저장 오염 방지 (`js/floating-cards.js`)**: `saveFloatingCardFromEditor()` 저장 시 `.is-editing-back`과 토글 버튼 문구를 앞면 기준으로 정규화.
+- **[P1] 플로팅 카드 라이트박스 닫기 시 YouTube/웹 `<iframe>` 백그라운드 오디오 잔류 차단 (`js/floating-cards.js`)**: `closeFloatingCardLightbox()`에서 `#floatingCardLightboxBody`를 비워 닫힌 뒤 영상 소리가 계속 재생되는 문제 해결.
+
+---
+
 ## [v5.3.4] - 2026-11-23 — 전수 검사: 플로팅 카드 통합 편집 시 배경 슬라이드 잠금 우회 10개 지점 일괄 통일
 
 ### Fixed

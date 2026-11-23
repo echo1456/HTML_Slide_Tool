@@ -697,6 +697,10 @@ function openExternalFloatingCardWindow() {
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #F5F5F7; color: #111111; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif; overflow: hidden; }
     #fcEditorDialogPanel {
+      position: relative !important;
+      left: 0 !important;
+      top: 0 !important;
+      margin: 0 !important;
       width: 100% !important;
       height: 100vh !important;
       max-width: 100% !important;
@@ -733,6 +737,13 @@ function openExternalFloatingCardWindow() {
 
   const targetBody = win.document.body || win.document.documentElement;
   const adopted = win.document.adoptNode(dialogPanel);
+  adopted.style.position = 'relative';
+  adopted.style.left = '';
+  adopted.style.top = '';
+  adopted.style.margin = '';
+  adopted.classList.remove('fc-maximized');
+  const mainOv = document.getElementById('pptSelectionOverlay');
+  if (mainOv && selectedElement && adopted.contains(selectedElement)) mainOv.classList.remove('visible');
 
 
   const popBtn = adopted.querySelector('#popoutFcStudioBtn');
@@ -786,8 +797,13 @@ function dockFcStudioBackToMain(fromUnload) {
     const modal = document.getElementById('floatingCardEditorModal');
     if (dialogPanel && modal) {
       const adoptedBack = document.adoptNode(dialogPanel);
-      adoptedBack.style.width = '760px';
-      adoptedBack.style.height = '86vh';
+      adoptedBack.style.position = '';
+      adoptedBack.style.left = '';
+      adoptedBack.style.top = '';
+      adoptedBack.style.margin = '';
+      adoptedBack.style.width = '680px';
+      adoptedBack.style.height = '78vh';
+      adoptedBack.classList.remove('fc-maximized');
 
       const popBtn = adoptedBack.querySelector('#popoutFcStudioBtn');
       if (popBtn) {
@@ -798,6 +814,14 @@ function dockFcStudioBackToMain(fromUnload) {
       if (!fromUnload) {
         if (typeof openModalSafe === 'function') openModalSafe(modal);
         else { modal.classList.remove('hidden'); modal.classList.add('flex'); modal.style.display = 'flex'; }
+        if (typeof setActiveEditingContext === 'function') setActiveEditingContext('floating-card');
+      } else {
+        const fcEdBack = document.getElementById('fcRichBodyEditor');
+        if (fcEdBack && selectedElement && fcEdBack.contains(selectedElement) && typeof clearSelectionInspector === 'function') {
+          clearSelectionInspector();
+        }
+        fcOriginTriggerElement = null;
+  if (typeof setActiveEditingContext === 'function') setActiveEditingContext('slide');
       }
     }
     if (!fromUnload && !win.closed) win.close();
@@ -1493,6 +1517,11 @@ function clearFloatingCardBgImage() {
         selectElementForInspector(hit, Boolean(ev.shiftKey));
       }
     });
+    editor.addEventListener('scroll', () => {
+      if (selectedElement && editor.contains(selectedElement) && typeof positionSelectionOverlay === 'function') {
+        positionSelectionOverlay();
+      }
+    }, { passive: true });
   }
   showToast('플로팅 카드 기본 배경 이미지가 제거되었습니다.');
 }
@@ -1596,8 +1625,13 @@ function startFcPreviewPanelDrag(e) {
   document.addEventListener('mouseup', onUp);
 }
 
+let fcOriginTriggerElement = null;
+
 function openFloatingCardEditor(cardId) {
   if (typeof isEditMode !== 'undefined' && !isEditMode && typeof toggleEditMode === 'function') toggleEditMode(true);
+  fcOriginTriggerElement = (typeof selectedElement !== 'undefined' && selectedElement && document.body.contains(selectedElement) && !selectedElement.closest('#fcRichBodyEditor') && !selectedElement.classList.contains('slide'))
+    ? selectedElement
+    : null;
   const store = ensureFloatingCardsStore();
   const modal = document.getElementById('floatingCardEditorModal');
   if (!store || !modal) {
@@ -1856,6 +1890,12 @@ function saveFloatingCardFromEditor() {
     clone.querySelectorAll('.fc-item-resize-grip, .fc-item-resize-grip-e, .fc-item-resize-grip-s, .fc-item-move-grip').forEach(g => g.remove());
     clone.querySelectorAll('.fc-item-selected, .chart-cell-selected, .ppt-multi-selected, .is-selected').forEach(el => el.classList.remove('fc-item-selected', 'chart-cell-selected', 'ppt-multi-selected', 'is-selected'));
     clone.querySelectorAll('.table-col-resizer, .table-row-resizer').forEach(r => r.remove());
+    clone.querySelectorAll('.iw-flip-scene.is-editing-back').forEach(s => {
+      s.classList.remove('is-editing-back');
+      const w = s.closest('.ppt-interactive-widget');
+      const flipBtn = w ? w.querySelector('button[data-on-click*="toggleIwFlipEditSide"]') : null;
+      if (flipBtn) flipBtn.textContent = '↻ 뒷면 편집으로 전환';
+    });
     cleanHtml = clone.innerHTML;
   }
 
@@ -1899,7 +1939,16 @@ function saveFloatingCardFromEditor() {
   const sel = $studio('floatingCardSelect');
   if (sel) sel.value = activeEditingFloatingCardId;
 
-  if (!selectedElement || selectedElement.classList.contains('slide')) {
+  // Resolve the actual slide trigger element (never link to an inner element of #fcRichBodyEditor!)
+  const slideTriggerTarget = (selectedElement && document.body.contains(selectedElement) && !selectedElement.closest('#fcRichBodyEditor') && !selectedElement.classList.contains('slide'))
+    ? selectedElement
+    : ((fcOriginTriggerElement && document.body.contains(fcOriginTriggerElement) && !fcOriginTriggerElement.closest('#fcRichBodyEditor')) ? fcOriginTriggerElement : null);
+
+  if (typeof setActiveEditingContext === 'function') setActiveEditingContext('slide');
+
+  if (slideTriggerTarget) {
+    selectElementForInspector(slideTriggerTarget, false);
+  } else {
     const activeSlideEl = slides[currentSlide - 1];
     if (activeSlideEl) {
       ensureFreeLayersOnAllSlides();
@@ -1916,12 +1965,12 @@ function saveFloatingCardFromEditor() {
       }
     }
   }
-  if (selectedElement) {
+  if (selectedElement && !selectedElement.closest('#fcRichBodyEditor')) {
     const typeSel = $studio('linkActionTypeSelect');
     if (typeSel) typeSel.value = 'floating';
     onLinkActionTypeChange('floating');
   } else {
-    saveHistorySnapshot('플로팅 팝업 카드 생성');
+    saveHistorySnapshot('플로팅 팝업 카드 생성', true);
   }
   closeFloatingCardEditor();
   showToast(`플로팅 카드 "${title}"가 저장되었습니다!`);
@@ -2252,8 +2301,10 @@ function hydrateFloatingCardSurface(boxEl, recordEl, bodyTargetEl, extraTopHtml,
 
   bodyTargetEl.innerHTML = (extraTopHtml || '') + recordEl.innerHTML;
   bodyTargetEl.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
-  bodyTargetEl.querySelectorAll('.fc-item-resize-grip, .fc-item-resize-grip-e, .fc-item-resize-grip-s, .fc-item-move-grip, .table-col-resizer, .table-row-resizer').forEach(g => g.remove());
-  bodyTargetEl.querySelectorAll('.chart-cell-selected').forEach(el => el.classList.remove('chart-cell-selected'));
+  bodyTargetEl.querySelectorAll('.fc-item-resize-grip, .fc-item-resize-grip-e, .fc-item-resize-grip-s, .fc-item-move-grip, .table-col-resizer, .table-row-resizer, .iw-edit-bar, .embed-widget-drag-bar, .yt-local-hint-bar, .card-edit-controls, .ppt-slide-comment-badge').forEach(g => g.remove());
+  bodyTargetEl.querySelectorAll('.iw-flip-scene.is-editing-back').forEach(s => s.classList.remove('is-editing-back'));
+  bodyTargetEl.querySelectorAll('.chart-cell-selected, .ppt-multi-selected, .is-selected, .fc-item-selected').forEach(el => el.classList.remove('chart-cell-selected', 'ppt-multi-selected', 'is-selected', 'fc-item-selected'));
+  if (typeof hydrateYouTubeEmbedsForProtocol === 'function') hydrateYouTubeEmbedsForProtocol(bodyTargetEl);
   if (typeof animateSlideKpisAndCharts === 'function') requestAnimationFrame(() => animateSlideKpisAndCharts(bodyTargetEl));
 }
 
@@ -2287,7 +2338,7 @@ function openFloatingCardLightbox(fcIdOrList, explicitList, displayMode) {
       const rec = store.querySelector(`[data-fc-id="${id}"]`);
       if (!rec) return;
       const cardEl = document.createElement('div');
-      cardEl.onclick = (ev) => ev.stopPropagation();
+      cardEl.addEventListener('click', (ev) => ev.stopPropagation());
       const innerBody = document.createElement('div');
       innerBody.className = 'fc-multi-card-body';
       cardEl.appendChild(innerBody);
@@ -2326,6 +2377,8 @@ function closeFloatingCardLightbox() {
     lightbox.querySelectorAll('video, audio').forEach(m => { try { if (!m.paused) m.pause(); } catch (e) {} });
     lightbox.classList.remove('open', 'fc-multi-open');
     lightbox.querySelectorAll('.fc-multi-card-item').forEach(n => n.remove());
+    const bodyEl = document.getElementById('floatingCardLightboxBody');
+    if (bodyEl) bodyEl.innerHTML = '';
   }
 }
 
