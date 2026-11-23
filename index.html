@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="HTML Slide Tool v5.3.8">
+  <meta name="generator" content="HTML Slide Tool v5.3.9">
   <meta name="theme-color" content="#0055FF">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -641,7 +641,7 @@
           </div>
           <div class="p-6 md:px-10 md:py-6 flex items-center justify-between bg-canvas">
             <span data-editable="" class="font-mono text-xs text-muted">HTML SLIDE TOOL</span>
-            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.3.8 READY</span>
+            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.3.9 READY</span>
           </div>
         </div>
       </div>
@@ -1157,7 +1157,8 @@
             </div>
             <div class="flex items-center gap-1 text-[10px] font-bold">
               <select id="unifiedBgTargetSelect" class="px-2 py-1 rounded bg-white border border-borderline cursor-pointer">
-                <option value="slide">대상: 슬라이드 배경</option>
+                <option value="slide">대상: 현재 슬라이드 배경</option>
+                <option value="all-slides">대상: 전체 슬라이드 배경</option>
                 <option value="card">대상: 선택 카드 배경</option>
                 <option value="card-hover">대상: 카드 호버 배경</option>
               </select>
@@ -1241,6 +1242,12 @@
                   <input type="range" id="gradAlphaEnd" min="0" max="100" value="100" class="flex-1 cursor-pointer" data-on-input="previewAndApplyGradient()" data-on-change="saveHistorySnapshot('그라데이션 적용')">
                   <span id="gradAlphaEndLabel" class="font-mono text-[9px] text-muted w-7 text-right shrink-0">100%</span>
                 </div>
+              </div>
+              <div class="grid grid-cols-2 gap-1 pt-1.5 border-t border-borderline text-[10px] font-bold">
+                <button type="button" class="py-1.5 px-2 rounded-lg bg-ink hover:bg-gopro text-white cursor-pointer transition-colors" data-on-click="applyGradientToTarget('slide')" aria-label="슬라이드 배경 적용" title="현재 슬라이드 배경에 그라데이션 / 페이드 마스크 적용">슬라이드 배경 적용</button>
+                <button type="button" class="py-1.5 px-2 rounded-lg bg-gopro hover:bg-goproDark text-white cursor-pointer transition-colors" data-on-click="applyGradientToTarget('card')" aria-label="선택 카드 배경 적용" title="선택한 카드 배경에 그라데이션 / 페이드 마스크 적용">선택 카드 배경 적용</button>
+                <button type="button" class="py-1.5 px-2 rounded-lg bg-white hover:bg-canvas border border-borderline text-ink cursor-pointer transition-colors" data-on-click="applyGradientToTarget('card-hover')" aria-label="카드 호버 배경 적용" title="선택한 카드의 호버 배경에 그라데이션 / 페이드 마스크 적용">카드 호버 배경 적용</button>
+                <button type="button" class="py-1.5 px-2 rounded-lg bg-white hover:bg-gopro hover:text-white border border-gopro text-gopro cursor-pointer transition-colors" data-on-click="applyGradientToTarget('selected')" aria-label="선택 요소 적용" title="선택한 이미지·도형·텍스트 등 요소에 그라데이션 / 페이드 마스크 적용">선택 요소 적용</button>
               </div>
             </div>
           </div></div>

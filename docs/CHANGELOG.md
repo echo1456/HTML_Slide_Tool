@@ -1,5 +1,15 @@
 # Changelog
 
+## [v5.3.9] - 2026-11-23 — 그라데이션·페이드 마스크 4종 대상 적용 버튼 복구 및 현재 슬라이드 전용 배경 이미지 선택 명확화
+
+### Added & Fixed
+- **디자인 탭 그라데이션·페이드 마스크 패널 4종 적용 버튼 추가 (`index.html`, `js/theme.js`)**:
+  - `슬라이드 배경 적용`(`applyGradientToTarget('slide')`), `선택 카드 배경 적용`(`applyGradientToTarget('card')`), `카드 호버 배경 적용`(`applyGradientToTarget('card-hover')`), `선택 요소 적용`(`applyGradientToTarget('selected')`) 버튼 4종을 배치해 슬라이드·카드·호버·개별 요소(이미지·도형 등) 모두에 그라데이션과 페이드 마스크를 원클릭 적용 가능.
+- **슬라이드 배경 이미지 대상 명확화 (`index.html`, `js/theme.js`)**:
+  - 통합 배경 이미지 드롭다운 기본 대상을 **`대상: 현재 슬라이드 배경`**(`value="slide"`)으로 명시해 현재 슬라이드(`:scope > .slide-bg-layer`)에만 정확히 적용되도록 하고, 필요 시 전체 적용을 원할 때만 선택할 수 있도록 **`대상: 전체 슬라이드 배경`**(`value="all-slides"`) 옵션을 분리.
+
+---
+
 ## [v5.3.8] - 2026-11-23 — 전수 검사: 비모달 플로팅 카드 패널 열림 상태에서 배경 슬라이드 차트/표 편집 하이재킹 및 히스토리 오기록 결함 해결
 
 ### Fixed

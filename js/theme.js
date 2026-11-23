@@ -205,6 +205,19 @@ function applyGradientPreset(type, angle, c1, c3, a1, a3, isDarkText) {
 function applyGradientToTarget(targetMode) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const css = buildGradientCssString();
+  if (targetMode === 'card') {
+    const card = getTargetCardForHierarchy();
+    if (!card) {
+      showToast('먼저 그라데이션/페이드 마스크를 적용할 카드를 클릭해 주세요.');
+      return;
+    }
+    applyGradientToElementOrMedia(card, css);
+    saveHistorySnapshot(currentGradMode === 'mask' ? '카드 배경 페이드 마스크 적용' : '카드 배경 그라데이션 적용');
+    showToast(currentGradMode === 'mask'
+      ? '선택한 카드 배경에 페이드 마스크가 적용되었습니다.'
+      : '선택한 카드 배경에 컬러 그라데이션이 적용되었습니다.');
+    return;
+  }
   if (targetMode === 'card-hover') {
     const card = getTargetCardForHierarchy();
     if (!card) {
@@ -212,7 +225,7 @@ function applyGradientToTarget(targetMode) {
       return;
     }
     applyGradientToElementOrMedia(card, css, 'card-hover');
-    saveHistorySnapshot();
+    saveHistorySnapshot(currentGradMode === 'mask' ? '카드 호버 페이드 마스크 적용' : '카드 호버 그라데이션 적용');
     showToast(currentGradMode === 'mask'
       ? '카드 호버 배경 이미지에 투명화 마스크가 적용되었습니다.'
       : '카드 호버 배경에 컬러 그라데이션이 적용되었습니다.');
@@ -446,10 +459,30 @@ function initBgUploaderListener() {
           }
           saveHistorySnapshot();
           showToast('호버 배경 이미지가 적용되었습니다! 발표 모드에서 마우스를 올리면 반투명 호버 배경색과 함께 나타납니다.');
-        } else {
-          const activeSlideEl = slides[currentSlide - 1];
+        } else if (bgUploadTarget === 'all-slides') {
           ensureFreeLayersOnAllSlides();
-          const bgLayer = activeSlideEl.querySelector('.slide-bg-layer');
+          let appliedCnt = 0;
+          slides.forEach(sEl => {
+            if (sEl.getAttribute('data-slide-locked') === 'true') return;
+            const bgLayer = sEl.querySelector(':scope > .slide-bg-layer') || sEl.querySelector('.slide-bg-layer');
+            if (bgLayer) {
+              bgLayer.style.backgroundImage = `url("${dataUrl}")`;
+              bgLayer.style.opacity = '1';
+              const gridBody = sEl.querySelector('.slide-grid-body');
+              if (gridBody) gridBody.style.backgroundColor = 'transparent';
+              appliedCnt++;
+            }
+          });
+          const slider = $studio('slideBgOpacitySlider');
+          if (slider) slider.value = '100';
+          saveHistorySnapshot('전체 슬라이드 배경 이미지 적용');
+          showToast(`전체 슬라이드(${appliedCnt}장) 배경에 이미지가 일괄 적용되었습니다.`);
+        } else {
+          if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
+          const activeSlideEl = slides[currentSlide - 1];
+          if (!activeSlideEl) return;
+          ensureFreeLayersOnAllSlides();
+          const bgLayer = activeSlideEl.querySelector(':scope > .slide-bg-layer') || activeSlideEl.querySelector('.slide-bg-layer');
           if (bgLayer) {
             bgLayer.style.backgroundImage = `url("${dataUrl}")`;
             bgLayer.style.opacity = '1';
@@ -457,8 +490,8 @@ function initBgUploaderListener() {
             if (slider) slider.value = '100';
             const gridBody = activeSlideEl.querySelector('.slide-grid-body');
             if (gridBody) gridBody.style.backgroundColor = 'transparent';
-            saveHistorySnapshot();
-            showToast('슬라이드 전체 배경에 이미지가 적용되었습니다. (카드 반투명/투명도로 비침 조절 가능)');
+            saveHistorySnapshot(`P.${String(currentSlide).padStart(2, '0')} 슬라이드 배경 이미지 적용`);
+            showToast(`현재 슬라이드(P.${String(currentSlide).padStart(2, '0')}) 배경에만 이미지가 적용되었습니다.`);
           }
         }
       };
@@ -1095,6 +1128,14 @@ function triggerUnifiedBackgroundUpload() {
 function clearUnifiedBackgroundImage() {
   const mode = $studio('unifiedBgTargetSelect')?.value || 'slide';
   if (mode === 'slide') clearSlideBgImage();
-  else if (mode === 'card-hover') clearSelectedCardHoverBgImage();
+  else if (mode === 'all-slides') {
+    slides.forEach(sEl => {
+      if (sEl.getAttribute('data-slide-locked') === 'true') return;
+      const bgLayer = sEl.querySelector(':scope > .slide-bg-layer') || sEl.querySelector('.slide-bg-layer');
+      if (bgLayer) { bgLayer.style.backgroundImage = ''; bgLayer.style.opacity = '1'; }
+    });
+    saveHistorySnapshot('전체 슬라이드 배경 이미지 제거');
+    showToast('전체 슬라이드의 배경 이미지가 제거되었습니다.');
+  } else if (mode === 'card-hover') clearSelectedCardHoverBgImage();
   else clearSelectedCardBgImage();
 }
