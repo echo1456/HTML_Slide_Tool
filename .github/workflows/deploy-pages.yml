@@ -1,0 +1,54 @@
+name: Deploy PWA to GitHub Pages
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Verify & Deploy Public Web App
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify static integrity before deploy
+        run: |
+          python3 -m pip install --upgrade pip lxml tinycss2
+          python3 -W error build.py --test
+
+      - name: Assemble clean public _site/ directory (excludes tests & CI files)
+        run: |
+          mkdir -p _site
+          cp index.html manifest.webmanifest sw.js README.md _site/
+          cp -r css js icons _site/
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
