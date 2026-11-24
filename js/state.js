@@ -1,4 +1,4 @@
-window.PPTStudio = window.PPTStudio || { version: 'v5.6.9', offlineRuntimeRules: new Set() };
+window.PPTStudio = window.PPTStudio || { version: 'v5.6.10', offlineRuntimeRules: new Set() };
 
 function openModalSafe(elOrId) {
   const modal = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -369,6 +369,7 @@ function updateStageViewportScale() {
   if (zoomLbl) zoomLbl.textContent = `${Math.round(userZoomFactor * 100)}%`;
   if (typeof renderRulerTicks === 'function') renderRulerTicks();
   if (typeof updateSlideConnectors === 'function') updateSlideConnectors();
+  if (typeof syncFloatingCardLightboxScale === 'function') syncFloatingCardLightboxScale();
 
   const activeSlide = slides[currentSlide - 1] || document.querySelector('.slide.active');
   if (activeSlide) {

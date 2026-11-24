@@ -1,5 +1,12 @@
 # Changelog
 
+## [v5.6.10] - 2026-11-24 — `updateStageViewportScale()` 내 `syncFloatingCardLightboxScale()` 호출 누락 수정 (CI 19종 전수 통과)
+
+### Fixed
+- **[P0] 창 리사이즈·편집↔발표 전환 시 플로팅 카드 라이트박스 배율 동기화 누락 수정 (`js/state.js`)**: `v5.6.9`에서 `setDeckAspectRatio()`에만 들어가고 `updateStageViewportScale()` 본문에 누락되었던 `syncFloatingCardLightboxScale()` 호출을 추가해, 브라우저 창 크기 변경·모바일 회전·편집 모드 종료 직후에도 `--fc-lb-scale`이 `--stage-scale`과 오차 없이 1:1 실시간 동기화되도록 수정 (CI Test 19 실패 원인 해결).
+
+---
+
 ## [v5.6.9] - 2026-11-24 — 플로팅 팝업 카드 1:1 슬라이드 비율 연동 스케일링 (`#floatingCardLightboxStage`) — PC · 스마트패드 · 모바일 완벽 동일 구도
 
 ### Fixed & Improved
