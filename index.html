@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="HTML Slide Tool v5.3.9">
+  <meta name="generator" content="HTML Slide Tool v5.4.1">
   <meta name="theme-color" content="#0055FF">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -641,7 +641,7 @@
           </div>
           <div class="p-6 md:px-10 md:py-6 flex items-center justify-between bg-canvas">
             <span data-editable="" class="font-mono text-xs text-muted">HTML SLIDE TOOL</span>
-            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.3.9 READY</span>
+            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.4.1 READY</span>
           </div>
         </div>
       </div>
@@ -1184,9 +1184,23 @@
               <label class="px-1 py-1 rounded bg-white border border-borderline flex items-center justify-between"><span>하단배경</span><input type="color" id="bottomFooterBgPicker" value="#F5F5F7" class="w-3.5 h-3.5 border-0 bg-transparent cursor-pointer" data-on-input="applyChromeBarColors('footer', 'bg', this.value, true)" data-on-change="applyChromeBarColors('footer', 'bg', this.value, false)"></label>
               <label class="px-1 py-1 rounded bg-white border border-borderline flex items-center justify-between"><span>하단글자</span><input type="color" id="bottomFooterTextPicker" value="#111111" class="w-3.5 h-3.5 border-0 bg-transparent cursor-pointer" data-on-input="applyChromeBarColors('footer', 'fg', this.value, true)" data-on-change="applyChromeBarColors('footer', 'fg', this.value, false)"></label>
             </div>
-            <div class="grid grid-cols-2 gap-1 text-[10px] font-bold">
-              <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1"><span>카드불투명</span><input type="range" id="cardBgOpacitySlider" min="0" max="100" value="100" class="flex-1 min-w-0 cursor-pointer" data-on-input="applySelectedCardBgOpacity(this.value, true)" data-on-change="applySelectedCardBgOpacity(this.value, false)"><span id="cardBgOpacityLabel" class="font-mono text-gopro text-[9px]">100%</span><input type="range" id="slideBgOpacitySlider" min="0" max="100" value="100" class="hidden" aria-hidden="true"><input type="color" id="slideBgPicker" value="#F5F5F7" class="hidden" aria-hidden="true"></label>
-              <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1"><span>블러</span><input type="range" id="blurRangeSlider" min="0" max="32" value="0" class="flex-1 min-w-0 cursor-pointer" data-on-input="onBlurSliderChange(this.value)" data-on-change="saveHistorySnapshot('블러 효과 적용')"><span id="blurAmountLabel" class="font-mono text-gopro text-[9px]">0px</span></label>
+            <div class="p-2 rounded-xl bg-canvas border border-borderline space-y-1.5 text-[10px] font-bold">
+              <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1.5"><span class="shrink-0">불투명도</span><input type="range" id="cardBgOpacitySlider" min="0" max="100" value="100" class="flex-1 min-w-0 cursor-pointer" data-on-input="applySelectedCardBgOpacity(this.value, true)" data-on-change="applySelectedCardBgOpacity(this.value, false)"><span id="cardBgOpacityLabel" class="font-mono text-gopro text-[9px] w-7 text-right shrink-0">100%</span><input type="range" id="slideBgOpacitySlider" min="0" max="100" value="100" class="hidden" aria-hidden="true"><input type="color" id="slideBgPicker" value="#F5F5F7" class="hidden" aria-hidden="true"></label>
+              <div class="grid grid-cols-2 gap-1 text-[9px]">
+                <button type="button" class="py-1 px-1.5 rounded bg-ink hover:bg-gopro text-white cursor-pointer" data-on-click="applyOpacityToTarget('slide')" aria-label="불투명도 슬라이드 배경 적용" title="현재 슬라이드 배경에 불투명도 적용">슬라이드 배경 적용</button>
+                <button type="button" class="py-1 px-1.5 rounded bg-gopro hover:bg-goproDark text-white cursor-pointer" data-on-click="applyOpacityToTarget('card')" aria-label="불투명도 선택 카드 배경 적용" title="선택한 카드 배경에 불투명도 적용">선택 카드 배경 적용</button>
+                <button type="button" class="py-1 px-1.5 rounded bg-white hover:bg-canvas border border-borderline text-ink cursor-pointer" data-on-click="applyOpacityToTarget('card-hover')" aria-label="불투명도 카드 호버 배경 적용" title="선택한 카드 호버 배경에 불투명도 적용">카드 호버 배경 적용</button>
+                <button type="button" class="py-1 px-1.5 rounded bg-white hover:bg-gopro hover:text-white border border-gopro text-gopro cursor-pointer" data-on-click="applyOpacityToTarget('selected')" aria-label="불투명도 선택 요소 적용" title="선택한 요소에 불투명도 적용">선택 요소 적용</button>
+              </div>
+            </div>
+            <div class="p-2 rounded-xl bg-canvas border border-borderline space-y-1.5 text-[10px] font-bold">
+              <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1.5"><span class="shrink-0">블러 효과</span><input type="range" id="blurRangeSlider" min="0" max="32" value="0" class="flex-1 min-w-0 cursor-pointer" data-on-input="onBlurSliderChange(this.value)" data-on-change="saveHistorySnapshot('블러 효과 적용')"><span id="blurAmountLabel" class="font-mono text-gopro text-[9px] w-7 text-right shrink-0">0px</span></label>
+              <div class="grid grid-cols-2 gap-1 text-[9px]">
+                <button type="button" class="py-1 px-1.5 rounded bg-ink hover:bg-gopro text-white cursor-pointer" data-on-click="applyBlurToTarget('slide')" aria-label="블러 슬라이드 배경 적용" title="현재 슬라이드 배경에 블러 적용">슬라이드 배경 적용</button>
+                <button type="button" class="py-1 px-1.5 rounded bg-gopro hover:bg-goproDark text-white cursor-pointer" data-on-click="applyBlurToTarget('card')" aria-label="블러 선택 카드 배경 적용" title="선택한 카드 배경에 블러 적용">선택 카드 배경 적용</button>
+                <button type="button" class="py-1 px-1.5 rounded bg-white hover:bg-canvas border border-borderline text-ink cursor-pointer" data-on-click="applyBlurToTarget('card-hover')" aria-label="블러 카드 호버 배경 적용" title="선택한 카드 호버 배경에 블러 적용">카드 호버 배경 적용</button>
+                <button type="button" class="py-1 px-1.5 rounded bg-white hover:bg-gopro hover:text-white border border-gopro text-gopro cursor-pointer" data-on-click="applyBlurToTarget('selected')" aria-label="블러 선택 요소 적용" title="선택한 이미지·도형·요소에 블러 적용">선택 요소 적용</button>
+              </div>
             </div>
             <div class="p-2.5 rounded-xl bg-canvas border border-borderline space-y-2 text-[10px] font-bold">
               <div class="flex items-center justify-between gap-1">
@@ -1347,7 +1361,7 @@
                   <option value="tabbed-card">▤ 슬라이드 내 탭 전환 카드</option>
                   <option value="flip-card">↻ 진짜 앞/뒷면 3D 플립 카드</option>
                 </select>
-                <button type="button" class="px-2.5 py-1 rounded bg-gopro text-white whitespace-nowrap shrink-0 cursor-pointer" data-on-click="insertInteractiveWidget(document.getElementById('interactiveWidgetTypeSelect')?.value)" aria-label="인터랙티브 위젯 삽입" title="선택한 인터랙티브 위젯 삽입">+ 위젯</button>
+                <button type="button" class="px-2.5 py-1 rounded bg-gopro text-white whitespace-nowrap shrink-0 cursor-pointer" data-on-click="insertInteractiveWidget($studio('interactiveWidgetTypeSelect')?.value)" aria-label="인터랙티브 위젯 삽입" title="선택한 인터랙티브 위젯 삽입">+ 위젯</button>
               </div>
               <div class="flex items-center justify-between gap-1 text-[10px] font-bold">
                 <span class="text-[9px] text-muted shrink-0">배치 위치</span>

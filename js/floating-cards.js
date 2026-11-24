@@ -524,9 +524,10 @@ function makeFcBlockResizable(blockEl) {
 
   if (blockEl.classList.contains('fc-sub-box') || blockEl.classList.contains('fc-text-box')) {
     blockEl.setAttribute('contenteditable', 'false');
-    blockEl.querySelectorAll('div, p, span').forEach(ch => {
+    blockEl.querySelectorAll('div, p, span, h1, h2, h3, h4, li, blockquote').forEach(ch => {
       if (ch.closest('.ppt-chart-widget, button')) return;
       if (!ch.classList.contains('fc-item-move-grip') && !ch.classList.contains('fc-item-resize-grip') && !ch.classList.contains('fc-item-resize-grip-e') && !ch.classList.contains('fc-item-resize-grip-s')) {
+        ch.setAttribute('data-editable', '');
         ch.setAttribute('contenteditable', 'true');
       }
     });
@@ -1378,15 +1379,16 @@ function insertTextBoxIntoFloatingCardEditor() {
   const doc = getFcStudioDoc();
   const editor = doc.getElementById('fcRichBodyEditor');
   if (!editor) return;
-  editor.setAttribute('contenteditable', 'true');
+  editor.setAttribute('contenteditable', 'false');
   const box = doc.createElement('div');
   box.className = 'fc-text-box p-3 rounded-xl border border-borderline bg-white/85 my-2';
   box.setAttribute('contenteditable', 'false');
   box.style.width = '100%';
-  box.innerHTML = `<p contenteditable="true" class="text-sm md:text-base leading-relaxed">텍스트 내용을 입력하세요</p>`;
+  box.innerHTML = `<p data-editable contenteditable="true" class="text-sm md:text-base leading-relaxed">텍스트 내용을 입력하세요</p>`;
   editor.appendChild(box);
   makeFcBlockResizable(box);
   selectFcInnerBlock(box);
+  if (typeof selectElementForInspector === 'function') selectElementForInspector(box, false);
   recordFcSnapshot();
   const editableLeaf = box.querySelector('p');
   if (editableLeaf) editableLeaf.focus();
@@ -1691,7 +1693,8 @@ function openFloatingCardEditor(cardId) {
   if ($fc('fcPosXInput')) $fc('fcPosXInput').value = existing ? (existing.getAttribute('data-fc-pos-x') || '50') : '50';
   if ($fc('fcPosYInput')) $fc('fcPosYInput').value = existing ? (existing.getAttribute('data-fc-pos-y') || '50') : '50';
 
-  if (editor) editor.setAttribute('contenteditable', 'true');
+  // Keep outer #fcRichBodyEditor non-monolithic so each text block is an independent selectable/deletable text box!
+  if (editor) editor.setAttribute('contenteditable', 'false');
   const rawBgImg = existing ? (existing.getAttribute('data-fc-bg-img') || '') : '';
   const cleanUrl = rawBgImg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
   if (cleanUrl) editor.setAttribute('data-fc-bg-img-url', cleanUrl);
@@ -1704,9 +1707,22 @@ function openFloatingCardEditor(cardId) {
 
   editor.innerHTML = existing
     ? existing.innerHTML
-    : `<span class="font-mono text-xs font-bold text-gopro uppercase block mb-2">DETAIL VIEW</span>
-       <h3 class="text-2xl font-black mb-3">플로팅 상세 카드 제목</h3>
-       <p class="text-base leading-relaxed">발표 중 연결된 요소(텍스트·도형·카드)를 클릭하면 이 팝업 카드가 지정된 위치와 크기로 부드럽게 나타납니다.</p>`;
+    : `<div class="fc-text-box fc-resizable-item p-2 rounded-lg mb-1" contenteditable="false" style="width:100%;"><span data-editable contenteditable="true" class="font-mono text-xs font-bold text-gopro uppercase block">DETAIL VIEW</span></div>
+       <div class="fc-text-box fc-resizable-item p-2 rounded-lg mb-1" contenteditable="false" style="width:100%;"><h3 data-editable contenteditable="true" class="text-2xl font-black">플로팅 상세 카드 제목</h3></div>
+       <div class="fc-text-box fc-resizable-item p-2 rounded-lg mb-1" contenteditable="false" style="width:100%;"><p data-editable contenteditable="true" class="text-base leading-relaxed">발표 중 연결된 요소(텍스트·도형·카드)를 클릭하면 이 팝업 카드가 지정된 위치와 크기로 부드럽게 나타납니다.</p></div>`;
+  // Auto-upgrade legacy loose top-level text elements into independent selectable/deletable .fc-text-box blocks
+  Array.from(editor.children).forEach(ch => {
+    if (ch.matches && ch.matches('h1, h2, h3, h4, p, span, blockquote, ul, ol') && !ch.closest('.fc-resizable-item')) {
+      const box = editor.ownerDocument.createElement('div');
+      box.className = 'fc-text-box fc-resizable-item p-2 rounded-lg mb-1';
+      box.setAttribute('contenteditable', 'false');
+      box.style.width = '100%';
+      ch.setAttribute('data-editable', '');
+      ch.setAttribute('contenteditable', 'true');
+      ch.parentNode.insertBefore(box, ch);
+      box.appendChild(ch);
+    }
+  });
 
   enhanceAllFcResizableItems(editor);
   const firstChart = editor.querySelector('.ppt-chart-widget');

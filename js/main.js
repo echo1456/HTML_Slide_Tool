@@ -365,8 +365,8 @@ function bindGlobalEditorListeners() {
     const targetEl = activeTargets[0] || selectedElement;
     if (!targetEl) return;
 
-    // Case A: Grid Card (.slide-card)
-    if (targetEl.classList.contains('slide-card')) {
+    // Case A: Grid Card (.slide-card that is NOT detached free-obj)
+    if (targetEl.classList.contains('slide-card') && !targetEl.classList.contains('ppt-free-obj')) {
       const card = targetEl;
       const gridBody = card.closest('.slide-grid-body');
       if (!gridBody) return;
@@ -458,7 +458,7 @@ function bindGlobalEditorListeners() {
     }
 
     // Case C: Direct Resize for Media Cards / Media Frames, Sub-boxes & Card-Embedded Shapes
-    if (targetEl.classList.contains('image-slot-box') || targetEl.classList.contains('card-inline-media') || targetEl.classList.contains('sub-box') || targetEl.classList.contains('ppt-chart-widget') || targetEl.classList.contains('card-embedded-obj')) {
+    if (targetEl.classList.contains('image-slot-box') || targetEl.classList.contains('card-inline-media') || targetEl.classList.contains('sub-box') || targetEl.classList.contains('ppt-chart-widget') || targetEl.classList.contains('card-embedded-obj') || targetEl.classList.contains('slide-header-bar') || targetEl.classList.contains('card-inner-textbox')) {
       const box = targetEl;
       const initScale = getStageScale();
       const initRect = box.getBoundingClientRect();
@@ -1178,7 +1178,11 @@ function bindGlobalEditorListeners() {
     }
 
     const freeObj = e.target.closest('.ppt-free-obj');
-    if (freeObj) {
+    const isFreeCardContainer = Boolean(freeObj && (freeObj.classList.contains('slide-card') || freeObj.getAttribute('data-shape-type') === 'freeCard'));
+    const freeCardInnerHit = (isFreeCardContainer && e.target !== freeObj && !e.altKey)
+      ? e.target.closest('.card-inline-media, .ppt-chart-widget, .card-embedded-obj, .card-inner-textbox, .sub-box, .image-slot-box, h1, h2, h3, h4, p, blockquote, ul, li, a, span[data-editable], div[data-editable]')
+      : null;
+    if (freeObj && !(freeCardInnerHit && freeObj.contains(freeCardInnerHit) && freeCardInnerHit !== freeObj)) {
       if (isPickingTriggerTarget) {
         completePickTriggerTarget(freeObj);
         return;
@@ -1241,7 +1245,7 @@ function bindGlobalEditorListeners() {
       return;
     }
 
-    const card = e.target.closest('.slide-card');
+    const card = e.target.closest('.slide-card, .ppt-free-obj[data-shape-type="freeCard"]');
 
     const bindDirectCardChildDrag = (childEl) => {
       if (isShift || !childEl || childEl.getAttribute('data-layer-locked') === 'true') return;

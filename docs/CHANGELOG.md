@@ -1,5 +1,32 @@
 # Changelog
 
+## [v5.4.1] - 2026-11-24 — 자유좌표 카드(`data-shape-type="freeCard"`) 내부 텍스트박스 개별 선택·삭제 및 상위 카드 선택 완성
+
+### Fixed
+- **[P0] 자유좌표 카드(`⤢ 자유분리`로 분리된 `data-shape-type="freeCard"`) 내부 요소 개별 선택·삭제 복구 (`js/main.js`, `js/state.js`, `js/selection.js`, `js/theme.js`)**:
+  - 스테이지 클릭 핸들러가 `data-shape-type="freeCard"` 내부의 `.card-inner-textbox`, `h1~p`, `.sub-box`, `.card-embedded-obj`, `.ppt-chart-widget` 클릭을 상위 자유좌표 카드로 가로채지 않고 개별 선택·편집·삭제되도록 교정.
+  - `getTargetCardForHierarchy()`, `getTargetCardsForMulti()`, `selectParentCardFromChild()`, `#ovSelectParentCardBtn`(`▣ 카드선택`)까지 `freeCard`를 일관되게 인식하도록 통일해 자유좌표 카드 내부에서도 상위 카드 선택·텍스트박스 추가·배경 스타일 변경이 원활히 동작.
+  - `tests/e2e.spec.mjs` Test 10에 자유좌표 카드 내부 텍스트박스 선택·`▣ 카드선택` 노출·삭제 회귀 검증 추가.
+
+---
+
+## [v5.4.0] - 2026-11-24 — 실사용 제보 8대 핵심 결함 일괄 해결 (자유좌표 카드 리사이즈/내부 삭제 · 비교 표 폰트 내보내기 & 행/열 균등 · 타이틀 바 스타일/리사이즈 · 플로팅 카드 독립 텍스트박스 & 통합 편집 · 4종 불투명도/블러 버튼 · 배경 초점/맞춤)
+
+### Fixed & Added
+- **[P0] 자유좌표 카드 핸들 사이즈 조절 복구 (`js/main.js`)**: 그리드에서 분리된 자유좌표 카드(`.slide-card.ppt-free-obj`)가 `Case A`(그리드 카드)에서 조기 탈출하던 조건을 교정해 8방향 핸들로 자유 리사이즈 가능.
+- **[P0] 자유좌표·그리드 분리 카드 내부 텍스트 박스 선택 및 삭제 복구 (`js/main.js`)**: 자유좌표 카드 내부의 `.card-inner-textbox`, `h1~p`, `.sub-box`, `.card-embedded-obj` 클릭 시 상위 카드에 가로채이지 않고 개별 선택·편집·삭제 지원.
+- **[P0] 비교 표 텍스트 크기 영속화 및 PPTX/PNG/HTML 내보내기 반영 (`js/text-editor.js`, `js/charts.js`, `js/export.js`)**: 표 셀/전체 글자 크기 변경 시 `data-chart-json`의 `cellStyles[cellKey].fontSize`·`tableFontSize`에 저장하고, `buildCellInlineStyle()`·PPTX OOXML(`sz`)·Canvas/PNG 표 렌더링에 정확히 반영.
+- **[P0] 표 행 균등·열 균등 시 조절된 텍스트 크기 기준 균등 배분 (`js/charts.js`)**: `equalizeTableRowHeights()`와 `equalizeTableColWidths()`가 초기 크기로 되돌리지 않고 현재 텍스트 크기와 콘텐츠 자연 높이를 측정해 균등 배분.
+- **[P0] 상단 타이틀 바(`.slide-header-bar`) 색상 변경 및 사이즈 조절 지원 (`js/theme.js`, `js/main.js`)**.
+- **[P0] 플로팅 팝업 카드 독립 텍스트 박스 분리 및 메인 스튜디오 통합 편집 완성 (`js/floating-cards.js`, `js/widgets.js`, `js/media.js`, `js/selection.js`, `js/theme.js`, `index.html`)**: `#fcRichBodyEditor`의 통짜 `contenteditable`을 제거하고 개별 `.fc-text-box.fc-resizable-item`으로 분리, 메인 스튜디오의 인터랙티브 위젯·아이콘·배경색·불투명도·블러·그라데이션·배경사진·초점/맞춤이 플로팅 카드에 직접 적용되도록 통합.
+- **[P1] 불투명도 & 블러 4종 대상 적용 버튼 추가 (`index.html`, `js/theme.js`)**: 그라데이션 & 페이드 마스크와 동일하게 `슬라이드 배경 적용` / `선택 카드 배경 적용` / `카드 호버 배경 적용` / `선택 요소 적용` 4버튼 지원.
+- **[P1] 통합 배경 이미지 초점(`setBackgroundFocalPosition`)·맞춤(`setBackgroundFitMode`) 실제 레이어 반영 (`js/theme.js`)**: 부모 요소가 아닌 실제 `.slide-bg-layer`, `.card-bg-layer`, `.card-hover-bg-layer`에 적용 및 토스트 피드백 표시.
+
+### Testing
+- **`tests/e2e.spec.mjs` 확장**: Playwright Chromium E2E Test 10 추가(총 10개 스위트).
+
+---
+
 ## [v5.3.9] - 2026-11-23 — 그라데이션·페이드 마스크 4종 대상 적용 버튼 복구 및 현재 슬라이드 전용 배경 이미지 선택 명확화
 
 ### Added & Fixed

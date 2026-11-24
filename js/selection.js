@@ -647,7 +647,7 @@ function applyInspectorGeometry() {
 
 function selectParentCardFromChild() {
   if (!selectedElement) return;
-  const parentCard = selectedElement.closest('.slide-card, .slide-header-bar');
+  const parentCard = selectedElement.closest('.slide-card, .slide-header-bar, .ppt-free-obj[data-shape-type="freeCard"]');
   if (parentCard) {
     selectElementForInspector(parentCard);
     showToast(parentCard.classList.contains('slide-header-bar') ? '상단 타이틀 영역이 선택되었습니다.' : '상위 카드가 선택되었습니다.');
@@ -953,8 +953,8 @@ function selectElementForInspector(el, additive) {
 
   const parentBtn = document.getElementById('ovSelectParentCardBtn');
   if (parentBtn) {
-    const isContainer = selectedElement.classList.contains('slide-card') || selectedElement.classList.contains('slide-header-bar');
-    const insideCard = selectedElements.length === 1 && !isContainer && Boolean(selectedElement.closest('.slide-card, .slide-header-bar'));
+    const isContainer = selectedElement.classList.contains('slide-card') || selectedElement.classList.contains('slide-header-bar') || (selectedElement.classList.contains('ppt-free-obj') && selectedElement.getAttribute('data-shape-type') === 'freeCard');
+    const insideCard = selectedElements.length === 1 && !isContainer && Boolean(selectedElement.closest('.slide-card, .slide-header-bar, .ppt-free-obj[data-shape-type="freeCard"]'));
     parentBtn.classList.toggle('hidden', !insideCard);
   }
   positionSelectionOverlay();
@@ -1378,6 +1378,10 @@ function addSubBoxInContainer(container, styleType) {
 }
 
 function addTextBoxToSelectedCard(initialText) {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    if (typeof insertTextBoxIntoFloatingCardEditor === 'function') insertTextBoxIntoFloatingCardEditor();
+    return;
+  }
   const activeSlideEl = slides[currentSlide - 1];
   if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') { showToast('잠긴 슬라이드에는 텍스트 박스를 추가할 수 없습니다.'); return; }
   const card = getTargetCardForHierarchy();

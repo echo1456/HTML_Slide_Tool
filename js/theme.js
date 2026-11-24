@@ -205,6 +205,24 @@ function applyGradientPreset(type, angle, c1, c3, a1, a3, isDarkText) {
 function applyGradientToTarget(targetMode) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const css = buildGradientCssString();
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive() && (targetMode === 'card' || targetMode === 'card-hover' || targetMode === 'slide')) {
+    const layer = targetMode === 'card-hover'
+      ? (typeof $fc === 'function' ? $fc('fcEditorHoverBgPreviewLayer') : document.getElementById('fcEditorHoverBgPreviewLayer'))
+      : (typeof $fc === 'function' ? $fc('fcEditorBgPreviewLayer') : document.getElementById('fcEditorBgPreviewLayer'));
+    if (layer) {
+      if (currentGradMode === 'mask') {
+        layer.style.webkitMaskImage = css; layer.style.maskImage = css;
+        layer.style.webkitMaskRepeat = 'no-repeat'; layer.style.maskRepeat = 'no-repeat';
+        layer.style.webkitMaskSize = '100% 100%'; layer.style.maskSize = '100% 100%';
+      } else {
+        layer.style.backgroundImage = css;
+        if (targetMode === 'card-hover') layer.classList.add('has-hover-img');
+      }
+      if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+      showToast(currentGradMode === 'mask' ? '플로팅 카드 배경에 페이드 마스크가 적용되었습니다.' : '플로팅 카드 배경에 컬러 그라데이션이 적용되었습니다.');
+      return;
+    }
+  }
   if (targetMode === 'card') {
     const card = getTargetCardForHierarchy();
     if (!card) {
@@ -330,6 +348,41 @@ function applyBlurToTarget(targetMode) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const px = Number($studio('blurRangeSlider')?.value || currentBlurPx || 0);
   const filterCss = px > 0 ? `blur(${px}px)` : '';
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    if (targetMode === 'card' || targetMode === 'slide') {
+      const sl = typeof $fc === 'function' ? $fc('fcBgBlurSlider') : document.getElementById('fcBgBlurSlider');
+      if (sl) sl.value = String(px);
+      if (typeof onFcBgBlurChange === 'function') onFcBgBlurChange(px);
+      if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+      showToast(`플로팅 카드 배경에 흐림 효과(${px}px)가 적용되었습니다.`);
+      return;
+    }
+    if (targetMode === 'card-hover') {
+      const sl = typeof $fc === 'function' ? $fc('fcHoverBgBlurSlider') : document.getElementById('fcHoverBgBlurSlider');
+      if (sl) sl.value = String(px);
+      if (typeof onFcHoverBgBlurChange === 'function') onFcHoverBgBlurChange(px);
+      if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+      showToast(`플로팅 카드 호버 배경에 흐림 효과(${px}px)가 적용되었습니다.`);
+      return;
+    }
+  }
+  if (targetMode === 'selected') {
+    const targets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
+    if (targets.length === 0) { showToast('먼저 블러를 적용할 요소를 클릭해 주세요.'); return; }
+    targets.forEach(el => {
+      const imgEl = el.tagName === 'IMG' ? el : el.querySelector('.slot-img, .inline-media-el, img');
+      if (imgEl && !el.classList.contains('slide-card')) {
+        imgEl.setAttribute('data-img-blur', String(Math.round(px)));
+        if (typeof syncImageCssTransformAndFilter === 'function') syncImageCssTransformAndFilter(imgEl);
+        else { imgEl.style.filter = filterCss; imgEl.style.transform = px > 0 ? 'scale(1.05)' : ''; }
+      } else {
+        el.style.filter = filterCss;
+      }
+    });
+    saveHistorySnapshot('선택 요소 블러 적용');
+    showToast(`선택한 요소에 흐림 효과(${px}px)가 적용되었습니다.`);
+    return;
+  }
   if (targetMode === 'image') {
     const imgEl = typeof getActiveImageElement === 'function' ? getActiveImageElement() : (selectedElement ? selectedElement.querySelector('.slot-img, .inline-media-el') : null);
     if (!imgEl) { showToast('먼저 흐림 효과를 적용할 이미지를 클릭해 주세요.'); return; }
@@ -872,7 +925,7 @@ function setAccentColor(hexColor, isLiveInput) {
 
 function getTargetCardsForMulti() {
   if (selectedElements && selectedElements.length > 1) {
-    const cards = selectedElements.map(el => el.classList.contains('slide-card') ? el : el.closest('.slide-card')).filter(Boolean);
+    const cards = selectedElements.map(el => (el.classList.contains('slide-card') || el.classList.contains('slide-header-bar') || (el.classList.contains('ppt-free-obj') && el.getAttribute('data-shape-type') === 'freeCard')) ? el : el.closest('.slide-card, .slide-header-bar, .ppt-free-obj[data-shape-type="freeCard"]')).filter(Boolean);
     if (cards.length > 0) return Array.from(new Set(cards));
   }
   const single = getTargetCardForHierarchy();
@@ -880,6 +933,13 @@ function getTargetCardsForMulti() {
 }
 
 function applySelectedCardBgColor(hexColor, isLiveInput) {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const fcBgInp = typeof $fc === 'function' ? $fc('fcBgColorInput') : document.getElementById('fcBgColorInput');
+    if (fcBgInp) fcBgInp.value = hexColor;
+    if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+    if (!isLiveInput && typeof recordFcSnapshot === 'function') recordFcSnapshot();
+    return;
+  }
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(!isLiveInput)) return;
   const cards = getTargetCardsForMulti();
   if (cards.length === 0) {
@@ -915,10 +975,67 @@ function applySelectedCardBgColor(hexColor, isLiveInput) {
   if (!isLiveInput) saveHistorySnapshot();
 }
 
-function applySelectedCardBgOpacity(alphaPct, isLiveInput) {
-  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(!isLiveInput)) return;
+function applyOpacityToTarget(targetMode) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const alphaPct = Math.max(0, Math.min(100, Number($studio('cardBgOpacitySlider')?.value ?? 100)));
   const lbl = $studio('cardBgOpacityLabel');
   if (lbl) lbl.textContent = `${alphaPct}%`;
+
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    if (targetMode === 'card' || targetMode === 'slide') {
+      const fcOp = typeof $fc === 'function' ? $fc('fcBgOpacityInput') : document.getElementById('fcBgOpacityInput');
+      if (fcOp) fcOp.value = String(alphaPct);
+      if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+      if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+      showToast(`플로팅 카드 배경 불투명도가 ${alphaPct}%로 적용되었습니다.`);
+      return;
+    }
+    if (targetMode === 'card-hover') {
+      const fcHop = typeof $fc === 'function' ? $fc('fcHoverBgOpacityInput') : document.getElementById('fcHoverBgOpacityInput');
+      if (fcHop) fcHop.value = String(alphaPct);
+      if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+      if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+      showToast(`플로팅 카드 호버 불투명도가 ${alphaPct}%로 적용되었습니다.`);
+      return;
+    }
+  }
+
+  if (targetMode === 'slide') {
+    const activeSlideEl = slides[currentSlide - 1];
+    if (!activeSlideEl) return;
+    ensureFreeLayersOnAllSlides();
+    const bgLayer = activeSlideEl.querySelector(':scope > .slide-bg-layer') || activeSlideEl.querySelector('.slide-bg-layer');
+    if (bgLayer) bgLayer.style.opacity = String(alphaPct / 100);
+    if ($studio('slideBgOpacitySlider')) $studio('slideBgOpacitySlider').value = String(alphaPct);
+    saveHistorySnapshot('슬라이드 배경 불투명도 적용');
+    showToast(`현재 슬라이드 배경 불투명도가 ${alphaPct}%로 적용되었습니다.`);
+  } else if (targetMode === 'card') {
+    applySelectedCardBgOpacity(alphaPct, false);
+    showToast(`선택한 카드 배경 불투명도가 ${alphaPct}%로 적용되었습니다.`);
+  } else if (targetMode === 'card-hover') {
+    if ($studio('hoverBgOpacitySlider')) $studio('hoverBgOpacitySlider').value = String(alphaPct);
+    if (typeof applySelectedHoverBgOpacity === 'function') applySelectedHoverBgOpacity(alphaPct, false);
+    showToast(`카드 호버 배경 불투명도가 ${alphaPct}%로 적용되었습니다.`);
+  } else if (targetMode === 'selected') {
+    const targets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
+    if (targets.length === 0) { showToast('먼저 불투명도를 적용할 요소를 클릭해 주세요.'); return; }
+    targets.forEach(el => { el.style.opacity = String(alphaPct / 100); });
+    saveHistorySnapshot('선택 요소 불투명도 적용');
+    showToast(`선택한 요소의 불투명도가 ${alphaPct}%로 적용되었습니다.`);
+  }
+}
+
+function applySelectedCardBgOpacity(alphaPct, isLiveInput) {
+  const lbl = $studio('cardBgOpacityLabel');
+  if (lbl) lbl.textContent = `${alphaPct}%`;
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const fcOp = typeof $fc === 'function' ? $fc('fcBgOpacityInput') : document.getElementById('fcBgOpacityInput');
+    if (fcOp) fcOp.value = String(alphaPct);
+    if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+    if (!isLiveInput && typeof recordFcSnapshot === 'function') recordFcSnapshot();
+    return;
+  }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(!isLiveInput)) return;
   const cards = getTargetCardsForMulti();
   if (cards.length === 0) {
     if (!isLiveInput) showToast('먼저 투명도를 조절할 카드를 클릭해 주세요.');
@@ -1101,27 +1218,70 @@ function clearSelectedCardBgImage() {
 
 
 /* ==================== UNIFIED BACKGROUND CONTROLS ==================== */
+function resolveUnifiedBgLayers(mode) {
+  const layers = [];
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const fcLayer = (mode === 'card-hover')
+      ? (typeof $fc === 'function' ? $fc('fcEditorHoverBgPreviewLayer') : document.getElementById('fcEditorHoverBgPreviewLayer'))
+      : (typeof $fc === 'function' ? $fc('fcEditorBgPreviewLayer') : document.getElementById('fcEditorBgPreviewLayer'));
+    if (fcLayer) return [fcLayer];
+  }
+  if (mode === 'all-slides') {
+    ensureFreeLayersOnAllSlides();
+    slides.forEach(sEl => {
+      if (sEl.getAttribute('data-slide-locked') === 'true') return;
+      const bg = sEl.querySelector(':scope > .slide-bg-layer') || sEl.querySelector('.slide-bg-layer');
+      if (bg) layers.push(bg);
+    });
+    return layers;
+  }
+  if (mode === 'slide') {
+    const activeSlideEl = slides[currentSlide - 1];
+    if (!activeSlideEl) return layers;
+    ensureFreeLayersOnAllSlides();
+    const bg = activeSlideEl.querySelector(':scope > .slide-bg-layer') || activeSlideEl.querySelector('.slide-bg-layer');
+    if (bg) layers.push(bg);
+    return layers;
+  }
+  const card = getTargetCardForHierarchy();
+  if (card) {
+    if (mode === 'card-hover') layers.push(ensureCardHoverBgLayer(card));
+    else layers.push(ensureCardBgLayer(card));
+    return layers;
+  }
+  if (selectedElement) layers.push(selectedElement);
+  return layers;
+}
+
 function setBackgroundFocalPosition(posCss) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const mode = $studio('unifiedBgTargetSelect')?.value || 'slide';
-  const activeSlideEl = slides[currentSlide - 1];
-  const target = mode === 'slide' ? activeSlideEl : (selectedElement || getTargetCardForHierarchy());
-  if (!target) return;
-  target.style.backgroundPosition = posCss || 'center center';
+  const layers = resolveUnifiedBgLayers(mode);
+  if (layers.length === 0) { showToast('먼저 배경 초점을 조절할 대상(슬라이드/카드)을 선택해 주세요.'); return; }
+  layers.forEach(ly => { ly.style.backgroundPosition = posCss || 'center center'; });
   saveHistorySnapshot('배경 이미지 초점 위치 변경');
+  showToast(`배경 이미지 초점이 [${posCss}]로 적용되었습니다.`);
 }
 
 function setBackgroundFitMode(sizeCss) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const mode = $studio('unifiedBgTargetSelect')?.value || 'slide';
-  const activeSlideEl = slides[currentSlide - 1];
-  const target = mode === 'slide' ? activeSlideEl : (selectedElement || getTargetCardForHierarchy());
-  if (!target) return;
-  target.style.backgroundSize = sizeCss || 'cover';
-  target.style.backgroundRepeat = 'no-repeat';
+  const layers = resolveUnifiedBgLayers(mode);
+  if (layers.length === 0) { showToast('먼저 배경 맞춤을 조절할 대상(슬라이드/카드)을 선택해 주세요.'); return; }
+  layers.forEach(ly => {
+    ly.style.backgroundSize = sizeCss || 'cover';
+    ly.style.backgroundRepeat = 'no-repeat';
+  });
   saveHistorySnapshot(`배경 이미지 맞춤 (${sizeCss})`);
+  showToast(`배경 이미지 맞춤이 [${sizeCss === 'contain' ? '비율 맞춤(Contain)' : '꽉 채우기(Cover)'}]으로 적용되었습니다.`);
 }
 
 function triggerUnifiedBackgroundUpload() {
   const mode = $studio('unifiedBgTargetSelect')?.value || 'slide';
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    if (mode === 'card-hover' && typeof setFloatingCardHoverBgImage === 'function') { setFloatingCardHoverBgImage(); return; }
+    if (typeof setFloatingCardBgImage === 'function') { setFloatingCardBgImage(); return; }
+  }
   triggerBgImageUpload(mode);
 }
 

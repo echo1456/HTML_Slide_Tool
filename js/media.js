@@ -29,6 +29,10 @@ function buildCleanCardMediaHtml(captionText) {
 }
 
 function insertMediaBoxIntoCard() {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    if (typeof insertImageIntoFloatingCardEditor === 'function') insertImageIntoFloatingCardEditor();
+    return;
+  }
   const card = getTargetCardForHierarchy();
   if (!card) {
     showToast('먼저 사진이나 동영상을 넣을 텍스트 카드를 클릭해 주세요.');
@@ -1144,7 +1148,26 @@ const PPT_SVG_ICONS = {
 };
 function insertFreeSvgIcon(iconKey) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
-  const svgBody = PPT_SVG_ICONS[iconKey] || PPT_SVG_ICONS.check, activeSlideEl = slides[currentSlide - 1];
+  const svgBody = PPT_SVG_ICONS[iconKey] || PPT_SVG_ICONS.check;
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const fcEd = typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : null;
+    if (fcEd) {
+      const obj = fcEd.ownerDocument.createElement('div');
+      obj.className = 'card-embedded-obj fc-resizable-item inline-flex items-center justify-center p-2 my-2 rounded-xl border border-borderline bg-white';
+      obj.setAttribute('data-shape-type', 'svg-icon');
+      obj.setAttribute('data-icon-key', iconKey);
+      obj.setAttribute('contenteditable', 'false');
+      obj.style.width = '72px'; obj.style.height = '72px'; obj.style.color = '#0055FF';
+      obj.innerHTML = `<svg viewBox="0 0 24 24" class="w-full h-full" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgBody}</svg>`;
+      fcEd.appendChild(obj);
+      if (typeof makeFcBlockResizable === 'function') makeFcBlockResizable(obj);
+      if (typeof selectElementForInspector === 'function') selectElementForInspector(obj, false);
+      if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+      showToast('플로팅 카드에 벡터 아이콘이 삽입되었습니다.');
+      return;
+    }
+  }
+  const activeSlideEl = slides[currentSlide - 1];
   if (!activeSlideEl) return;
   ensureFreeLayersOnAllSlides();
   const layer = activeSlideEl.querySelector('.ppt-free-layer'); if (!layer) return;

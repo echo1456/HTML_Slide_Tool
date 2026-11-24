@@ -59,7 +59,9 @@ function buildCellInlineStyle(data, cellKey, defaultBg, colIdx, rowKey, isFirstC
   const alignVal = (data.colAligns && colIdx !== undefined && data.colAligns[String(colIdx)]) || '';
   let out = `${borderCss}${padCss}${alignVal ? `text-align: ${alignVal};` : ''}${isFirstColHighlight ? 'font-weight: 800;' : ''}`;
   if (bg) out += `background-color: ${bg} !important;`; else if (isFirstColHighlight) out += `background-color: rgba(0, 85, 255, 0.06);`;
+  const fSize = Number(cs.fontSize || data.tableFontSize || 0);
   if (color) out += `color: ${color} !important;`;
+  if (fSize > 0) out += `font-size: ${fSize}px !important; line-height: 1.35;`;
   if (colW > 0) out += `width: ${colW}px; min-width: ${colW}px; max-width: ${colW}px;`;
   if (rowH > 0) out += `height: ${rowH}px;`;
   return out;
@@ -302,6 +304,7 @@ function insertChartOrTable(type, targetMode) {
       fcEd.dataset.activeChartId = uid;
       const data = getDefaultChartData(type || 'bar-v');
       writeChartDataAndRender(cw, data);
+      if (typeof makeFcBlockResizable === 'function') makeFcBlockResizable(cw);
       if (typeof selectElementForInspector === 'function') selectElementForInspector(cw, false);
       if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
       showToast('플로팅 카드 미리보기에 라이브 차트/표가 삽입되었습니다!');
@@ -672,8 +675,52 @@ function toggleTableOption(optName) { const w = getSelectedChartWidget(); if (!w
 function setTableCellPaddingPreset(padStr) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; d.cellPadding = padStr || '7px 10px'; writeChartDataAndRender(w, d); recordChartChangeHistory('표 셀 여백 변경'); }
 function setTableColumnAlign(alignVal) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!d.colAligns) d.colAligns = {}; const { cIdx } = getSelectedTableCellCoords(); if (cIdx >= 0) d.colAligns[String(cIdx)] = alignVal; else d.tableHeaders.forEach((_, idx) => { d.colAligns[String(idx)] = alignVal; }); writeChartDataAndRender(w, d); recordChartChangeHistory('표 열 정렬 변경'); }
 function updateTableBorderStyle(prop, val) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!d.tableBorder) d.tableBorder = { style: 'solid', width: 1, color: '#E2E4E9' }; if (prop === 'style') d.tableBorder.style = val; else if (prop === 'width') d.tableBorder.width = Math.max(0, Math.min(6, Number(val) || 0)); else if (prop === 'color') d.tableBorder.color = val; writeChartDataAndRender(w, d); recordChartChangeHistory('표 테두리 스타일 변경'); }
-function equalizeTableColWidths() { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table' || !Array.isArray(d.tableHeaders) || d.tableHeaders.length === 0) return; const tableEl = w.querySelector('table.ppt-data-table'), scale = (typeof getStageScale === 'function' && !w.closest('#fcRichBodyEditor')) ? getStageScale() : 1; const totalW = tableEl && tableEl.getBoundingClientRect().width > 0 ? Math.round(tableEl.getBoundingClientRect().width / scale) : (d.tableHeaders.length * 130); const eachW = Math.max(48, Math.floor(totalW / d.tableHeaders.length)); d.colWidths = d.tableHeaders.map(() => eachW); writeChartDataAndRender(w, d); recordChartChangeHistory('표 열 너비 균등 배분'); }
-function equalizeTableRowHeights() { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; d.rowHeights = {}; writeChartDataAndRender(w, d); recordChartChangeHistory('표 행 높이 균등 배분'); }
+function equalizeTableColWidths() {
+  const w = getSelectedChartWidget(); if (!w) return;
+  const d = readChartData(w); if (d.type !== 'table' || !Array.isArray(d.tableHeaders) || d.tableHeaders.length === 0) return;
+  const tableEl = w.querySelector('table.ppt-data-table');
+  const scale = (typeof getStageScale === 'function' && !w.closest('#fcRichBodyEditor')) ? getStageScale() : 1;
+  // Estimate minimum column width needed for adjusted text size so text never collapses
+  let maxFontPx = Number(d.tableFontSize || 12);
+  if (d.cellStyles) Object.values(d.cellStyles).forEach(cs => { if (cs && Number(cs.fontSize) > maxFontPx) maxFontPx = Number(cs.fontSize); });
+  const minTextW = Math.max(64, Math.round(maxFontPx * 4.5));
+  const measuredW = tableEl && tableEl.getBoundingClientRect().width > 0 ? Math.round(tableEl.getBoundingClientRect().width / scale) : (d.tableHeaders.length * 130);
+  const eachW = Math.max(minTextW, Math.floor(measuredW / d.tableHeaders.length));
+  d.colWidths = d.tableHeaders.map(() => eachW);
+  writeChartDataAndRender(w, d);
+  recordChartChangeHistory('표 열 너비 균등 배분');
+  showToast(`텍스트 크기(${maxFontPx}px)에 맞춰 열 너비가 ${eachW}px로 균등 배분되었습니다.`);
+}
+function equalizeTableRowHeights() {
+  const w = getSelectedChartWidget(); if (!w) return;
+  const d = readChartData(w); if (d.type !== 'table') return;
+  const tableEl = w.querySelector('table.ppt-data-table');
+  const scale = (typeof getStageScale === 'function' && !w.closest('#fcRichBodyEditor')) ? getStageScale() : 1;
+  let maxNaturalH = 34;
+  if (tableEl) {
+    const trs = Array.from(tableEl.querySelectorAll('tr'));
+    trs.forEach(tr => {
+      const prevH = tr.style.height;
+      tr.style.height = 'auto';
+      Array.from(tr.children).forEach(cell => {
+        const prevCellH = cell.style.height;
+        cell.style.height = 'auto';
+        const cellRectH = Math.ceil(cell.getBoundingClientRect().height / scale);
+        const cellFont = parseFloat(window.getComputedStyle(cell).fontSize) || 12;
+        const minByFont = Math.ceil(cellFont * 1.9 + 14);
+        maxNaturalH = Math.max(maxNaturalH, cellRectH, minByFont);
+        cell.style.height = prevCellH;
+      });
+      tr.style.height = prevH;
+    });
+  }
+  const targetH = Math.max(32, Math.min(260, Math.round(maxNaturalH)));
+  d.rowHeights = { header: targetH };
+  (d.tableRows || []).forEach((_, idx) => { d.rowHeights[String(idx)] = targetH; });
+  writeChartDataAndRender(w, d);
+  recordChartChangeHistory('표 행 높이 균등 배분');
+  showToast(`조절된 텍스트 크기에 맞춰 모든 행 높이가 ${targetH}px로 균등 배분되었습니다.`);
+}
 function sortTableBySelectedColumn(dir) {
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table' || !Array.isArray(d.tableRows) || d.tableRows.length < 2) return;
   const { cIdx } = getSelectedTableCellCoords(), sortCol = (cIdx >= 0 && cIdx < d.tableHeaders.length) ? cIdx : 0;

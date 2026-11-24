@@ -605,7 +605,8 @@ function drawChartWidgetOnCanvas(ctx, widgetEl, x, y, w, h) {
         ctx.fillRect(plotX + cIdx * colW, curY, colW, rowH);
         ctx.strokeStyle = 'rgba(0,0,0,0.08)';
         ctx.strokeRect(plotX + cIdx * colW, curY, colW, rowH);
-        ctx.font = '700 11px Pretendard, Malgun Gothic, sans-serif';
+        const hdrPx = Math.max(9, Math.min(36, Number((data.cellStyles && data.cellStyles[`th-${cIdx}`] && data.cellStyles[`th-${cIdx}`].fontSize) || data.tableFontSize || 11)));
+        ctx.font = `700 ${hdrPx}px Pretendard, Malgun Gothic, sans-serif`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
@@ -621,7 +622,8 @@ function drawChartWidgetOnCanvas(ctx, widgetEl, x, y, w, h) {
         ctx.fillRect(plotX + cIdx * colW, curY, colW, rowH);
         ctx.strokeStyle = '#E2E4E9';
         ctx.strokeRect(plotX + cIdx * colW, curY, colW, rowH);
-        ctx.font = (data.highlightFirstCol && cIdx === 0) ? '700 11px Pretendard, Malgun Gothic, sans-serif' : '500 11px Pretendard, Malgun Gothic, sans-serif';
+        const tdPx = Math.max(9, Math.min(36, Number((data.cellStyles && data.cellStyles[key] && data.cellStyles[key].fontSize) || data.tableFontSize || 11)));
+        ctx.font = `${(data.highlightFirstCol && cIdx === 0) ? '700' : '500'} ${tdPx}px Pretendard, Malgun Gothic, sans-serif`;
         ctx.fillStyle = '#111111';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
@@ -914,8 +916,12 @@ async function exportDeckAsPPTX() {
               const txtHex = customFg || (isTh ? 'FFFFFF' : '111111');
               const colAlign = colAligns[String(cIdx)] || 'left';
               const algn = colAlign === 'center' ? 'ctr' : (colAlign === 'right' ? 'r' : 'l');
+              const domCellEl = tableEl ? tableEl.querySelector(`[data-cell-key="${cellKey}"]`) : null;
+              const domPx = domCellEl ? parseFloat(window.getComputedStyle(domCellEl).fontSize) : 0;
+              const cellFontPx = Number((cellStyles[cellKey] && cellStyles[cellKey].fontSize) || (wData && wData.tableFontSize) || domPx || 15);
+              const ooxmlSz = Math.max(800, Math.min(7200, Math.round(cellFontPx * 75)));
               const safeTxt = isHidden ? '' : String(txt || '').trim();
-              return `<a:tc${mergeAttrs}><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:pPr algn="${algn}"/><a:r><a:rPr lang="ko-KR" sz="1150" b="${isTh ? '1' : '0'}"><a:solidFill><a:srgbClr val="${txtHex}"/></a:solidFill></a:rPr><a:t>${escapeXml(safeTxt)}</a:t></a:r></a:p></a:txBody><a:tcPr><a:solidFill><a:srgbClr val="${fillHex}"/></a:solidFill></a:tcPr></a:tc>`;
+              return `<a:tc${mergeAttrs}><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:pPr algn="${algn}"/><a:r><a:rPr lang="ko-KR" sz="${ooxmlSz}" b="${isTh ? '1' : '0'}"><a:solidFill><a:srgbClr val="${txtHex}"/></a:solidFill></a:rPr><a:t>${escapeXml(safeTxt)}</a:t></a:r></a:p></a:txBody><a:tcPr><a:solidFill><a:srgbClr val="${fillHex}"/></a:solidFill></a:tcPr></a:tc>`;
             };
 
             const trXmlParts = [];

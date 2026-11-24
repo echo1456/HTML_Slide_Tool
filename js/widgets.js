@@ -211,6 +211,7 @@ function insertInteractiveWidget(explicitType, explicitTargetMode) {
       obj.style.padding = '0';
       obj.innerHTML = innerHtml;
       fcEd.appendChild(obj);
+      if (typeof makeFcBlockResizable === 'function') makeFcBlockResizable(obj);
       if (typeof selectElementForInspector === 'function') selectElementForInspector(obj, false);
       if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
       showToast(`플로팅 카드 미리보기에 [${label}] 위젯이 삽입되었습니다!`);

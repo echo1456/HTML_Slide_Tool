@@ -1,4 +1,4 @@
-window.PPTStudio = window.PPTStudio || { version: 'v5.3.9', offlineRuntimeRules: new Set() };
+window.PPTStudio = window.PPTStudio || { version: 'v5.4.1', offlineRuntimeRules: new Set() };
 
 function openModalSafe(elOrId) {
   const modal = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -518,8 +518,8 @@ function ensureCardBgTintLayer(card) {
 
 function getTargetCardForHierarchy() {
   if (!selectedElement) return null;
-  if (selectedElement.classList.contains('slide-card') || selectedElement.classList.contains('slide-header-bar')) return selectedElement;
-  return selectedElement.closest('.slide-card, .slide-header-bar');
+  if (selectedElement.classList.contains('slide-card') || selectedElement.classList.contains('slide-header-bar') || (selectedElement.classList.contains('ppt-free-obj') && selectedElement.getAttribute('data-shape-type') === 'freeCard')) return selectedElement;
+  return selectedElement.closest('.slide-card, .slide-header-bar, .ppt-free-obj[data-shape-type="freeCard"]');
 }
 
 function getActiveGridBody() {

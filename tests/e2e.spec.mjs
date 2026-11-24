@@ -417,4 +417,69 @@ test.describe('HTML Slide Tool — Real Chromium E2E & Strict CSP Suite', () => 
     await page.evaluate(() => toggleEditMode(false));
     await expect(page.locator('#floatingCardEditorModal')).toHaveClass(/hidden/);
   });
+
+  test('10. v5.4.0 User-Reported Fixes (Free Card Resize/Inner Delete, Table Font Export & Equalize, Header Bar Style/Resize, FC Separate Textboxes, 4-Target Blur/Opacity & Focal/Fit)', async ({ page }) => {
+    await page.keyboard.press('e');
+
+    const allFixedOk = await page.evaluate(() => {
+      goToSlide(3);
+
+      // 1. Top title bar (.slide-header-bar) accepts background color change
+      const hdr = slides[2].querySelector('.slide-header-bar');
+      selectElementForInspector(hdr, false);
+      applySelectedCardBgColor('#1E293B', false);
+      const hdrColored = hdr.getAttribute('data-card-bg-hex') === '#1E293B';
+
+      // 2. Unified BG Focal & Fit apply to actual .slide-bg-layer (not parent slide)
+      const bgSel = document.getElementById('unifiedBgTargetSelect');
+      if (bgSel) bgSel.value = 'slide';
+      setBackgroundFocalPosition('top center');
+      setBackgroundFitMode('contain');
+      const bgLayer = slides[2].querySelector(':scope > .slide-bg-layer');
+      const focalFitOk = bgLayer && bgLayer.style.backgroundPosition.includes('top') && bgLayer.style.backgroundSize === 'contain';
+
+      // 3. 4-target Opacity & Blur apply to slide bg
+      document.getElementById('cardBgOpacitySlider').value = '60';
+      applyOpacityToTarget('slide');
+      document.getElementById('blurRangeSlider').value = '8';
+      applyBlurToTarget('slide');
+      const opBlurOk = bgLayer && bgLayer.style.opacity === '0.6' && bgLayer.style.filter.includes('blur(8px)');
+
+      // 4. Table fontSize persists into data-chart-json & survives equalizeTableRowHeights()
+      clearSelectionInspector();
+      insertChartOrTable('table', 'slide');
+      const tblW = getSelectedChartWidget();
+      const firstTd = tblW.querySelector('td[data-cell-key="td-0-0"]');
+      selectChartCellForFill({ stopPropagation() {}, shiftKey: false }, firstTd);
+      setSelectedFontSizePx(26, false);
+      equalizeTableRowHeights();
+      const dAfter = readChartData(tblW);
+      const tableFontPersisted = dAfter.cellStyles && dAfter.cellStyles['td-0-0'] && dAfter.cellStyles['td-0-0'].fontSize === 26 && dAfter.rowHeights && Number(dAfter.rowHeights['0']) >= 48;
+
+      // 5. Floating Card opens with SEPARATE .fc-text-box blocks (not monolithic contenteditable) & accepts Interactive Widget + Main Studio BG Color
+      openFloatingCardEditor(null);
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      const sepTextBoxes = fcEd.getAttribute('contenteditable') === 'false' && fcEd.querySelectorAll('.fc-text-box').length >= 3;
+      insertInteractiveWidget('before-after');
+      const hasFcWidget = fcEd.querySelectorAll('.ppt-interactive-widget').length === 1;
+      applySelectedCardBgColor('#0F172A', false);
+      const fcBgStyled = document.getElementById('fcBgColorInput').value.toLowerCase() === '#0f172a';
+      closeFloatingCardEditor();
+
+      // 6. Detached freeCard allows selecting inner textbox, shows ▣ 카드선택, and deletes inner textbox cleanly
+      const gCard = slides[2].querySelector('.slide-card');
+      selectElementForInspector(gCard, false);
+      addTextBoxToSelectedCard('자유카드 내부 텍스트박스');
+      const freeCard = detachElementToFreeLayer(gCard);
+      const innerTb = freeCard && freeCard.querySelector('.card-inner-textbox');
+      if (innerTb) innerTb.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+      const selectedInner = Boolean(innerTb && selectedElement === innerTb);
+      const parentBtnShown = !document.getElementById('ovSelectParentCardBtn').classList.contains('hidden');
+      deleteSelectedElement();
+      const deletedInner = Boolean(freeCard && innerTb && !freeCard.contains(innerTb));
+
+      return hdrColored && focalFitOk && opBlurOk && tableFontPersisted && sepTextBoxes && hasFcWidget && fcBgStyled && selectedInner && parentBtnShown && deletedInner;
+    });
+    expect(allFixedOk).toBe(true);
+  });
 });

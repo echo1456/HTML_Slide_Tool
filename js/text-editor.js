@@ -174,6 +174,11 @@ function getTargetTextEl() {
     }
     return fcEd.querySelector('h1, h2, h3, h4, p, li, blockquote, [data-editable]') || fcEd;
   }
+  if (typeof activeChartCellTarget !== 'undefined' && activeChartCellTarget && document.body.contains(activeChartCellTarget) && (!fcEd || fcEd.contains(activeChartCellTarget))) {
+    if (!selectedElement || selectedElement.contains(activeChartCellTarget) || selectedElement === activeChartCellTarget) {
+      return activeChartCellTarget;
+    }
+  }
   if (selectedElement) {
     if (selectedElement.hasAttribute('data-editable')) return selectedElement;
     if (lastFocusedEditable && document.body.contains(lastFocusedEditable) && selectedElement.contains(lastFocusedEditable)) {
@@ -343,12 +348,65 @@ function setSelectedFontSizePx(pxVal, isLiveInput) {
   }
   const targets = getMultiTextTargets();
   if (targets.length > 0) {
+    const touchedTableWidgets = new Set();
     targets.forEach(target => {
       target.style.setProperty('font-size', nextPx + 'px', 'important');
       target.querySelectorAll('span[style*="font-size"]').forEach(sp => {
         sp.style.setProperty('font-size', nextPx + 'px', 'important');
       });
+      // Sync font-size into table data-chart-json so re-renders, equalizing & PPTX/PNG exports preserve it!
+      const cellEl = target.matches && target.matches('th[data-cell-key], td[data-cell-key]') ? target : (target.closest ? target.closest('th[data-cell-key], td[data-cell-key]') : null);
+      const tblWidget = target.classList && target.classList.contains('ppt-chart-widget') ? target : (target.closest ? target.closest('.ppt-chart-widget') : null);
+      if (tblWidget && typeof readChartData === 'function') {
+        const d = readChartData(tblWidget);
+        if (d && d.type === 'table') {
+          if (!d.cellStyles) d.cellStyles = {};
+          if (cellEl) {
+            const keys = (typeof selectedTableCellKeys !== 'undefined' && selectedTableCellKeys.size > 0)
+              ? Array.from(selectedTableCellKeys)
+              : [cellEl.getAttribute('data-cell-key')].filter(Boolean);
+            keys.forEach(ck => {
+              if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
+              d.cellStyles[ck].fontSize = nextPx;
+              const domCell = tblWidget.querySelector(`[data-cell-key="${ck}"]`);
+              if (domCell) domCell.style.setProperty('font-size', nextPx + 'px', 'important');
+            });
+          } else {
+            d.tableFontSize = nextPx;
+            tblWidget.querySelectorAll('th[data-cell-key], td[data-cell-key]').forEach(c => {
+              const ck = c.getAttribute('data-cell-key');
+              if (ck) {
+                if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
+                d.cellStyles[ck].fontSize = nextPx;
+              }
+              c.style.setProperty('font-size', nextPx + 'px', 'important');
+            });
+          }
+          tblWidget.setAttribute('data-chart-json', JSON.stringify(d));
+          touchedTableWidgets.add(tblWidget);
+        }
+      }
     });
+    // Also handle case where activeChartCellTarget is set on a table cell while targets didn't directly include it
+    if (touchedTableWidgets.size === 0 && typeof activeChartCellTarget !== 'undefined' && activeChartCellTarget && activeChartCellTarget.closest) {
+      const cw = activeChartCellTarget.closest('.ppt-chart-widget');
+      if (cw && typeof readChartData === 'function') {
+        const d = readChartData(cw);
+        if (d && d.type === 'table') {
+          if (!d.cellStyles) d.cellStyles = {};
+          const keys = (typeof selectedTableCellKeys !== 'undefined' && selectedTableCellKeys.size > 0)
+            ? Array.from(selectedTableCellKeys)
+            : [activeChartCellTarget.getAttribute('data-cell-key')].filter(Boolean);
+          keys.forEach(ck => {
+            if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
+            d.cellStyles[ck].fontSize = nextPx;
+            const domCell = cw.querySelector(`[data-cell-key="${ck}"]`);
+            if (domCell) domCell.style.setProperty('font-size', nextPx + 'px', 'important');
+          });
+          cw.setAttribute('data-chart-json', JSON.stringify(d));
+        }
+      }
+    }
     positionSelectionOverlay();
     if (!isLiveInput) {
       saveHistorySnapshot();
