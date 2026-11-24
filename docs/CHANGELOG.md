@@ -1,5 +1,18 @@
 # Changelog
 
+## [v5.6.11] - 2026-11-24 — 플로팅 팝업 카드 PC 화면 가득 참(`w-full` 100% 폭발) 원인 완전 수정 & 크기 입력 동기화 개선
+
+### Fixed
+- **[P0] `hydrateFloatingCardSurface()` 크기 결정 조건 공백(`w-full` 100% 화면 꽉 참) 완전 제거 (`js/floating-cards.js`)**:
+  - 기존 `!useWidthPreset && customW <= 0` 또는 `useWidthPreset && customW > 0` 상태에서 프리셋(`max-w-*`)과 인라인 `width`가 모두 비워져 `w-full`만 남아 화면에 가득 차던 버그를 단일 조건(`hasCustomWidth = !useWidthPreset && customW > 0`)으로 통일해 영구 차단.
+- **[P0] 하단 높이 핸들 단독 드래그(`s`) 시 가로 프리셋 강제 해제 버그 수정 (`js/floating-cards.js`)**:
+  - `startFcPreviewResize()`에서 가로 리사이즈(`dir.includes('e')`)가 아닌 세로 단독 드래그(`s`) 시 `fcUseWidthPresetToggle`을 끄지 않도록 교정.
+- **[P1] 편집창 재오픈(`openFloatingCardEditor`) 및 가로 입력(`onFcCustomSizeInput`) 동기화 보강 (`js/floating-cards.js`, `index.html`)**:
+  - 저장된 `customW`가 `0`이면 자동으로 프리셋 모드로 정합화하고, `fcWidthSelect`에 논리 픽셀 크기(`보통(512)`·`넓게(672)`·`와이드(896)`)와 `1440×810` 스테이지 기준 안내를 명시.
+- **[Testing] Playwright CI `Test 19` 확장 (`tests/stress-and-compat.spec.mjs`)**: 두 가지 `w-full` 데드존 조합(`!usePreset && customW=0`, `usePreset && customW=1800`)과 커스텀 `600×400` 카드의 정확한 렌더링 치수 검증 추가.
+
+---
+
 ## [v5.6.10] - 2026-11-24 — `updateStageViewportScale()` 내 `syncFloatingCardLightboxScale()` 호출 누락 수정 (CI 19종 전수 통과)
 
 ### Fixed

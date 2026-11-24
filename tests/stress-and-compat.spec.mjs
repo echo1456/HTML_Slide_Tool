@@ -623,6 +623,68 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     });
     expect(multiOk).toBe(true);
     await page.evaluate(() => closeFloatingCardLightbox());
+
+    // v5.6.11 Regression: Verify dead-zone combinations NEVER explode to full-screen w-full (1392px)
+    // and explicit 600x400 custom dimensions render at exact 600*scale x 400*scale on Desktop!
     await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => updateStageViewportScale());
+    const v5611SizeCheck = await page.evaluate(() => {
+      const store = ensureFloatingCardsStore();
+      // Case A: !useWidthPreset && customW=0 (previously caused by vertical-only 's' drag) -> must fall back to max-w-2xl (672px), NOT 1392px!
+      const recA = document.createElement('div');
+      recA.setAttribute('data-fc-id', 'fc_deadzone_a');
+      recA.setAttribute('data-fc-use-width-preset', 'false');
+      recA.setAttribute('data-fc-custom-w', '0');
+      recA.setAttribute('data-fc-custom-h', '360');
+      recA.setAttribute('data-fc-width-class', 'max-w-2xl');
+      recA.innerHTML = '<p>Deadzone A test</p>';
+      store.appendChild(recA);
+
+      // Case B: useWidthPreset=true && stale customW=1800 -> must honor preset max-w-lg (512px), NOT 1392px!
+      const recB = document.createElement('div');
+      recB.setAttribute('data-fc-id', 'fc_deadzone_b');
+      recB.setAttribute('data-fc-use-width-preset', 'true');
+      recB.setAttribute('data-fc-custom-w', '1800');
+      recB.setAttribute('data-fc-width-class', 'max-w-lg');
+      recB.innerHTML = '<p>Deadzone B test</p>';
+      store.appendChild(recB);
+
+      // Case C: Explicit custom 600x400 -> must render at exact 600*scale x 400*scale!
+      const recC = document.createElement('div');
+      recC.setAttribute('data-fc-id', 'fc_custom_600x400');
+      recC.setAttribute('data-fc-use-width-preset', 'false');
+      recC.setAttribute('data-fc-custom-w', '600');
+      recC.setAttribute('data-fc-custom-h', '400');
+      recC.innerHTML = '<p>Custom 600x400 test</p>';
+      store.appendChild(recC);
+
+      const scale = parseFloat(document.documentElement.style.getPropertyValue('--stage-scale') || '1');
+      const box = document.getElementById('floatingCardLightboxContent');
+      // Disable zoom-in animation for immediate accurate bbox read
+      box.style.animation = 'none';
+
+      openFloatingCardLightbox('fc_deadzone_a');
+      const wA = box.getBoundingClientRect().width;
+      openFloatingCardLightbox('fc_deadzone_b');
+      const wB = box.getBoundingClientRect().width;
+      openFloatingCardLightbox('fc_custom_600x400');
+      const rC = box.getBoundingClientRect();
+      closeFloatingCardLightbox();
+      box.style.animation = '';
+
+      return {
+        scale,
+        wA,
+        wB,
+        wC: rC.width,
+        hC: rC.height,
+        okA: Math.abs(wA - 672 * scale) < 8,
+        okB: Math.abs(wB - 512 * scale) < 8,
+        okC: Math.abs(rC.width - 600 * scale) < 8 && Math.abs(rC.height - 400 * scale) < 8,
+      };
+    });
+    expect(v5611SizeCheck.okA, `Deadzone A width=${v5611SizeCheck.wA}`).toBe(true);
+    expect(v5611SizeCheck.okB, `Deadzone B width=${v5611SizeCheck.wB}`).toBe(true);
+    expect(v5611SizeCheck.okC, `Custom 600x400=${v5611SizeCheck.wC}x${v5611SizeCheck.hC}`).toBe(true);
   });
 });

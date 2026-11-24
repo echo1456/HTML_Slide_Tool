@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="HTML Slide Tool v5.6.10">
+  <meta name="generator" content="HTML Slide Tool v5.6.11">
   <meta name="theme-color" content="#0055FF">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -126,20 +126,20 @@
                 <span>카드폭</span>
               </label>
               <select id="fcWidthSelect" class="bg-transparent font-bold cursor-pointer min-w-0" data-on-change="updateFloatingCardPreviewStyle(); recordFcSnapshot()">
-                <option value="max-w-lg">보통</option>
-                <option value="max-w-2xl" selected>넓게</option>
-                <option value="max-w-4xl">와이드</option>
+                <option value="max-w-lg">보통(512)</option>
+                <option value="max-w-2xl" selected>넓게(672)</option>
+                <option value="max-w-4xl">와이드(896)</option>
               </select>
             </div>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] font-mono font-bold">
-            <label class="flex items-center justify-between px-2 py-1 rounded bg-white border border-borderline">
-              <span>가로(px, 0=자동)</span>
-              <input id="fcCustomWidthInput" type="number" min="0" max="1400" step="10" value="0" class="w-14 text-right bg-canvas rounded px-1" data-on-input="onFcCustomSizeInput()" data-on-change="recordFcSnapshot()">
+            <label class="flex items-center justify-between px-2 py-1 rounded bg-white border border-borderline" title="슬라이드 논리 폭(1440px) 기준 카드 가로 폭 (0=프리셋 사용)">
+              <span>가로(1440기준)</span>
+              <input id="fcCustomWidthInput" type="number" min="0" max="1392" step="10" value="0" class="w-14 text-right bg-canvas rounded px-1" data-on-input="onFcCustomSizeInput()" data-on-change="recordFcSnapshot()">
             </label>
-            <label class="flex items-center justify-between px-2 py-1 rounded bg-white border border-borderline">
-              <span>세로(px, 0=자동)</span>
-              <input id="fcCustomHeightInput" type="number" min="0" max="900" step="10" value="0" class="w-14 text-right bg-canvas rounded px-1" data-on-input="onFcCustomSizeInput()" data-on-change="recordFcSnapshot()">
+            <label class="flex items-center justify-between px-2 py-1 rounded bg-white border border-borderline" title="슬라이드 논리 높이(810px) 기준 카드 세로 높이 (0=내용 자동)">
+              <span>세로(810기준)</span>
+              <input id="fcCustomHeightInput" type="number" min="0" max="762" step="10" value="0" class="w-14 text-right bg-canvas rounded px-1" data-on-input="onFcCustomSizeInput()" data-on-change="recordFcSnapshot()">
             </label>
             <button type="button" class="py-1 px-2 rounded bg-ink text-white font-sans font-bold cursor-pointer" data-on-click="setFloatingCardBgImage()" aria-label="🌄 기본 배경사진" title="🌄 기본 배경사진"><svg class="ui-ico" viewbox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"></path></svg>기본 배경사진</button>
             <button type="button" class="py-1 px-2 rounded bg-white border border-borderline text-rose-600 font-sans font-bold cursor-pointer" data-on-click="clearFloatingCardBgImage()" aria-label="✕ 배경사진 삭제" title="✕ 배경사진 삭제">✕ 배경사진 삭제</button>
@@ -528,7 +528,7 @@
           </div>
           <div class="p-6 md:px-10 md:py-6 flex items-center justify-between bg-canvas">
             <span data-editable="" class="font-mono text-xs text-muted">HTML SLIDE TOOL</span>
-            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.6.10 READY</span>
+            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.6.11 READY</span>
           </div>
         </div>
       </div>

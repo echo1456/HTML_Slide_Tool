@@ -884,9 +884,17 @@ function onFcWidthPresetToggle(usePreset) {
 function onFcCustomSizeInput() {
   const wVal = Number($fc('fcCustomWidthInput')?.value || 0);
   const presetToggle = $fc('fcUseWidthPresetToggle');
-  if (wVal > 0 && presetToggle && presetToggle.checked) {
-    presetToggle.checked = false;
-    onFcWidthPresetToggle(false);
+  if (presetToggle) {
+    if (wVal > 0 && presetToggle.checked) {
+      presetToggle.checked = false;
+      onFcWidthPresetToggle(false);
+      return;
+    }
+    if (wVal <= 0 && !presetToggle.checked) {
+      presetToggle.checked = true;
+      onFcWidthPresetToggle(true);
+      return;
+    }
   }
   updateFloatingCardPreviewStyle();
 }
@@ -904,22 +912,28 @@ function startFcPreviewResize(e, dir) {
   const initW = editor.offsetWidth || 540;
   const initH = editor.offsetHeight || 220;
 
-  const presetToggle = $fc('fcUseWidthPresetToggle');
-  if (presetToggle && presetToggle.checked) {
-    presetToggle.checked = false;
-    onFcWidthPresetToggle(false);
+  // Only disable width preset when actually dragging horizontally ('e' or 'se'); vertical-only ('s') drag preserves width preset!
+  if (dir.includes('e')) {
+    const presetToggle = $fc('fcUseWidthPresetToggle');
+    if (presetToggle && presetToggle.checked) {
+      presetToggle.checked = false;
+      onFcWidthPresetToggle(false);
+    }
   }
+
+  const maxStageW = Math.max(320, ((typeof LOGICAL_STAGE_WIDTH === 'number' && LOGICAL_STAGE_WIDTH > 0) ? LOGICAL_STAGE_WIDTH : 1440) - 48);
+  const maxStageH = Math.max(200, ((typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810) - 48);
 
   const onMove = (me) => {
     const dx = me.clientX - startX;
     const dy = me.clientY - startY;
     if (dir.includes('e')) {
-      const nextW = Math.max(240, Math.min(1200, Math.round(initW + dx)));
+      const nextW = Math.max(240, Math.min(maxStageW, Math.round(initW + dx)));
       box.style.width = nextW + 'px';
       if ($fc('fcCustomWidthInput')) $fc('fcCustomWidthInput').value = String(nextW);
     }
     if (dir.includes('s')) {
-      const nextH = Math.max(120, Math.min(720, Math.round(initH + dy)));
+      const nextH = Math.max(120, Math.min(maxStageH, Math.round(initH + dy)));
       editor.style.height = nextH + 'px';
       editor.style.maxHeight = 'none';
       if ($fc('fcCustomHeightInput')) $fc('fcCustomHeightInput').value = String(nextH);
@@ -941,14 +955,16 @@ function applyFcPreviewSizeFromInputs() {
   const usePreset = Boolean($fc('fcUseWidthPresetToggle')?.checked);
   const customW = Number($fc('fcCustomWidthInput')?.value || 0);
   const customH = Number($fc('fcCustomHeightInput')?.value || 0);
+  const maxStageW = Math.max(320, ((typeof LOGICAL_STAGE_WIDTH === 'number' && LOGICAL_STAGE_WIDTH > 0) ? LOGICAL_STAGE_WIDTH : 1440) - 48);
+  const maxStageH = Math.max(200, ((typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810) - 48);
 
   if (!usePreset && customW > 0) {
-    box.style.width = `${Math.max(240, Math.min(1200, customW))}px`;
+    box.style.width = `${Math.max(240, Math.min(maxStageW, customW))}px`;
   } else {
     box.style.width = '100%';
   }
   if (customH > 0) {
-    editor.style.height = `${Math.max(120, Math.min(720, customH))}px`;
+    editor.style.height = `${Math.max(120, Math.min(maxStageH, customH))}px`;
     editor.style.maxHeight = 'none';
   } else {
     editor.style.height = '';
@@ -1222,13 +1238,16 @@ function openFloatingCardEditor(cardId) {
   if ($fc('fcHoverBgBlurSlider')) $fc('fcHoverBgBlurSlider').value = hoverBgBlur;
   if ($fc('fcHoverBgBlurLabel')) $fc('fcHoverBgBlurLabel').textContent = `${hoverBgBlur}px`;
 
-  const usePreset = existing ? (existing.getAttribute('data-fc-use-width-preset') !== 'false') : true;
+  const rawCustomW = Number(existing ? (existing.getAttribute('data-fc-custom-w') || '0') : '0');
+  const rawCustomH = Number(existing ? (existing.getAttribute('data-fc-custom-h') || '0') : '0');
+  const rawUsePreset = existing ? (existing.getAttribute('data-fc-use-width-preset') !== 'false') : true;
+  const usePreset = rawUsePreset || !(rawCustomW > 0);
+  if ($fc('fcCustomWidthInput')) $fc('fcCustomWidthInput').value = usePreset ? '0' : String(rawCustomW);
+  if ($fc('fcCustomHeightInput')) $fc('fcCustomHeightInput').value = rawCustomH > 0 ? String(rawCustomH) : '0';
   if ($fc('fcUseWidthPresetToggle')) {
     $fc('fcUseWidthPresetToggle').checked = usePreset;
     onFcWidthPresetToggle(usePreset);
   }
-  if ($fc('fcCustomWidthInput')) $fc('fcCustomWidthInput').value = existing ? (existing.getAttribute('data-fc-custom-w') || '0') : '0';
-  if ($fc('fcCustomHeightInput')) $fc('fcCustomHeightInput').value = existing ? (existing.getAttribute('data-fc-custom-h') || '0') : '0';
 
   if ($fc('fcReactiveFxSelect')) $fc('fcReactiveFxSelect').value = existing ? (existing.getAttribute('data-fc-fx') || 'none') : 'none';
   if ($fc('fcFxBasisSelect')) $fc('fcFxBasisSelect').value = existing ? (existing.getAttribute('data-fc-fx-basis') || 'box') : 'box';
@@ -1821,16 +1840,18 @@ function hydrateFloatingCardSurface(boxEl, recordEl, bodyTargetEl, extraTopHtml,
   const rgbaOverlay = hexToRgba(bg, opacity);
   const hoverRgbaOverlay = hexToRgba(fcHoverBg, fcHoverBgAlpha);
 
-  const appliedWidthCls = (useWidthPreset && customW <= 0)
-    ? (isMultiSimultaneous ? 'max-w-lg' : widthClass)
-    : '';
+  // Unified width resolution: eliminates dead zones where neither preset nor customW applied (causing w-full 100% stage explosion)
+  const hasCustomWidth = !useWidthPreset && customW > 0;
+  const appliedWidthCls = hasCustomWidth
+    ? ''
+    : (isMultiSimultaneous ? 'max-w-lg' : (widthClass || 'max-w-2xl'));
   const baseCls = isMultiSimultaneous
     ? `fc-multi-card-item relative border-ink overflow-y-auto safe-scroll p-6 md:p-8 shadow-2xl w-full ${appliedWidthCls}`
     : `relative border-ink overflow-y-auto safe-scroll p-7 md:p-10 shadow-2xl w-full ${appliedWidthCls}`;
   boxEl.className = baseCls;
-  boxEl.style.width = (!useWidthPreset && customW > 0) ? `${customW}px` : '';
-  boxEl.style.maxWidth = (!useWidthPreset && customW > 0) ? 'calc(var(--stage-w, 1440px) - 48px)' : '';
-  boxEl.style.height = customH > 0 ? `${customH}px` : '';
+  boxEl.style.width = hasCustomWidth ? `${Math.max(240, customW)}px` : '';
+  boxEl.style.maxWidth = hasCustomWidth ? 'calc(var(--stage-w, 1440px) - 48px)' : '';
+  boxEl.style.height = customH > 0 ? `${Math.max(120, customH)}px` : '';
   boxEl.style.color = color;
   boxEl.style.borderStyle = borderWidth === '0px' ? 'none' : 'solid';
   boxEl.style.borderWidth = borderWidth;
