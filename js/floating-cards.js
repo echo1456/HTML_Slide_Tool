@@ -331,9 +331,7 @@ function restoreFcEditorState(jsonStr) {
     else editor.removeAttribute('data-fc-hover-bg-img-url');
 
     activeFcInnerBlock = null;
-    if ($fc('fcInnerImgBlurSlider')) $fc('fcInnerImgBlurSlider').value = '0';
-    if ($fc('fcInnerImgBlurLabel')) $fc('fcInnerImgBlurLabel').textContent = '0px';
-
+    
     editor.innerHTML = st.html;
     enhanceAllFcResizableItems(editor);
     const restoredChart = editor.querySelector('.ppt-chart-widget');
@@ -399,56 +397,12 @@ function selectFcInnerBlock(blockEl) {
   blockEl.classList.add('fc-item-selected');
   activeFcInnerBlock = blockEl;
 
-  const editorRect = editor.getBoundingClientRect();
-  const bRect = blockEl.getBoundingClientRect();
-  const wPct = Math.max(15, Math.min(100, Math.round((bRect.width / Math.max(1, editorRect.width - 48)) * 100)));
-  const hPx = Math.max(36, Math.round(bRect.height));
-  if ($fc('fcInnerItemWidthInput')) $fc('fcInnerItemWidthInput').value = String(wPct);
-  if ($fc('fcInnerItemHeightInput')) $fc('fcInnerItemHeightInput').value = String(hPx);
-  const offX = parseFloat(blockEl.getAttribute('data-fc-offset-x') || '0') || 0;
-  const offY = parseFloat(blockEl.getAttribute('data-fc-offset-y') || '0') || 0;
-  if ($fc('fcInnerItemOffsetXInput')) $fc('fcInnerItemOffsetXInput').value = String(Math.round(offX));
-  if ($fc('fcInnerItemOffsetYInput')) $fc('fcInnerItemOffsetYInput').value = String(Math.round(offY));
-
-  const innerImg = blockEl.tagName === 'IMG' ? blockEl : blockEl.querySelector('img');
-  if ($fc('fcInnerImgBlurSlider') && $fc('fcInnerImgBlurLabel')) {
-    const m = innerImg ? (innerImg.style.filter || '').match(/blur\((\d+(?:\.\d+)?)px\)/) : null;
-    const bPx = m ? Math.round(parseFloat(m[1])) : 0;
-    $fc('fcInnerImgBlurSlider').value = String(bPx);
-    $fc('fcInnerImgBlurLabel').textContent = `${bPx}px`;
-  }
-
   const chartWidget = blockEl.classList.contains('ppt-chart-widget') ? blockEl : blockEl.querySelector('.ppt-chart-widget');
   if (chartWidget) {
     if (!chartWidget.dataset.chartUid) chartWidget.dataset.chartUid = 'fc_chart_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
     editor.dataset.activeChartId = chartWidget.dataset.chartUid;
-    syncChartInspectorUI(chartWidget);
-    switchFcStudioTab('chart');
-  } else {
-    switchFcStudioTab('content');
+    if (typeof syncChartInspectorUI === 'function') syncChartInspectorUI(chartWidget);
   }
-}
-
-function resizeActiveFcInnerBlock(dim, val, isLiveInput) {
-  const editor = $fc('fcRichBodyEditor');
-  if (!activeFcInnerBlock || !editor || !editor.contains(activeFcInnerBlock)) {
-    if (!isLiveInput) showToast('먼저 크기를 조절할 플로팅 카드 내 차트·표·사진·서브박스를 클릭해 주세요.');
-    return;
-  }
-  if (dim === 'width') {
-    const pct = Math.max(15, Math.min(100, Number(val) || 100));
-    activeFcInnerBlock.style.width = `${pct}%`;
-  } else if (dim === 'height') {
-    const px = Math.max(36, Math.min(650, Number(val) || 180));
-    activeFcInnerBlock.style.height = `${px}px`;
-    activeFcInnerBlock.style.maxHeight = 'none';
-    const innerImg = activeFcInnerBlock.querySelector('img');
-    if (innerImg) {
-      innerImg.style.height = '100%';
-      innerImg.style.maxHeight = 'none';
-    }
-  }
-  if (!isLiveInput) recordFcSnapshot();
 }
 
 function applyFcInnerBlockOffsetClamped(blockEl, nextX, nextY) {
@@ -474,40 +428,6 @@ function applyFcInnerBlockOffsetClamped(blockEl, nextX, nextY) {
   blockEl.setAttribute('data-fc-offset-y', String(clampedY));
   blockEl.style.position = 'relative';
   blockEl.style.transform = (clampedX === 0 && clampedY === 0) ? '' : `translate(${clampedX}px, ${clampedY}px)`;
-  if ($fc('fcInnerItemOffsetXInput')) $fc('fcInnerItemOffsetXInput').value = String(clampedX);
-  if ($fc('fcInnerItemOffsetYInput')) $fc('fcInnerItemOffsetYInput').value = String(clampedY);
-}
-
-function setFcInnerBlockOffsetFromInput() {
-  const editor = $fc('fcRichBodyEditor');
-  if (!activeFcInnerBlock || !editor || !editor.contains(activeFcInnerBlock)) {
-    showToast('먼저 위치를 이동할 플로팅 카드 내부 블록을 클릭해 주세요.');
-    return;
-  }
-  const x = parseFloat($fc('fcInnerItemOffsetXInput')?.value || '0') || 0;
-  const y = parseFloat($fc('fcInnerItemOffsetYInput')?.value || '0') || 0;
-  applyFcInnerBlockOffsetClamped(activeFcInnerBlock, x, y);
-  recordFcSnapshot();
-}
-
-function nudgeActiveFcInnerBlock(dx, dy) {
-  const editor = $fc('fcRichBodyEditor');
-  if (!activeFcInnerBlock || !editor || !editor.contains(activeFcInnerBlock)) {
-    showToast('먼저 위치를 이동할 플로팅 카드 내부 블록을 클릭해 주세요.');
-    return;
-  }
-  const curX = parseFloat(activeFcInnerBlock.getAttribute('data-fc-offset-x') || '0') || 0;
-  const curY = parseFloat(activeFcInnerBlock.getAttribute('data-fc-offset-y') || '0') || 0;
-  applyFcInnerBlockOffsetClamped(activeFcInnerBlock, curX + dx, curY + dy);
-  recordFcSnapshot();
-}
-
-function resetActiveFcInnerBlockOffset() {
-  const editor = $fc('fcRichBodyEditor');
-  if (!activeFcInnerBlock || !editor || !editor.contains(activeFcInnerBlock)) return;
-  applyFcInnerBlockOffsetClamped(activeFcInnerBlock, 0, 0);
-  recordFcSnapshot();
-  showToast('선택한 블록 위치가 초기화되었습니다.');
 }
 
 function makeFcBlockResizable(blockEl) {
@@ -586,8 +506,7 @@ function makeFcBlockResizable(blockEl) {
           const nextW = Math.max(80, Math.min(maxW, Math.round(initRect.width + (me.clientX - startX))));
           const wPct = Math.max(15, Math.min(100, Math.round((nextW / maxW) * 100)));
           blockEl.style.width = `${wPct}%`;
-          if ($fc('fcInnerItemWidthInput')) $fc('fcInnerItemWidthInput').value = String(wPct);
-        }
+            }
         if (axis === 'se' || axis === 's') {
           const nextH = Math.max(36, Math.min(650, Math.round(initRect.height + (me.clientY - startY))));
           blockEl.style.height = `${nextH}px`;
@@ -597,8 +516,7 @@ function makeFcBlockResizable(blockEl) {
             innerImg.style.height = '100%';
             innerImg.style.maxHeight = 'none';
           }
-          if ($fc('fcInnerItemHeightInput')) $fc('fcInnerItemHeightInput').value = String(nextH);
-        }
+            }
       };
       const onUp = () => {
         doc.removeEventListener('mousemove', onMove);
@@ -776,7 +694,6 @@ function openExternalFloatingCardWindow() {
     }
   });
   if (typeof bindHistoryCoalesceListeners === 'function') bindHistoryCoalesceListeners(win.document);
-  win.document.addEventListener('selectionchange', () => captureFcEditableTextSelection(win.document));
   const editor = $fc('fcRichBodyEditor');
   if (editor) enhanceAllFcResizableItems(editor);
   if (modal) {
@@ -839,33 +756,6 @@ function onFcHoverBgBlurChange(val) {
   const px = Number(val) || 0;
   if ($fc('fcHoverBgBlurLabel')) $fc('fcHoverBgBlurLabel').textContent = `${px}px`;
   updateFloatingCardPreviewStyle();
-}
-
-function onFcInnerImageBlurChange(val) {
-  const px = Number(val) || 0;
-  if ($fc('fcInnerImgBlurLabel')) $fc('fcInnerImgBlurLabel').textContent = `${px}px`;
-  if (!activeFcInnerBlock) return;
-  const img = activeFcInnerBlock.tagName === 'IMG' ? activeFcInnerBlock : activeFcInnerBlock.querySelector('img');
-  if (!img) return;
-  img.style.filter = px > 0 ? `blur(${px}px)` : '';
-  img.style.transform = px > 0 ? 'scale(1.04)' : '';
-}
-
-function applyBlurToSelectedFcImage() {
-  const px = Number($fc('fcInnerImgBlurSlider')?.value || 0);
-  if (!activeFcInnerBlock) {
-    showToast('먼저 흐림 효과를 적용할 삽입 사진을 클릭해 주세요.');
-    return;
-  }
-  const img = activeFcInnerBlock.tagName === 'IMG' ? activeFcInnerBlock : activeFcInnerBlock.querySelector('img');
-  if (!img) {
-    showToast('선택한 블록에 사진이 없습니다.');
-    return;
-  }
-  img.style.filter = px > 0 ? `blur(${px}px)` : '';
-  img.style.transform = px > 0 ? 'scale(1.04)' : '';
-  recordFcSnapshot();
-  showToast(`삽입 사진에 흐림 효과(${px}px)가 적용되었습니다.`);
 }
 
 function updateFloatingCardPreviewStyle() {
@@ -948,309 +838,6 @@ function updateFloatingCardPreviewStyle() {
   applyFcPreviewSizeFromInputs();
 }
 
-let savedFcTextSelectionRange = null;
-let activeFcLiveColorSpan = null;
-let activeFcLiveFontSpan = null;
-let lastFocusedFcTextEl = null;
-
-function captureFcEditableTextSelection(targetDoc) {
-  const doc = targetDoc || getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return;
-  const sel = doc.getSelection();
-  if (!sel || sel.rangeCount === 0) return;
-  if (sel.isCollapsed || sel.toString().trim().length === 0) {
-    const node = sel.anchorNode ? (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode) : null;
-    if (node && editor.contains(node)) {
-      activeFcLiveColorSpan = null;
-      activeFcLiveFontSpan = null;
-      savedFcTextSelectionRange = null;
-    }
-    return;
-  }
-  const range = sel.getRangeAt(0);
-  const anc = range.commonAncestorContainer.nodeType === 3
-    ? range.commonAncestorContainer.parentElement
-    : range.commonAncestorContainer;
-  if (anc && editor.contains(anc)) {
-    savedFcTextSelectionRange = range.cloneRange();
-    activeFcLiveColorSpan = null;
-    activeFcLiveFontSpan = null;
-  }
-}
-
-function getUsableFcTextRange() {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return null;
-  const sel = doc.getSelection();
-  if (sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0) {
-    const r = sel.getRangeAt(0);
-    const anc = r.commonAncestorContainer.nodeType === 3 ? r.commonAncestorContainer.parentElement : r.commonAncestorContainer;
-    if (anc && editor.contains(anc)) {
-      savedFcTextSelectionRange = r.cloneRange();
-      return { doc, editor, sel, range: r };
-    }
-  }
-  if (savedFcTextSelectionRange) {
-    const anc = savedFcTextSelectionRange.commonAncestorContainer.nodeType === 3
-      ? savedFcTextSelectionRange.commonAncestorContainer.parentElement
-      : savedFcTextSelectionRange.commonAncestorContainer;
-    if (anc && doc.body.contains(anc) && editor.contains(anc) && savedFcTextSelectionRange.toString().trim().length > 0) {
-      return { doc, editor, sel, range: savedFcTextSelectionRange };
-    }
-    savedFcTextSelectionRange = null;
-  }
-  return null;
-}
-
-function styleFcRangeTextNodes(doc, editor, range, styleProp, styleVal) {
-  const createdSpans = [];
-  const walker = doc.createTreeWalker(
-    range.commonAncestorContainer.nodeType === 3 ? range.commonAncestorContainer.parentNode : range.commonAncestorContainer,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
-  const textNodes = [];
-  let cur = walker.nextNode();
-  while (cur) {
-    if (editor.contains(cur) && cur.nodeValue && cur.nodeValue.trim().length > 0) {
-      try {
-        if (range.intersectsNode(cur)) textNodes.push(cur);
-      } catch (e) {}
-    }
-    cur = walker.nextNode();
-  }
-  if (textNodes.length === 0 && range.commonAncestorContainer.nodeType === 3 && editor.contains(range.commonAncestorContainer)) {
-    textNodes.push(range.commonAncestorContainer);
-  }
-  if (textNodes.length === 0) return createdSpans;
-
-  textNodes.forEach(tNode => {
-    const startOff = (tNode === range.startContainer) ? range.startOffset : 0;
-    const endOff = (tNode === range.endContainer) ? range.endOffset : tNode.nodeValue.length;
-    if (endOff <= startOff) return;
-    let targetNode = tNode;
-    if (endOff < targetNode.nodeValue.length) targetNode.splitText(endOff);
-    if (startOff > 0) targetNode = targetNode.splitText(startOff);
-    const parentSpan = targetNode.parentElement;
-    if (parentSpan && parentSpan.tagName === 'SPAN' && parentSpan.childNodes.length === 1 && editor.contains(parentSpan) && !parentSpan.classList.contains('fc-item-move-grip')) {
-      parentSpan.style[styleProp] = styleVal;
-      createdSpans.push(parentSpan);
-    } else {
-      const sp = doc.createElement('span');
-      sp.style[styleProp] = styleVal;
-      targetNode.parentNode.insertBefore(sp, targetNode);
-      sp.appendChild(targetNode);
-      createdSpans.push(sp);
-    }
-  });
-  return createdSpans;
-}
-
-function execFcFormat(cmd) {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return;
-  if (cmd === 'justifyLeft' || cmd === 'justifyCenter' || cmd === 'justifyRight') {
-    const alignMap = { justifyLeft: 'left', justifyCenter: 'center', justifyRight: 'right' };
-    const blk = getTargetFcTextBlock(doc, editor) || editor;
-    blk.style.textAlign = alignMap[cmd];
-    recordFcSnapshot();
-    return;
-  }
-  const usable = getUsableFcTextRange();
-  const tagMap = { bold: 'strong', italic: 'em', underline: 'u' };
-  const tagName = tagMap[cmd];
-  if (usable && tagName) {
-    const anc = usable.range.commonAncestorContainer.nodeType === 3 ? usable.range.commonAncestorContainer.parentElement : usable.range.commonAncestorContainer;
-    const existing = anc ? anc.closest(tagName) : null;
-    if (existing && existing.parentNode) {
-      const p = existing.parentNode;
-      while (existing.firstChild) p.insertBefore(existing.firstChild, existing);
-      p.removeChild(existing);
-      p.normalize();
-    } else {
-      const sp = doc.createElement(tagName);
-      try { sp.appendChild(usable.range.extractContents()); usable.range.insertNode(sp); } catch (e) {}
-    }
-    savedFcTextSelectionRange = null;
-    if (usable.sel) usable.sel.removeAllRanges();
-  } else if (tagName) {
-    const blk = getTargetFcTextBlock(doc, editor);
-    if (blk) {
-      const bCs = (doc.defaultView || window).getComputedStyle(blk);
-      if (cmd === 'bold') blk.style.fontWeight = (parseInt(bCs.fontWeight, 10) >= 700 || bCs.fontWeight === 'bold') ? '400' : '800';
-      if (cmd === 'italic') blk.style.fontStyle = bCs.fontStyle === 'italic' ? 'normal' : 'italic';
-      if (cmd === 'underline') blk.style.textDecoration = (bCs.textDecorationLine || bCs.textDecoration || '').includes('underline') ? 'none' : 'underline';
-    }
-  }
-  recordFcSnapshot();
-}
-
-function getTargetFcTextBlock(doc, editor) {
-  const sel = doc.getSelection();
-  if (sel && sel.anchorNode) {
-    const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
-    const block = node ? node.closest('h1, h2, h3, h4, p, li, blockquote, span, div') : null;
-    if (block && block !== editor && editor.contains(block) && !block.classList.contains('fc-item-move-grip')) {
-      return block;
-    }
-  }
-  if (lastFocusedFcTextEl && doc.body.contains(lastFocusedFcTextEl) && lastFocusedFcTextEl !== editor && editor.contains(lastFocusedFcTextEl)) {
-    return lastFocusedFcTextEl;
-  }
-  return null;
-}
-
-function execFcForeColor(hex, isLiveInput) {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return;
-
-  if (Array.isArray(activeFcLiveColorSpan) && activeFcLiveColorSpan.length > 0 && activeFcLiveColorSpan.every(s => editor.contains(s))) {
-    activeFcLiveColorSpan.forEach(s => { s.style.color = hex; });
-    if (!isLiveInput) {
-      activeFcLiveColorSpan = null;
-      recordFcSnapshot();
-      showToast('드래그한 텍스트의 글자 색상이 변경되었습니다.');
-    }
-    return;
-  }
-
-  const usable = getUsableFcTextRange();
-  if (usable) {
-    const spans = styleFcRangeTextNodes(doc, editor, usable.range, 'color', hex);
-    if (spans.length > 0) {
-      activeFcLiveColorSpan = isLiveInput ? spans : null;
-      savedFcTextSelectionRange = null;
-      if (usable.sel) usable.sel.removeAllRanges();
-      if (!isLiveInput) {
-        recordFcSnapshot();
-        showToast('드래그한 텍스트의 글자 색상이 변경되었습니다.');
-      }
-      return;
-    }
-  }
-
-  const targetBlock = getTargetFcTextBlock(doc, editor);
-  if (targetBlock) {
-    targetBlock.style.color = hex;
-    targetBlock.querySelectorAll('span[style*="color"]').forEach(sp => { sp.style.color = hex; });
-    if (!isLiveInput) {
-      recordFcSnapshot();
-      showToast('선택한 텍스트의 글자 색상이 변경되었습니다.');
-    }
-    return;
-  }
-
-  if (activeFcInnerBlock && editor.contains(activeFcInnerBlock)) {
-    activeFcInnerBlock.style.color = hex;
-    if (!isLiveInput) recordFcSnapshot();
-    return;
-  }
-
-  editor.style.color = hex;
-  if ($fc('fcTextColorInput')) $fc('fcTextColorInput').value = hex;
-  if (!isLiveInput) recordFcSnapshot();
-}
-
-function setFcFontSizePx(pxVal, isLiveInput) {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return;
-  const nextPx = Math.max(10, Math.min(96, Math.round(Number(pxVal) || 16)));
-  const sizeInp = $fc('fcFontSizeInput');
-  if (sizeInp && !isLiveInput) sizeInp.value = String(nextPx);
-
-  if (Array.isArray(activeFcLiveFontSpan) && activeFcLiveFontSpan.length > 0 && activeFcLiveFontSpan.every(s => editor.contains(s))) {
-    activeFcLiveFontSpan.forEach(s => { s.style.fontSize = nextPx + 'px'; });
-    if (!isLiveInput) { activeFcLiveFontSpan = null; recordFcSnapshot(); }
-    return;
-  }
-
-  const usable = getUsableFcTextRange();
-  if (usable) {
-    const spans = styleFcRangeTextNodes(doc, editor, usable.range, 'fontSize', nextPx + 'px');
-    if (spans.length > 0) {
-      activeFcLiveFontSpan = isLiveInput ? spans : null;
-      savedFcTextSelectionRange = null;
-      if (usable.sel) usable.sel.removeAllRanges();
-      if (!isLiveInput) {
-        recordFcSnapshot();
-        showToast(`드래그한 텍스트 크기가 ${nextPx}px로 변경되었습니다.`);
-      }
-      return;
-    }
-  }
-
-  const targetBlock = getTargetFcTextBlock(doc, editor);
-  if (targetBlock) {
-    targetBlock.style.fontSize = nextPx + 'px';
-    targetBlock.querySelectorAll('span[style*="font-size"]').forEach(sp => {
-      sp.style.fontSize = nextPx + 'px';
-    });
-    if (!isLiveInput) {
-      recordFcSnapshot();
-      showToast(`선택한 텍스트 크기가 ${nextPx}px로 변경되었습니다.`);
-    }
-    return;
-  }
-
-  if (activeFcInnerBlock && editor.contains(activeFcInnerBlock)) {
-    activeFcInnerBlock.style.fontSize = nextPx + 'px';
-    if (!isLiveInput) recordFcSnapshot();
-    return;
-  }
-
-  editor.style.fontSize = nextPx + 'px';
-  if (!isLiveInput) recordFcSnapshot();
-}
-
-function adjustFcFontSize(delta) {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  const sizeInp = $fc('fcFontSizeInput');
-  let basePx = sizeInp ? (parseFloat(sizeInp.value) || 16) : 16;
-  if (Array.isArray(activeFcLiveFontSpan) && activeFcLiveFontSpan.length > 0 && editor && editor.contains(activeFcLiveFontSpan[0])) {
-    const win = doc.defaultView || window;
-    basePx = Math.round(parseFloat(win.getComputedStyle(activeFcLiveFontSpan[0]).fontSize) || basePx);
-  } else if (editor) {
-    const targetBlock = getTargetFcTextBlock(doc, editor);
-    if (targetBlock) {
-      const win = doc.defaultView || window;
-      basePx = Math.round(parseFloat(win.getComputedStyle(targetBlock).fontSize) || basePx);
-    }
-  }
-  const nextPx = Math.max(10, Math.min(96, Math.round(basePx + delta * 2)));
-  setFcFontSizePx(nextPx, false);
-}
-
-function highlightFcSelection() {
-  const usable = getUsableFcTextRange();
-  if (usable) {
-    const spans = styleFcRangeTextNodes(usable.doc, usable.editor, usable.range, 'backgroundColor', '#FFE600');
-    if (spans.length > 0) {
-      spans.forEach(s => { s.classList.add('hl-mark', 'px-1', 'rounded', 'font-bold'); s.style.color = '#111111'; });
-      savedFcTextSelectionRange = null;
-      if (usable.sel) usable.sel.removeAllRanges();
-      recordFcSnapshot();
-      showToast('선택 텍스트에 형광펜 강조가 적용되었습니다.');
-      return;
-    }
-  }
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  const blk = editor ? getTargetFcTextBlock(doc, editor) : null;
-  if (blk) {
-    const turningOn = !blk.style.backgroundColor;
-    blk.style.backgroundColor = turningOn ? '#FFE600' : '';
-    blk.style.color = turningOn ? '#111111' : '';
-    blk.style.padding = turningOn ? '2px 6px' : '';
-    blk.style.borderRadius = turningOn ? '4px' : '';
-  }
-  recordFcSnapshot();
-}
 
 function onFcPositionPresetChange(val) {
   const wrap = $fc('fcCustomCoordsWrap');
@@ -1352,29 +939,6 @@ function applyFcPreviewSizeFromInputs() {
   }
 }
 
-function insertChartIntoFloatingCardEditor() {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return;
-  const type = $fc('fcChartTypeSelect')?.value || 'bar-v';
-  const data = getDefaultChartData(type);
-  const uid = 'fc_chart_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-  const widget = doc.createElement('div');
-  widget.className = 'ppt-chart-widget my-3';
-  widget.setAttribute('data-chart-uid', uid);
-  widget.setAttribute('data-chart-json', JSON.stringify(data));
-  widget.setAttribute('contenteditable', 'false');
-  widget.innerHTML = renderChartWidgetInnerHtml(data);
-  editor.appendChild(widget);
-  editor.dataset.activeChartId = uid;
-  makeFcBlockResizable(widget);
-  selectFcInnerBlock(widget);
-  if (typeof syncChartInspectorUI === 'function') syncChartInspectorUI(widget);
-  switchFcStudioTab('chart');
-  recordFcSnapshot();
-  showToast('플로팅 카드 내부에 그래프/표가 삽입되었습니다! 우측·하단·모서리 핸들이나 상단 폭%/높이 입력으로 크기 조절이 가능합니다.');
-}
-
 function insertTextBoxIntoFloatingCardEditor() {
   const doc = getFcStudioDoc();
   const editor = doc.getElementById('fcRichBodyEditor');
@@ -1393,60 +957,6 @@ function insertTextBoxIntoFloatingCardEditor() {
   const editableLeaf = box.querySelector('p');
   if (editableLeaf) editableLeaf.focus();
   showToast('플로팅 카드 내부에 텍스트박스가 추가되었습니다.');
-}
-
-function insertWideBoxIntoFloatingCardEditor() {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return;
-  editor.setAttribute('contenteditable', 'true');
-  const box = doc.createElement('div');
-  box.className = 'fc-sub-box fc-wide-box w-full p-4 rounded-xl border border-borderline bg-canvas my-2.5 overflow-auto';
-  box.setAttribute('contenteditable', 'false');
-  box.style.width = '100%';
-  box.innerHTML = `<div contenteditable="true" class="font-mono text-[11px] font-bold text-gopro mb-1">HIGHLIGHT · SUBTITLE</div><p contenteditable="true" class="text-sm md:text-base font-bold">강조할 긴 박스 내용을 입력하세요</p>`;
-  editor.appendChild(box);
-  makeFcBlockResizable(box);
-  selectFcInnerBlock(box);
-  recordFcSnapshot();
-  const editableLeaf = box.querySelector('p');
-  if (editableLeaf) editableLeaf.focus();
-  showToast('플로팅 카드 내부에 가로 전체 폭의 긴 박스가 추가되었습니다.');
-}
-
-function insertSubBoxIntoFloatingCardEditor() {
-  const doc = getFcStudioDoc();
-  const editor = doc.getElementById('fcRichBodyEditor');
-  if (!editor) return;
-  editor.setAttribute('contenteditable', 'true');
-  const box = doc.createElement('div');
-  box.className = 'fc-sub-box p-4 rounded-xl border border-borderline bg-black/5 my-2.5 overflow-auto';
-  box.setAttribute('contenteditable', 'false');
-  box.innerHTML = `<div contenteditable="true" class="font-mono text-xs font-bold text-gopro mb-1">SUB-SECTION</div><div contenteditable="true" class="font-bold text-base">세부 항목 내용을 입력하세요</div>`;
-  editor.appendChild(box);
-  makeFcBlockResizable(box);
-  selectFcInnerBlock(box);
-  recordFcSnapshot();
-  const editableLeaf = box.querySelector('div:last-child');
-  if (editableLeaf) editableLeaf.focus();
-  showToast('플로팅 카드 내부에 서브박스가 추가되었습니다.');
-}
-
-function styleActiveFcInnerBlock(prop, val, isLiveInput) {
-  const editor = $fc('fcRichBodyEditor');
-  if (!activeFcInnerBlock || !editor || !editor.contains(activeFcInnerBlock)) {
-    if (!isLiveInput) showToast('먼저 스타일을 변경할 카드 내부 박스(텍스트박스·긴박스·서브박스)를 클릭해 주세요.');
-    return;
-  }
-  if (prop === 'bg') {
-    activeFcInnerBlock.style.backgroundColor = val;
-  } else if (prop === 'border') {
-    activeFcInnerBlock.style.borderStyle = 'solid';
-    activeFcInnerBlock.style.borderColor = val;
-  } else if (prop === 'radius') {
-    activeFcInnerBlock.style.borderRadius = val;
-  }
-  if (!isLiveInput) recordFcSnapshot();
 }
 
 function deleteActiveFcInnerBlock() {
@@ -1550,8 +1060,6 @@ function resetFloatingCardEditorStyle() {
   if ($fc('fcBgBlurLabel')) $fc('fcBgBlurLabel').textContent = '0px';
   if ($fc('fcHoverBgBlurSlider')) $fc('fcHoverBgBlurSlider').value = '0';
   if ($fc('fcHoverBgBlurLabel')) $fc('fcHoverBgBlurLabel').textContent = '0px';
-  if ($fc('fcInnerImgBlurSlider')) $fc('fcInnerImgBlurSlider').value = '0';
-  if ($fc('fcInnerImgBlurLabel')) $fc('fcInnerImgBlurLabel').textContent = '0px';
   if ($fc('fcUseWidthPresetToggle')) {
     $fc('fcUseWidthPresetToggle').checked = true;
     onFcWidthPresetToggle(true);
@@ -1735,13 +1243,9 @@ function openFloatingCardEditor(cardId) {
     syncChartInspectorUI(null);
   }
 
-  const fcDoc = getFcStudioDoc();
-  if (!fcDoc.__fcSelectionBound) {
-    fcDoc.__fcSelectionBound = true;
-    fcDoc.addEventListener('selectionchange', () => captureFcEditableTextSelection(fcDoc));
-  }
   if (!editor.dataset.fcInputBound) {
     editor.dataset.fcInputBound = 'true';
+    const fcDoc = getFcStudioDoc();
     const previewBox = fcDoc.getElementById('fcPreviewResizeBox');
     if (previewBox && !previewBox.dataset.fcTiltBound) {
       previewBox.dataset.fcTiltBound = 'true';
@@ -1758,21 +1262,12 @@ function openFloatingCardEditor(cardId) {
         }
       });
     }
-    editor.addEventListener('mouseup', () => captureFcEditableTextSelection(fcDoc));
-    editor.addEventListener('keyup', () => captureFcEditableTextSelection(fcDoc));
     editor.addEventListener('click', (e) => {
       if (!e.target.closest('.fc-resizable-item')) {
         editor.querySelectorAll('.fc-item-selected').forEach(el => el.classList.remove('fc-item-selected'));
         activeFcInnerBlock = null;
       }
-      const clickedText = e.target.closest('h1, h2, h3, h4, p, li, blockquote, span, div');
-      if (clickedText && clickedText !== editor && editor.contains(clickedText) && !clickedText.classList.contains('fc-item-move-grip')) {
-        lastFocusedFcTextEl = clickedText;
-        activeFcLiveFontSpan = null;
-        const win = fcDoc.defaultView || window;
-        const curPx = Math.round(parseFloat(win.getComputedStyle(clickedText).fontSize) || 16);
-        if ($fc('fcFontSizeInput')) $fc('fcFontSizeInput').value = String(curPx);
-      }
+
     });
     let fcTypeTimer = null;
     editor.addEventListener('input', () => {
@@ -1792,12 +1287,9 @@ function openFloatingCardEditor(cardId) {
     });
   }
 
-  lastFocusedFcTextEl = null;
-  activeFcLiveFontSpan = null;
-  activeFcLiveColorSpan = null;
   fcUndoStack.length = 0;
   fcRedoStack.length = 0;
-  switchFcStudioTab('content');
+  switchFcStudioTab('style');
   updateFloatingCardPreviewStyle();
   recordFcSnapshot();
   } catch (fcInitErr) {

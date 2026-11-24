@@ -1,5 +1,5 @@
 /* HTML Slide Tool — Offline-First PWA Service Worker (Auto-versioned by build.py) */
-const CACHE_NAME = 'html-slide-tool-v5.4.1';
+const CACHE_NAME = 'html-slide-tool-v5.5.3';
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
@@ -17,8 +17,12 @@ const APP_SHELL_ASSETS = [
   './js/history.js',
   './js/storage.js',
   './js/navigation.js',
+  './js/find-replace.js',
+  './js/presenter-view.js',
+  './js/filmstrip.js',
   './js/text-editor.js',
   './js/selection.js',
+  './js/bento-grid.js',
   './js/media.js',
   './js/charts.js',
   './js/theme.js',
@@ -29,7 +33,9 @@ const APP_SHELL_ASSETS = [
   './js/export.js',
   './js/pwa-fs.js',
   './js/studio.js',
-  './js/main.js'
+  './js/smart-guides.js',
+  './js/main.js',
+  './js/safe-events.js'
 ];
 
 self.addEventListener('install', (event) => {

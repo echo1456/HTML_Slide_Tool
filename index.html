@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="HTML Slide Tool v5.4.1">
+  <meta name="generator" content="HTML Slide Tool v5.5.3">
   <meta name="theme-color" content="#0055FF">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -86,86 +86,15 @@
 
       <!-- Collapsible Floating-Card-Specific Properties Drawer (Hidden by Default for Clean Preview Mode) -->
       <div id="fcLegacyPropsDrawer" class="hidden border-b border-borderline bg-white shrink-0 max-h-[38vh] overflow-y-auto safe-scroll">
-      <!-- 4-Category Reclassified Sub-Navigation for Floating Card Studio -->
-      <div class="px-4 py-1.5 bg-white border-b border-borderline grid grid-cols-4 gap-1.5 shrink-0" role="tablist">
-        <button type="button" data-fc-tab="content" class="fc-tab-btn active py-1.5 px-2 rounded-lg border border-borderline bg-canvas text-[11px] font-bold text-ink transition cursor-pointer" data-on-click="switchFcStudioTab('content')" role="tab" aria-label="본문 · 박스삽입" title="본문 · 박스삽입">본문 · 박스삽입</button>
-        <button type="button" data-fc-tab="style" class="fc-tab-btn py-1.5 px-2 rounded-lg border border-borderline bg-canvas text-[11px] font-bold text-ink transition cursor-pointer" data-on-click="switchFcStudioTab('style')" role="tab" aria-label="카드 외형 · 배경" title="카드 외형 · 배경">카드 외형 · 배경</button>
-        <button type="button" data-fc-tab="chart" class="fc-tab-btn py-1.5 px-2 rounded-lg border border-borderline bg-canvas text-[11px] font-bold text-ink transition cursor-pointer" data-on-click="switchFcStudioTab('chart')" role="tab" aria-label="차트 · 데이터 표" title="차트 · 데이터 표">차트 · 데이터 표</button>
+      <!-- 2-Tab Card-Specific Properties Sub-Navigation (v5.5.0: Content & Chart Unified into Main PPT Studio) -->
+      <div class="px-4 py-1.5 bg-white border-b border-borderline grid grid-cols-2 gap-1.5 shrink-0" role="tablist">
+        <button type="button" data-fc-tab="style" class="fc-tab-btn active py-1.5 px-2 rounded-lg border border-borderline bg-canvas text-[11px] font-bold text-ink transition cursor-pointer" data-on-click="switchFcStudioTab('style')" role="tab" aria-label="카드 외형 · 배경" title="카드 외형 · 배경">카드 외형 · 배경</button>
         <button type="button" data-fc-tab="motion" class="fc-tab-btn py-1.5 px-2 rounded-lg border border-borderline bg-canvas text-[11px] font-bold text-ink transition cursor-pointer" data-on-click="switchFcStudioTab('motion')" role="tab" aria-label="반응형 · 팝업위치" title="반응형 · 팝업위치">반응형 · 팝업위치</button>
       </div>
 
       <div class="p-4 overflow-y-auto safe-scroll space-y-3 text-xs flex-1">
-        <!-- FC TAB 1: 본문 · 박스삽입 -->
-        <div id="fcStudioTab-content" class="fc-tab-pane p-2.5 rounded-xl bg-canvas border border-borderline space-y-2">
-          <div class="flex flex-wrap items-center gap-1">
-            <button type="button" title="글자 축소" class="px-1.5 py-1 rounded bg-white hover:bg-ink hover:text-white border border-borderline font-bold cursor-pointer" data-on-mousedown="event.preventDefault(); adjustFcFontSize(-1)" aria-label="글자 축소">A-</button>
-            <input id="fcFontSizeInput" type="number" min="10" max="96" value="16" title="글자 크기(px)" class="w-11 px-1 py-1 rounded bg-white border border-borderline font-mono text-center font-bold" data-on-input="setFcFontSizePx(this.value, true)" data-on-change="setFcFontSizePx(this.value, false)" data-on-keydown="if(event.key==='Enter'){event.preventDefault(); setFcFontSizePx(this.value, false);}">
-            <button type="button" title="글자 확대" class="px-1.5 py-1 rounded bg-white hover:bg-ink hover:text-white border border-borderline font-bold cursor-pointer" data-on-mousedown="event.preventDefault(); adjustFcFontSize(1)" aria-label="글자 확대">A+</button>
-            <button type="button" class="px-2 py-1 rounded bg-white border border-borderline font-black cursor-pointer" data-on-mousedown="event.preventDefault(); execFcFormat('bold')" aria-label="굵게" title="굵게">B</button>
-            <button type="button" class="px-2 py-1 rounded bg-white border border-borderline italic font-bold cursor-pointer" data-on-mousedown="event.preventDefault(); execFcFormat('italic')" aria-label="기울임" title="기울임">I</button>
-            <button type="button" class="px-2 py-1 rounded bg-white border border-borderline underline font-bold cursor-pointer" data-on-mousedown="event.preventDefault(); execFcFormat('underline')" aria-label="밑줄" title="밑줄">U</button>
-            <button type="button" class="px-2 py-1 rounded bg-white border border-borderline cursor-pointer" data-on-mousedown="event.preventDefault(); execFcFormat('justifyLeft')" aria-label="왼쪽 정렬" title="왼쪽 정렬">좌</button>
-            <button type="button" class="px-2 py-1 rounded bg-white border border-borderline cursor-pointer" data-on-mousedown="event.preventDefault(); execFcFormat('justifyCenter')" aria-label="가운데 정렬" title="가운데 정렬">중</button>
-            <button type="button" class="px-2 py-1 rounded bg-white border border-borderline cursor-pointer" data-on-mousedown="event.preventDefault(); execFcFormat('justifyRight')" aria-label="오른쪽 정렬" title="오른쪽 정렬">우</button>
-            <div class="inline-flex items-center rounded bg-white border border-borderline overflow-hidden" title="드래그한 텍스트만 글자색 변경">
-              <input id="fcInlineTextColorPicker" type="color" value="#0055FF" class="w-6 h-6 border-0 p-0 bg-transparent cursor-pointer" data-on-input="execFcForeColor(this.value, true)" data-on-change="execFcForeColor(this.value, false)">
-              <button type="button" class="px-1.5 py-1 bg-canvas hover:bg-ink hover:text-white border-l border-borderline text-[10px] font-bold cursor-pointer" data-on-mousedown="event.preventDefault(); execFcForeColor($fc('fcInlineTextColorPicker')?.value || '#0055FF', false)" aria-label="글자색" title="글자색">글자색</button>
-            </div>
-            <button type="button" class="px-2 py-1 rounded bg-marker text-ink font-bold cursor-pointer" data-on-mousedown="event.preventDefault(); highlightFcSelection()" aria-label="형광펜" title="형광펜">형광펜</button>
-            <span class="text-borderline mx-0.5">|</span>
-            <button type="button" class="px-2 py-1 rounded bg-emerald-600 text-white font-bold cursor-pointer" data-on-click="insertImageIntoFloatingCardEditor()" aria-label="🖼 사진" title="🖼 사진"><svg class="ui-ico" viewbox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"></path></svg>사진</button>
-            <button type="button" class="px-2 py-1 rounded bg-emerald-700 text-white font-bold cursor-pointer" data-on-click="insertTextBoxIntoFloatingCardEditor()" aria-label="+ 텍스트박스" title="+ 텍스트박스">+ 텍스트박스</button>
-            <button type="button" class="px-2 py-1 rounded bg-indigo-600 text-white font-bold cursor-pointer" data-on-click="insertWideBoxIntoFloatingCardEditor()" aria-label="+ 긴 박스" title="+ 긴 박스">+ 긴 박스</button>
-            <button type="button" class="px-2 py-1 rounded bg-gopro text-white font-bold cursor-pointer" data-on-click="insertSubBoxIntoFloatingCardEditor()" aria-label="+ 서브박스" title="+ 서브박스">+ 서브박스</button>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-borderline text-[10px] font-bold">
-            <span class="font-mono text-muted">선택블록 편집:</span>
-            <label class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-borderline cursor-pointer">
-              <span>배경</span>
-              <input type="color" value="#F5F5F7" class="w-4 h-4 border-0 bg-transparent cursor-pointer" data-on-input="styleActiveFcInnerBlock('bg', this.value, true)" data-on-change="styleActiveFcInnerBlock('bg', this.value, false)">
-            </label>
-            <label class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-borderline cursor-pointer">
-              <span>테두리</span>
-              <input type="color" value="#E2E4E9" class="w-4 h-4 border-0 bg-transparent cursor-pointer" data-on-input="styleActiveFcInnerBlock('border', this.value, true)" data-on-change="styleActiveFcInnerBlock('border', this.value, false)">
-            </label>
-            <select class="px-1.5 py-0.5 rounded bg-white border border-borderline font-bold cursor-pointer" data-on-change="if(this.value) styleActiveFcInnerBlock('radius', this.value, false)">
-              <option value="">둥글기</option>
-              <option value="0px">각진 (0px)</option>
-              <option value="8px">8px</option>
-              <option value="14px">14px</option>
-              <option value="24px">24px</option>
-              <option value="9999px">알약형</option>
-            </select>
-            <label class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-borderline font-mono" title="삽입한 차트·표·사진·서브박스를 클릭 후 조절">
-              <span>폭%</span>
-              <input id="fcInnerItemWidthInput" type="number" min="15" max="100" value="100" class="w-11 text-right bg-canvas rounded px-0.5" data-on-input="resizeActiveFcInnerBlock('width', this.value, true)" data-on-change="resizeActiveFcInnerBlock('width', this.value, false)">
-            </label>
-            <label class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-borderline font-mono">
-              <span>높이px</span>
-              <input id="fcInnerItemHeightInput" type="number" min="36" max="650" value="180" class="w-12 text-right bg-canvas rounded px-0.5" data-on-input="resizeActiveFcInnerBlock('height', this.value, true)" data-on-change="resizeActiveFcInnerBlock('height', this.value, false)">
-            </label>
-            <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-900 border border-indigo-200" title="선택한 삽입 사진에만 독립적으로 블러 적용">
-              <span>사진블러</span>
-              <input id="fcInnerImgBlurSlider" type="range" min="0" max="30" value="0" class="w-14 cursor-pointer" data-on-input="onFcInnerImageBlurChange(this.value)" data-on-change="recordFcSnapshot()">
-              <span id="fcInnerImgBlurLabel" class="font-mono text-[9px] w-6 text-right">0px</span>
-            </div>
-            <div class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-borderline font-mono" title="플로팅 카드 내부에서 선택한 블록의 위치 이동">
-              <span>X</span>
-              <input id="fcInnerItemOffsetXInput" type="number" step="4" value="0" class="w-10 text-right bg-canvas rounded px-0.5" data-on-change="setFcInnerBlockOffsetFromInput()">
-              <span>Y</span>
-              <input id="fcInnerItemOffsetYInput" type="number" step="4" value="0" class="w-10 text-right bg-canvas rounded px-0.5" data-on-change="setFcInnerBlockOffsetFromInput()">
-              <button type="button" class="px-1 bg-canvas rounded border border-borderline cursor-pointer" data-on-click="nudgeActiveFcInnerBlock(0, -8)" aria-label="위로 이동" title="위로 이동">▲</button>
-              <button type="button" class="px-1 bg-canvas rounded border border-borderline cursor-pointer" data-on-click="nudgeActiveFcInnerBlock(0, 8)" aria-label="아래로 이동" title="아래로 이동">▼</button>
-              <button type="button" class="px-1 bg-canvas rounded border border-borderline cursor-pointer" data-on-click="nudgeActiveFcInnerBlock(-8, 0)" aria-label="이전/좌측 이동" title="이전/좌측 이동">◀</button>
-              <button type="button" class="px-1 bg-canvas rounded border border-borderline cursor-pointer" data-on-click="nudgeActiveFcInnerBlock(8, 0)" aria-label="다음/우측 이동" title="다음/우측 이동">▶</button>
-              <button type="button" class="px-1 bg-canvas rounded border border-borderline text-rose-600 cursor-pointer" title="위치 초기화" data-on-click="resetActiveFcInnerBlockOffset()" aria-label="위치 초기화">↺</button>
-            </div>
-            <button type="button" class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold cursor-pointer" data-on-click="deleteActiveFcInnerBlock()" aria-label="선택블록 삭제" title="선택블록 삭제">선택블록 삭제</button>
-          </div>
-        </div>
-
         <!-- FC TAB 2: 카드 외형 · 배경 -->
-        <div id="fcStudioTab-style" class="fc-tab-pane hidden p-2.5 rounded-xl bg-canvas border border-borderline space-y-2">
+        <div id="fcStudioTab-style" class="fc-tab-pane p-2.5 rounded-xl bg-canvas border border-borderline space-y-2">
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] font-bold">
             <label class="flex items-center justify-between px-2 py-1 rounded bg-white border border-borderline" title="배경 이미지 위 배경색 오버레이 투명도">
               <span>배경색투명</span>
@@ -225,50 +154,6 @@
               <span id="fcHoverBgBlurLabel" class="font-mono text-gopro w-8 text-right">0px</span>
             </div>
           </div>
-        </div>
-
-        <!-- FC TAB 3: 차트 · 데이터 표 -->
-        <div id="fcStudioTab-chart" class="fc-tab-pane hidden p-2.5 rounded-xl bg-canvas border border-borderline space-y-2">
-          <div class="flex flex-wrap items-center justify-between gap-1">
-            <span class="font-mono text-[10px] font-bold text-gopro uppercase"><svg class="ui-ico" viewbox="0 0 24 24"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>플로팅 카드 내 그래프·데이터 표 관리</span>
-            <div class="flex items-center gap-1">
-              <select id="fcChartTypeSelect" class="px-1.5 py-0.5 rounded bg-white border border-borderline text-[10px] font-bold cursor-pointer">
-                <option value="bar-v">세로 막대 차트</option>
-                <option value="bar-h">가로 막대 차트</option>
-                <option value="line">꺾은선 트렌드 차트</option>
-                <option value="donut">도넛 비율 차트</option>
-                <option value="table">데이터 비교 표</option>
-                <option value="kpi">KPI 지표 그리드</option>
-              </select>
-              <button type="button" class="px-2 py-0.5 rounded bg-gopro text-white text-[10px] font-bold cursor-pointer" data-on-click="insertChartIntoFloatingCardEditor()" aria-label="+ 차트/표 삽입" title="+ 차트/표 삽입">+ 차트/표 삽입</button>
-              <button type="button" class="px-1.5 py-0.5 rounded bg-ink text-white text-[10px] font-bold cursor-pointer" data-on-click="addChartDataRow()" aria-label="+ 행" title="+ 행">+ 행</button>
-              <button type="button" class="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold cursor-pointer" data-on-click="addChartDataCol()" aria-label="+ 열" title="+ 열">+ 열</button>
-              <button type="button" class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-bold cursor-pointer" data-on-click="removeChartDataCol()" aria-label="- 열" title="- 열">- 열</button>
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
-            <label class="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-borderline cursor-pointer">
-              <span>셀/요소 채우기</span>
-              <input id="fcCellFillPicker" type="color" value="#EFF6FF" class="w-4 h-4 border-0 bg-transparent cursor-pointer" data-on-input="applyChartCellFillColor(this.value, true)" data-on-change="applyChartCellFillColor(this.value, false); recordFcSnapshot()">
-            </label>
-            <label class="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-borderline cursor-pointer">
-              <span>셀 글자색</span>
-              <input id="fcCellTextPicker" type="color" value="#111111" class="w-4 h-4 border-0 bg-transparent cursor-pointer" data-on-input="applyChartCellTextColor(this.value, true)" data-on-change="applyChartCellTextColor(this.value, false); recordFcSnapshot()">
-            </label>
-            <label class="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-borderline cursor-pointer">
-              <input type="checkbox" id="fcChartSyncAccentCheckbox" class="cursor-pointer" data-on-change="toggleChartAccentSync(this.checked); recordFcSnapshot()">
-              <span>포인트컬러 연동</span>
-            </label>
-            <label class="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-borderline font-mono" title="표의 셀(칸)을 클릭한 뒤 너비 조절">
-              <span>셀폭px</span>
-              <input type="number" id="fcTableCellWidthInput" min="24" max="900" value="120" class="w-12 text-right bg-canvas rounded px-1" data-on-change="applySelectedTableCellDimension('width', this.value)">
-            </label>
-            <label class="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-borderline font-mono" title="표의 셀(칸)을 클릭한 뒤 높이 조절">
-              <span>셀높이px</span>
-              <input type="number" id="fcTableCellHeightInput" min="24" max="480" value="36" class="w-12 text-right bg-canvas rounded px-1" data-on-change="applySelectedTableCellDimension('height', this.value)">
-            </label>
-          </div>
-          <div id="fcChartItemsEditorList" class="max-h-28 overflow-y-auto safe-scroll space-y-1"></div>
         </div>
 
         <!-- FC TAB 4: 반응형 · 팝업위치 -->
@@ -641,7 +526,7 @@
           </div>
           <div class="p-6 md:px-10 md:py-6 flex items-center justify-between bg-canvas">
             <span data-editable="" class="font-mono text-xs text-muted">HTML SLIDE TOOL</span>
-            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.4.1 READY</span>
+            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.5.3 READY</span>
           </div>
         </div>
       </div>
@@ -2022,8 +1907,12 @@
   <script src="js/history.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/navigation.js"></script>
+  <script src="js/find-replace.js"></script>
+  <script src="js/presenter-view.js"></script>
+  <script src="js/filmstrip.js"></script>
   <script src="js/text-editor.js"></script>
   <script src="js/selection.js"></script>
+  <script src="js/bento-grid.js"></script>
   <script src="js/media.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/theme.js"></script>
@@ -2034,6 +1923,8 @@
   <script src="js/export.js"></script>
   <script src="js/pwa-fs.js"></script>
   <script src="js/studio.js"></script>
+  <script src="js/smart-guides.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/safe-events.js"></script>
 
 </body></html>

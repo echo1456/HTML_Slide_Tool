@@ -1,5 +1,52 @@
 # Changelog
 
+## [v5.5.3] - 2026-11-24 — Step 4 모듈 분할 완료: `js/selection.js`에서 `js/bento-grid.js` (24열 2D 벤토 그리드 엔진) 독립 분리
+
+### Refactored
+- **`js/selection.js` 물리 분할 (`2,834줄 → 2,288줄`, `-546줄`)**:
+  - **`js/bento-grid.js` 신규 분리 (`545줄`)**: 24×24 2D 벤토 그리드 좌표계·충돌 보정·빈 공간 자동 확장(`fillVacatedBentoRect`), 카드 연동/독립 리사이즈(`resizeGridCardProportionally`), 다중 카드/다중 요소 비례 스케일링(`resizeMultipleGridCardsProportionally`, `applyMultiGroupProportionalScale`) 엔진을 독립 모듈로 분리.
+- **4중 동기화 완료 (`index.html`, `build.py`, `sw.js`, `js/bundle-data.js`)**:
+  - `selection.js` → `bento-grid.js` 순으로 로드하여 전역 상태 및 함수 의존성 100% 보존.
+  - `build.py`의 `JS_FILES`(`21 → 22개`)·`REQUIRED_PACKAGE_FILES`(`46 → 47개`), `sw.js` 오프라인 PWA 캐시(`CACHE_NAME = 'html-slide-tool-v5.5.3'`), `js/bundle-data.js` 일괄 동기화.
+- **1~4단계 구조 경량화 마일스톤(`v5.5.0` ~ `v5.5.3`) 마감**:
+  - 플로팅 카드 레거시 UI(`-13.9KB`)·미참조 함수 19종(`-508줄`) 제거 및 대형 JS 3종(`main.js`, `navigation.js`, `selection.js`)에서 6개 전문 모듈(`smart-guides.js`, `safe-events.js`, `find-replace.js`, `presenter-view.js`, `filmstrip.js`, `bento-grid.js`) 무손실 분리 완료.
+
+---
+
+## [v5.5.2] - 2026-11-24 — Step 3 모듈 분할: `js/navigation.js`에서 `js/find-replace.js`, `js/presenter-view.js`, `js/filmstrip.js` 3종 독립 분리
+
+### Refactored
+- **`js/navigation.js` 물리 분할 (`2,254줄 → 1,528줄`, `-726줄`)**:
+  - **`js/find-replace.js` 신규 분리 (`171줄`)**: 전체 슬라이드 찾기/바꾸기 모달, 텍스트 노드 탐색(`collectSlideTextMatches`), 차트/표 JSON 동기화(`syncChartJsonAfterTextNodeEdit`), 잠금 보호 일괄 치환 분리.
+  - **`js/presenter-view.js` 신규 분리 (`405줄`)**: 발표자 노트(`updateCurrentSlideSpeakerNotes`), 발표자 뷰 팝업 창(`openPresenterViewWindow` · `syncPresenterWindowState`), 화면 블랙아웃(`B`/`W`), 레이저 포인터(`L`), 화면 펜 판서(`D`) 전담 모듈화.
+  - **`js/filmstrip.js` 신규 분리 (`154줄`)**: 좌측 필름스트립 썸네일 렌더링(`renderLeftFilmstripThumbnails`), 드래그 정렬, 다중 선택 복제/삭제, 슬라이드 클립보드 복사/붙여넣기 분리.
+- **4중 동기화 완료 (`index.html`, `build.py`, `sw.js`, `js/bundle-data.js`)**:
+  - `navigation.js` → `find-replace.js` → `presenter-view.js` → `filmstrip.js` 순으로 로드하여 전역 상태 초기화 순서(TDZ)를 100% 보존.
+  - `build.py`의 `JS_FILES`(`18 → 21개`)·`REQUIRED_PACKAGE_FILES`(`43 → 46개`), `sw.js` 오프라인 PWA 캐시(`CACHE_NAME = 'html-slide-tool-v5.5.2'`), `js/bundle-data.js` 일괄 동기화.
+
+---
+
+## [v5.5.1] - 2026-11-24 — Step 2 모듈 분할: `js/main.js`에서 `js/smart-guides.js` & `js/safe-events.js` 독립 분리
+
+### Refactored
+- **`js/main.js` 물리 분할 (`2,620줄 → 1,956줄`, `-664줄`)**:
+  - **`js/smart-guides.js` 신규 분리 (`192줄`)**: Shift 직교 축 잠금(`applyShiftAxisLock`), 스마트 가이드 정리(`clearSmartGuides`), 자석 스냅·간격 배지 계산 엔진(`computeAndRenderSmartGuides`)을 독립 모듈로 추출.
+  - **`js/safe-events.js` 신규 분리 (`472줄`)**: Zero-Eval Strict-CSP 선언형 토크나이저·파서·AST 평가기 및 전역 이벤트 위임 엔진(`initDeclarativeEventSystem`)을 독립 모듈로 격리.
+- **4중 동기화 완료 (`index.html`, `build.py`, `sw.js`, `js/bundle-data.js`)**:
+  - 기존과 100% 동일한 스크립트 실행 순서(`smart-guides.js` → `main.js` → `safe-events.js`) 유지, 단독 실행 HTML 번들(`bundle-data.js`)·오프라인 PWA 캐시(`sw.js`)·배포 필수 파일 목록(`41 → 43개`) 일괄 동기화.
+
+---
+
+## [v5.5.0] - 2026-11-24 — Step 1 구조 경량화: 플로팅 카드 중복 레거시 UI·함수 19종 안전 제거 및 2탭 전용 속성 바 다이어트
+
+### Refactored & Cleaned
+- **플로팅 카드 중복 레거시 UI 제거 (`index.html`)**: 메인 PPT 스튜디오와 100% 중복되던 `#fcStudioTab-content`(본문·서식·박스)와 `#fcStudioTab-chart`(차트·데이터 표) 탭을 제거해 `index.html`에서 약 `13.5KB` 및 중복 DOM ID `17개`를 경량화.
+- **플로팅 카드 고유 속성 2탭 유지 (`index.html`, `js/floating-cards.js`)**: `⚙ 카드 속성` 드로어를 카드 고유 속성 2탭(`카드 외형 · 배경`, `반응형 · 팝업위치`)으로 정리하고 기본 탭을 `style`로 전환.
+- **미참조 구형 플로팅 카드 JS 함수 19종·데드 코드 제거 (`js/floating-cards.js`, `js/charts.js`)**: `execFcFormat`, `execFcForeColor`, `setFcFontSizePx`, `adjustFcFontSize`, `highlightFcSelection`, `captureFcEditableTextSelection`, `getUsableFcTextRange`, `styleFcRangeTextNodes`, `getTargetFcTextBlock`, `resizeActiveFcInnerBlock`, `setFcInnerBlockOffsetFromInput`, `nudgeActiveFcInnerBlock`, `resetActiveFcInnerBlockOffset`, `onFcInnerImageBlurChange`, `applyBlurToSelectedFcImage`, `insertChartIntoFloatingCardEditor`, `insertWideBoxIntoFloatingCardEditor`, `insertSubBoxIntoFloatingCardEditor`, `styleActiveFcInnerBlock` 등 약 520줄 정리. 타 모듈에서 호출하는 `insertTextBoxIntoFloatingCardEditor`, `insertImageIntoFloatingCardEditor`, `deleteActiveFcInnerBlock`은 안전하게 보존.
+- **`build.py` UI 불변성 계약 베이스라인 동기화**: 의도적으로 은퇴시킨 구형 플로팅 카드 탭 핸들러와 DOM ID만 베이스라인에서 정확히 정리.
+
+---
+
 ## [v5.4.1] - 2026-11-24 — 자유좌표 카드(`data-shape-type="freeCard"`) 내부 텍스트박스 개별 선택·삭제 및 상위 카드 선택 완성
 
 ### Fixed

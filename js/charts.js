@@ -187,11 +187,9 @@ function writeChartDataAndRender(widget, data) { widget.setAttribute('data-chart
 function syncTableCellSizeInputs(cellEl) {
   if (!cellEl) return;
   const scale = (typeof getStageScale === 'function' && !cellEl.closest('#fcRichBodyEditor')) ? getStageScale() : 1, rect = cellEl.getBoundingClientRect();
-  const wPx = Math.max(24, Math.round(rect.width / scale)), hPx = Math.max(20, Math.round(rect.height / scale)), fcDoc = (typeof getFcStudioDoc === 'function') ? getFcStudioDoc() : document;
+  const wPx = Math.max(24, Math.round(rect.width / scale)), hPx = Math.max(20, Math.round(rect.height / scale));
   if ($studio('tableCellWidthInput')) $studio('tableCellWidthInput').value = String(wPx);
   if ($studio('tableCellHeightInput')) $studio('tableCellHeightInput').value = String(hPx);
-  if (fcDoc.getElementById('fcTableCellWidthInput')) fcDoc.getElementById('fcTableCellWidthInput').value = String(wPx);
-  if (fcDoc.getElementById('fcTableCellHeightInput')) fcDoc.getElementById('fcTableCellHeightInput').value = String(hPx);
 }
 function startTableColResize(e, handleEl, colIdx) {
   if (!isActiveEditing()) return; e.preventDefault(); e.stopPropagation();
@@ -845,11 +843,10 @@ function removeChartDataRow(idx) {
 }
 function syncChartInspectorUI(el) {
   const widget = el ? (el.classList.contains('ppt-chart-widget') ? el : el.querySelector('.ppt-chart-widget')) : getSelectedChartWidget();
-  const listWrap = $studio('chartItemsEditorList'), syncChk = $studio('chartSyncAccentCheckbox'), fcDoc = (typeof getFcStudioDoc === 'function') ? getFcStudioDoc() : document;
-  const fcListWrap = fcDoc.getElementById('fcChartItemsEditorList'), fcSyncChk = fcDoc.getElementById('fcChartSyncAccentCheckbox');
-  if (!widget) { if (listWrap) listWrap.innerHTML = `<div class="text-[10px] text-muted text-center py-1">그래프/표를 선택하면 항목과 색상을 편집할 수 있습니다.</div>`; if (fcListWrap) fcListWrap.innerHTML = `<div class="text-[10px] text-muted text-center py-1">차트/표를 삽입하거나 클릭하면 항목과 색상을 편집할 수 있습니다.</div>`; return; }
+  const listWrap = $studio('chartItemsEditorList'), syncChk = $studio('chartSyncAccentCheckbox');
+  if (!widget) { if (listWrap) listWrap.innerHTML = `<div class="text-[10px] text-muted text-center py-1">그래프/표를 선택하면 항목과 색상을 편집할 수 있습니다.</div>`; return; }
   const data = readChartData(widget);
-  if (syncChk) syncChk.checked = Boolean(data.syncAccent); if (fcSyncChk) fcSyncChk.checked = Boolean(data.syncAccent);
+  if (syncChk) syncChk.checked = Boolean(data.syncAccent);
   if ($studio('chartPrefixInput')) $studio('chartPrefixInput').value = data.valuePrefix || '';
   if ($studio('chartSuffixInput')) $studio('chartSuffixInput').value = data.valueSuffix || '';
   if ($studio('chartLegendPosSelect')) $studio('chartLegendPosSelect').value = data.legendPosition || 'none';
@@ -857,7 +854,7 @@ function syncChartInspectorUI(el) {
   if ($studio('tblFirstColToggleBtn')) $studio('tblFirstColToggleBtn').classList.toggle('is-active', Boolean(data.highlightFirstCol));
   if ($studio('tblZebraToggleBtn')) $studio('tblZebraToggleBtn').classList.toggle('is-active', data.zebraStriping !== false);
   const itemsHtml = data.items.map((it, idx) => `<div class="flex items-center gap-1 bg-white border border-borderline rounded px-1.5 py-1 text-[10px]"><input type="color" value="${it.color || DEFAULT_CHART_PALETTE[idx % DEFAULT_CHART_PALETTE.length]}" data-on-input="updateChartItemField(${idx}, 'color', this.value, true)" data-on-change="updateChartItemField(${idx}, 'color', this.value, false)" class="w-4 h-4 border-0 bg-transparent cursor-pointer shrink-0"><input type="text" value="${escapeAttr(it.label)}" data-on-change="updateChartItemField(${idx}, 'label', this.value)" class="flex-1 min-w-0 px-1 py-0.5 bg-canvas rounded font-bold"><input type="number" value="${it.value}" data-on-change="updateChartItemField(${idx}, 'value', this.value)" class="w-12 px-1 py-0.5 bg-canvas rounded font-mono text-right font-bold"><button type="button" data-on-click="removeChartDataRow(${idx})" class="px-1 text-rose-600 font-bold cursor-pointer">✕</button></div>`).join('');
-  if (listWrap) listWrap.innerHTML = itemsHtml; if (fcListWrap) fcListWrap.innerHTML = itemsHtml;
+  if (listWrap) listWrap.innerHTML = itemsHtml;
 }
 function onChartTitleInlineEdit(el) { const w = el.closest('.ppt-chart-widget'); if (!w) return; const d = readChartData(w); d.title = el.textContent.trim(); w.setAttribute('data-chart-json', JSON.stringify(d)); recordChartChangeHistory('차트/표 제목 수정'); }
 function onChartSubInlineEdit(el, idx) { const w = el.closest('.ppt-chart-widget'); if (!w) return; const d = readChartData(w); if (d.items[idx]) d.items[idx].sub = el.textContent.trim(); syncActiveScenarioFromChartData(d); w.setAttribute('data-chart-json', JSON.stringify(d)); recordChartChangeHistory('KPI 부제목 수정'); }
