@@ -2,13 +2,24 @@
 let savedTextSelectionRange = null;
 let activeLiveColorSpan = null;
 
+function getActiveEditableSelectionWindow() {
+  const isFcCtx = typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive();
+  if (isFcCtx && typeof getActiveFcPreviewCanvas === 'function') {
+    const fcEd = getActiveFcPreviewCanvas();
+    const fcWin = (fcEd && fcEd.ownerDocument && fcEd.ownerDocument.defaultView) ? fcEd.ownerDocument.defaultView : window;
+    if (fcWin && typeof fcWin.getSelection === 'function') return fcWin;
+  }
+  return window;
+}
+
 function captureEditableTextSelection() {
-  const sel = window.getSelection();
+  const win = getActiveEditableSelectionWindow();
+  const sel = win.getSelection();
   if (!sel || sel.rangeCount === 0) return;
   if (sel.isCollapsed || sel.toString().trim().length === 0) {
     const node = sel.anchorNode ? (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode) : null;
-    // Clear stale saved range ONLY when user explicitly clicked inside #slideStage (preserve range when focus moves to Studio toolbar/color picker!)
-    if (node && node.closest('#slideStage')) {
+    // Clear stale saved range ONLY when user explicitly clicked inside #slideStage or #fcRichBodyEditor
+    if (node && node.closest('#slideStage, #fcRichBodyEditor')) {
       savedTextSelectionRange = null;
       activeLiveColorSpan = null;
       if (typeof activeLiveHighlightSpan !== 'undefined') activeLiveHighlightSpan = null;
@@ -19,7 +30,7 @@ function captureEditableTextSelection() {
   const ancestor = range.commonAncestorContainer.nodeType === 3
     ? range.commonAncestorContainer.parentElement
     : range.commonAncestorContainer;
-  if (ancestor && ancestor.closest('#slideStage') && ancestor.closest('[data-editable], #headerSectionBadge, .header-editable')) {
+  if (ancestor && ((ancestor.closest('#slideStage') && ancestor.closest('[data-editable], #headerSectionBadge, .header-editable')) || ancestor.closest('#fcRichBodyEditor'))) {
     savedTextSelectionRange = range.cloneRange();
     activeLiveColorSpan = null;
     if (typeof activeLiveHighlightSpan !== 'undefined') activeLiveHighlightSpan = null;
@@ -33,11 +44,14 @@ document.addEventListener('selectionchange', () => {
 });
 
 function getUsableTextRange() {
-  const sel = window.getSelection();
+  const win = getActiveEditableSelectionWindow();
+  const sel = win.getSelection();
+  const isFcCtx = typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive();
+  const scopeSelector = isFcCtx ? '#fcRichBodyEditor' : '#slideStage, #fcRichBodyEditor';
   if (sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0) {
     const r = sel.getRangeAt(0);
     const anc = r.commonAncestorContainer.nodeType === 3 ? r.commonAncestorContainer.parentElement : r.commonAncestorContainer;
-    if (anc && anc.closest('#slideStage')) {
+    if (anc && anc.closest(scopeSelector)) {
       savedTextSelectionRange = r.cloneRange();
       return { sel, range: r };
     }
@@ -46,7 +60,8 @@ function getUsableTextRange() {
     const anc = savedTextSelectionRange.commonAncestorContainer.nodeType === 3
       ? savedTextSelectionRange.commonAncestorContainer.parentElement
       : savedTextSelectionRange.commonAncestorContainer;
-    if (anc && document.body.contains(anc) && anc.closest('#slideStage') && savedTextSelectionRange.toString().trim().length > 0) {
+    const ownerDoc = anc ? anc.ownerDocument : document;
+    if (anc && ownerDoc && ownerDoc.body && ownerDoc.body.contains(anc) && anc.closest(scopeSelector) && savedTextSelectionRange.toString().trim().length > 0) {
       return { sel, range: savedTextSelectionRange };
     }
     savedTextSelectionRange = null;
@@ -924,6 +939,8 @@ function updateTextPillLiveTextColor(hexColor) {
 }
 
 function applyTextBackgroundBox() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const bg = $studio('textPillBgPicker')?.value || '#FEF3C7';
   const fg = $studio('textPillColorPicker')?.value || '#78350F';
   const alphaPct = Number($studio('textPillBgOpacitySlider')?.value ?? 100);
@@ -1091,6 +1108,8 @@ function toggleTextList(listType) {
   saveHistorySnapshot(listType === 'ol' ? '번호 목록 적용' : '글머리 목록 적용');
 }
 function adjustListIndent(dir) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const sel = window.getSelection();
   let anchor = sel && sel.anchorNode ? (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode) : null;
   if (!anchor && lastFocusedEditable) anchor = lastFocusedEditable;
@@ -1158,6 +1177,8 @@ function toggleWordBreakMode() {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
  const targets = getMultiTextTargets(); if (targets.length === 0) return; const firstCs = window.getComputedStyle(targets[0]), nextBreakAll = (targets[0].style.wordBreak || firstCs.wordBreak) !== 'break-all'; targets.forEach(t => { t.style.wordBreak = nextBreakAll ? 'break-all' : 'keep-all'; }); syncToolbarWithTarget(targets[targets.length - 1]); saveHistorySnapshot('줄바꿈 규칙 변경'); }
 function transformSelectedTextCase(mode) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const convertStr = (str) => mode === 'upper' ? str.toUpperCase() : (mode === 'lower' ? str.toLowerCase() : str.replace(/\b([a-zA-Z])([a-zA-Z]*)/g, (_, f, r) => f.toUpperCase() + r.toLowerCase()));
   const usable = getUsableTextRange();
   if (usable && (!selectedElements || selectedElements.length <= 1)) { const frag = usable.range.extractContents(), walker = document.createTreeWalker(frag, NodeFilter.SHOW_TEXT, null); let n; while ((n = walker.nextNode())) n.nodeValue = convertStr(n.nodeValue); usable.range.insertNode(frag); savedTextSelectionRange = null; if (usable.sel) usable.sel.removeAllRanges(); saveHistorySnapshot('대소문자 변환'); return; }
@@ -1207,6 +1228,8 @@ function runAutoFitOnElement(containerEl) {
   if ($studio('fontSizeInput')) $studio('fontSizeInput').value = String(curPx);
 }
 function toggleTextAutoFit() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
   const target = getTargetTextEl(); if (!target) return;
   const nextState = target.getAttribute('data-text-autofit') !== 'true';
   if (nextState) { const curPx = Math.round(parseFloat(window.getComputedStyle(target).fontSize) || 18); target.setAttribute('data-text-autofit', 'true'); target.setAttribute('data-autofit-max-px', String(curPx)); runAutoFitOnElement(target); }
@@ -1226,6 +1249,10 @@ function applyInlineTextLink() {
   const inp = $studio('inlineTextLinkInput');
   const rawVal = (inp?.value || '').trim();
   if (!rawVal) { showToast('연결할 URL 또는 이동할 슬라이드 번호를 입력해 주세요.'); return; }
+  if (/^(?:javascript|vbscript|data):/i.test(rawVal.replace(/\s+/g, ''))) {
+    showToast('보안상 안전하지 않은 링크 형식(javascript/data)은 연결할 수 없습니다.');
+    return;
+  }
   let hrefVal = rawVal;
   if (/^\d+$/.test(rawVal)) hrefVal = `#slide-${Math.max(1, Math.min(totalSlides || 99, parseInt(rawVal, 10)))}`;
   else if (!/^https?:\/\//i.test(rawVal) && !/^#slide-\d+$/i.test(rawVal)) hrefVal = 'https://' + rawVal;

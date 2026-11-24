@@ -813,7 +813,34 @@ function bindGlobalEditorListeners() {
   if (fcLightbox) {
     fcLightbox.addEventListener('click', (e) => {
       if (isEditMode && !isInteractiveTestMode) return;
-      const fxCard = e.target.closest('[data-fx="click-pulse"], [data-fx="click-highlight"]');
+      const flipScene = e.target.closest('.iw-flip-scene');
+      if (flipScene && typeof toggleIwFlipCard === 'function') {
+        e.stopPropagation();
+        toggleIwFlipCard(flipScene);
+        return;
+      }
+      const hsDot = e.target.closest('.iw-hs-dot');
+      if (hsDot && typeof toggleHotspotPin === 'function') {
+        e.stopPropagation();
+        toggleHotspotPin(hsDot.closest('.iw-hs-pin'));
+        return;
+      }
+      if (!e.target.closest('.iw-hs-popover')) {
+        fcLightbox.querySelectorAll('.iw-hs-pin.is-open').forEach(p => p.classList.remove('is-open'));
+      }
+      const inlineAnchor = e.target.closest('a[data-inline-link], a[href^="#slide-"]');
+      if (inlineAnchor) {
+        const rawHref = (inlineAnchor.getAttribute('href') || '').trim();
+        const slideMatch = rawHref.match(/^#slide-(\d+)$/i);
+        if (slideMatch) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof closeFloatingCardLightbox === 'function') closeFloatingCardLightbox();
+          if (typeof goToSlide === 'function') goToSlide(parseInt(slideMatch[1], 10));
+          return;
+        }
+      }
+      const fxCard = e.target.closest('[data-fx="click-pulse"], [data-fx="click-highlight"], [data-fx="click-flip"]');
       if (!fxCard) return;
       const fx = fxCard.getAttribute('data-fx');
       if (fx === 'click-pulse') {
@@ -822,8 +849,59 @@ function bindGlobalEditorListeners() {
         fxCard.classList.add('fx-pulse-active');
       } else if (fx === 'click-highlight') {
         fxCard.classList.toggle('fx-highlight-toggled');
+      } else if (fx === 'click-flip') {
+        fxCard.classList.remove('fx-flip-active');
+        void fxCard.offsetWidth;
+        fxCard.classList.add('fx-flip-active');
       }
     });
+    fcLightbox.addEventListener('mousedown', (e) => {
+      if (isEditMode && !isInteractiveTestMode) return;
+      const baStage = e.target.closest('.iw-ba-stage');
+      if (!baStage || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const lockedRect = baStage.getBoundingClientRect();
+      const updateBa = (cx) => {
+        const r = baStage.getBoundingClientRect();
+        const leftEdge = r.width > 0 ? r.left : lockedRect.left;
+        const wVal = r.width > 0 ? r.width : lockedRect.width;
+        if (wVal > 0 && typeof setBeforeAfterPosition === 'function') {
+          setBeforeAfterPosition(baStage, ((cx - leftEdge) / wVal) * 100);
+        }
+      };
+      updateBa(e.clientX);
+      const onMove = (me) => { me.preventDefault(); updateBa(me.clientX); };
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove, true);
+        window.removeEventListener('mouseup', onUp, true);
+        window.removeEventListener('blur', onUp);
+      };
+      window.addEventListener('mousemove', onMove, true);
+      window.addEventListener('mouseup', onUp, true);
+      window.addEventListener('blur', onUp);
+    });
+    fcLightbox.addEventListener('touchstart', (e) => {
+      if (isEditMode && !isInteractiveTestMode) return;
+      const baStage = e.target && e.target.closest ? e.target.closest('.iw-ba-stage') : null;
+      if (!baStage || !e.touches[0]) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const updateBa = (tx) => {
+        const r = baStage.getBoundingClientRect();
+        if (r.width > 0 && typeof setBeforeAfterPosition === 'function') {
+          setBeforeAfterPosition(baStage, ((tx - r.left) / r.width) * 100);
+        }
+      };
+      updateBa(e.touches[0].clientX);
+      const onTm = (te) => { if (te.touches[0]) { te.preventDefault(); updateBa(te.touches[0].clientX); } };
+      const onTe = () => {
+        document.removeEventListener('touchmove', onTm);
+        document.removeEventListener('touchend', onTe);
+      };
+      document.addEventListener('touchmove', onTm, { passive: false });
+      document.addEventListener('touchend', onTe);
+    }, { passive: false });
   }
 
   let __typingCheckpointTimer = null;
@@ -1253,7 +1331,8 @@ function bindGlobalEditorListeners() {
         if (!activeSlideEl) return;
         const candidates = Array.from(activeSlideEl.querySelectorAll('.ppt-free-obj, .slide-card'));
         const matched = candidates.filter(el => {
-          if (el.getAttribute('data-layer-locked') === 'true') return false;
+          if (el.getAttribute('data-layer-locked') === 'true' || el.getAttribute('data-layer-hidden') === 'true') return false;
+          if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
           const r = el.getBoundingClientRect();
           if (r.width === 0 || r.height === 0) return false;
           return !(r.right < mLeft || r.left > mRight || r.bottom < mTop || r.top > mBottom);
@@ -1328,6 +1407,21 @@ function bindKeyboardAndTouchListeners() {
       if (isKey('y', 'KeyY') || (isKey('z', 'KeyZ') && e.shiftKey)) {
         e.preventDefault();
         if (typeof fcRedoAction === 'function') fcRedoAction();
+        return;
+      }
+      if (isKey('a', 'KeyA') && !isContentEd) {
+        e.preventDefault();
+        const fcEd = typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : null;
+        if (fcEd) {
+          const fcItems = Array.from(fcEd.children).filter(el => el.nodeType === 1 && el.style.display !== 'none' && el.style.visibility !== 'hidden');
+          if (fcItems.length > 0) {
+            selectedElements = fcItems;
+            selectedElement = fcItems[fcItems.length - 1];
+            syncMultiSelectVisuals();
+            positionSelectionOverlay();
+            showToast(`플로팅 카드 내부 요소 ${fcItems.length}개 전체 선택됨`);
+          }
+        }
         return;
       }
     }
@@ -1411,10 +1505,30 @@ function bindKeyboardAndTouchListeners() {
       }
       if (isKey('a', 'KeyA') && !isContentEd) {
         e.preventDefault();
+        if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+          const fcEd = typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : null;
+          if (fcEd) {
+            const fcItems = Array.from(fcEd.children).filter(el => el.nodeType === 1 && el.style.display !== 'none' && el.style.visibility !== 'hidden');
+            if (fcItems.length > 0) {
+              selectedElements = fcItems;
+              selectedElement = fcItems[fcItems.length - 1];
+              syncMultiSelectVisuals();
+              positionSelectionOverlay();
+              showToast(`플로팅 카드 내부 요소 ${fcItems.length}개 전체 선택됨`);
+            }
+          }
+          return;
+        }
         if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
         const activeSlideEl = slides[currentSlide - 1];
         if (activeSlideEl) {
-          const allItems = Array.from(activeSlideEl.querySelectorAll('.ppt-free-obj, .slide-card')).filter(el => el.getAttribute('data-layer-locked') !== 'true');
+          const allItems = Array.from(activeSlideEl.querySelectorAll('.ppt-free-obj, .slide-card')).filter(el => {
+            if (el.getAttribute('data-layer-locked') === 'true' || el.getAttribute('data-layer-hidden') === 'true') return false;
+            if (el.style.display === 'none' || el.style.visibility === 'hidden') return false;
+            const gb = el.closest('.slide-grid-body');
+            if (gb && gb.style.display === 'none') return false;
+            return true;
+          });
           if (allItems.length > 0) {
             selectedElements = allItems;
             selectedElement = allItems[allItems.length - 1];

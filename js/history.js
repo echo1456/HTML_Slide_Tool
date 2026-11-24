@@ -194,14 +194,23 @@ function restoreStageHtml(entryOrHtml, fromHistory) {
       __lastCommittedStoreHtml = restoredStore ? tokenizeDataUris(restoredStore.outerHTML) : '';
       __lastCommittedSlideHtmls = slides.map(sNode => tokenizeDataUris(sNode.outerHTML).replace(/^(<section\b[^>]*\bclass="[^"]*)\bactive\b\s*/i, '$1').replace(/\s+"/g, '"'));
     } else {
-      // External load/import/recovery: invalidate diff cache so subsequent saveHistorySnapshot() commits a clean FULL base!
+      // External load/import/recovery: invalidate diff cache & close stale floating card editor/lightbox from previous deck!
       __lastCommittedSlideCount = -1;
       __lastCommittedSlideHtmls = [];
       __lastCommittedStoreHtml = '';
+      if (typeof closeFloatingCardEditor === 'function') closeFloatingCardEditor();
+      if (typeof closeFloatingCardLightbox === 'function') closeFloatingCardLightbox();
     }
     totalSlides = slides.length;
-    if (currentSlide > totalSlides) currentSlide = totalSlides;
+    if (currentSlide > totalSlides) currentSlide = Math.max(1, totalSlides);
+    if (currentSlide < 1) currentSlide = 1;
     isolatedGroupId = null;
+    if (typeof lastFocusedEditable !== 'undefined') lastFocusedEditable = null;
+    if (typeof activeChartCellTarget !== 'undefined') activeChartCellTarget = null;
+    if (typeof selectedTableCellKeys !== 'undefined' && selectedTableCellKeys && typeof selectedTableCellKeys.clear === 'function') selectedTableCellKeys.clear();
+    if (typeof savedTextSelectionRange !== 'undefined') savedTextSelectionRange = null;
+    if (typeof activeLiveColorSpan !== 'undefined') activeLiveColorSpan = null;
+    if (typeof activeLiveHighlightSpan !== 'undefined') activeLiveHighlightSpan = null;
     clearSelectionInspector();
     if (typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode) {
       if (typeof makeAllTextEditable === 'function') makeAllTextEditable(true);
@@ -215,6 +224,11 @@ function restoreStageHtml(entryOrHtml, fromHistory) {
     if (typeof renderLinkedFloatingCardsList === 'function') renderLinkedFloatingCardsList();
     if (typeof populateTriggerTargetSelect === 'function') populateTriggerTargetSelect();
     if (typeof updateSlideConnectors === 'function') updateSlideConnectors();
+    if (typeof syncSlideLockUI === 'function') syncSlideLockUI();
+    if (typeof syncSlideHiddenUI === 'function') syncSlideHiddenUI();
+    if (typeof syncSpeakerNotesUI === 'function') syncSpeakerNotesUI();
+    if (typeof refreshLayerList === 'function') refreshLayerList();
+    if (typeof renderLeftFilmstripThumbnails === 'function') renderLeftFilmstripThumbnails();
   } finally { __isRestoringHistory = false; }
 }
 function updateHistoryButtons() {

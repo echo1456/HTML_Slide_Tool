@@ -62,7 +62,8 @@ function applyGradientToElementOrMedia(el, css, forceLayerTarget) {
   if (!el) return;
   if ((typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) || el.getAttribute('data-layer-locked') === 'true') return;
   if (el.classList.contains('ppt-interactive-widget')) return;
-  if (forceLayerTarget === 'card-hover' && el.classList.contains('slide-card')) {
+  const isCardLike = el.classList.contains('slide-card') || el.classList.contains('slide-header-bar') || (el.classList.contains('ppt-free-obj') && el.getAttribute('data-shape-type') === 'freeCard');
+  if (forceLayerTarget === 'card-hover' && isCardLike) {
     const hoverLayer = ensureCardHoverBgLayer(el);
     if (currentGradMode === 'mask') {
       hoverLayer.style.webkitMaskImage = css;
@@ -78,7 +79,7 @@ function applyGradientToElementOrMedia(el, css, forceLayerTarget) {
   }
 
   if (currentGradMode === 'mask') {
-    if (el.classList.contains('slide-card')) {
+    if (isCardLike) {
       const cardBg = ensureCardBgLayer(el);
       cardBg.style.webkitMaskImage = css;
       cardBg.style.maskImage = css;
@@ -206,18 +207,18 @@ function applyGradientToTarget(targetMode) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const css = buildGradientCssString();
   if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive() && (targetMode === 'card' || targetMode === 'card-hover' || targetMode === 'slide')) {
-    const layer = targetMode === 'card-hover'
-      ? (typeof $fc === 'function' ? $fc('fcEditorHoverBgPreviewLayer') : document.getElementById('fcEditorHoverBgPreviewLayer'))
-      : (typeof $fc === 'function' ? $fc('fcEditorBgPreviewLayer') : document.getElementById('fcEditorBgPreviewLayer'));
-    if (layer) {
+    const fcEd = typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : document.getElementById('fcRichBodyEditor');
+    if (fcEd) {
       if (currentGradMode === 'mask') {
-        layer.style.webkitMaskImage = css; layer.style.maskImage = css;
-        layer.style.webkitMaskRepeat = 'no-repeat'; layer.style.maskRepeat = 'no-repeat';
-        layer.style.webkitMaskSize = '100% 100%'; layer.style.maskSize = '100% 100%';
+        fcEd.setAttribute(targetMode === 'card-hover' ? 'data-fc-hover-bg-mask' : 'data-fc-bg-mask', css);
       } else {
-        layer.style.backgroundImage = css;
-        if (targetMode === 'card-hover') layer.classList.add('has-hover-img');
+        fcEd.setAttribute(targetMode === 'card-hover' ? 'data-fc-hover-bg-img-url' : 'data-fc-bg-img-url', css);
+        if (targetMode === 'card-hover') {
+          const fxSel = typeof $fc === 'function' ? $fc('fcReactiveFxSelect') : document.getElementById('fcReactiveFxSelect');
+          if (fxSel && fxSel.value === 'none') fxSel.value = 'hover-lift';
+        }
       }
+      if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
       if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
       showToast(currentGradMode === 'mask' ? '플로팅 카드 배경에 페이드 마스크가 적용되었습니다.' : '플로팅 카드 배경에 컬러 그라데이션이 적용되었습니다.');
       return;
@@ -294,6 +295,23 @@ function clearAppliedGradient() {
     node.style.webkitMaskImage = '';
     node.style.maskImage = '';
   };
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const fcEd = typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : document.getElementById('fcRichBodyEditor');
+    if (fcEd) {
+      if (/^(?:linear|radial)-gradient\(/i.test(fcEd.getAttribute('data-fc-bg-img-url') || '')) fcEd.removeAttribute('data-fc-bg-img-url');
+      if (/^(?:linear|radial)-gradient\(/i.test(fcEd.getAttribute('data-fc-hover-bg-img-url') || '')) fcEd.removeAttribute('data-fc-hover-bg-img-url');
+      fcEd.removeAttribute('data-fc-bg-mask');
+      fcEd.removeAttribute('data-fc-hover-bg-mask');
+      if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+    }
+    if (selectedElement && selectedElement.closest && selectedElement.closest('#fcRichBodyEditor')) {
+      clearGradientOnly(selectedElement);
+      selectedElement.querySelectorAll('img, video').forEach(clearGradientOnly);
+    }
+    if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+    showToast('플로팅 카드의 그라데이션 및 페이드 마스크가 초기화되었습니다.');
+    return;
+  }
   const targets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
   if (targets.length > 0) {
     targets.forEach(el => {
@@ -1076,6 +1094,14 @@ function applySelectedCardBgOpacity(alphaPct, isLiveInput) {
 }
 
 function applySelectedCardHoverBgColor(hexColor, isLiveInput) {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const inp = typeof $fc === 'function' ? $fc('fcHoverBgColorInput') : document.getElementById('fcHoverBgColorInput');
+    if (inp) inp.value = hexColor;
+    if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+    if (!isLiveInput && typeof recordFcSnapshot === 'function') recordFcSnapshot();
+    return;
+  }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(!isLiveInput)) return;
   const targets = (selectedElements && selectedElements.length > 1)
     ? selectedElements
     : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []);
@@ -1106,6 +1132,14 @@ function applySelectedCardHoverBgColor(hexColor, isLiveInput) {
 function applySelectedHoverBgOpacity(alphaPct, isLiveInput) {
   const lbl = $studio('hoverBgOpacityLabel');
   if (lbl) lbl.textContent = `${alphaPct}%`;
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const inp = typeof $fc === 'function' ? $fc('fcHoverBgOpacityInput') : document.getElementById('fcHoverBgOpacityInput');
+    if (inp) inp.value = String(alphaPct);
+    if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+    if (!isLiveInput && typeof recordFcSnapshot === 'function') recordFcSnapshot();
+    return;
+  }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(!isLiveInput)) return;
   const targets = (selectedElements && selectedElements.length > 1)
     ? selectedElements
     : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []);
@@ -1131,6 +1165,11 @@ function applySelectedHoverBgOpacity(alphaPct, isLiveInput) {
 }
 
 function clearSelectedCardHoverBgImage() {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    if (typeof clearFloatingCardHoverBgImage === 'function') clearFloatingCardHoverBgImage();
+    return;
+  }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const target = selectedElement || getTargetCardForHierarchy();
   if (!target) {
     showToast('먼저 호버 배경 이미지를 제거할 카드나 요소를 클릭해 주세요.');
@@ -1211,8 +1250,22 @@ function clearSelectedCardBgImage() {
   }
   card.style.backgroundImage = '';
   const cardBg = card.querySelector('.card-bg-layer');
-  if (cardBg) cardBg.style.backgroundImage = '';
-  saveHistorySnapshot();
+  if (cardBg) {
+    cardBg.style.backgroundImage = '';
+    cardBg.style.filter = '';
+    cardBg.style.transform = '';
+    cardBg.style.webkitMaskImage = '';
+    cardBg.style.maskImage = '';
+  }
+  const hasHoverImg = Boolean(card.querySelector('.card-hover-bg-layer')?.style.backgroundImage);
+  if (!hasHoverImg) {
+    const savedHex = card.getAttribute('data-card-bg-hex');
+    const savedAlpha = card.getAttribute('data-card-bg-alpha') ?? '100';
+    card.style.backgroundColor = savedHex ? hexToRgba(savedHex, savedAlpha) : '';
+    const tint = card.querySelector('.card-bg-tint');
+    if (tint) tint.style.backgroundColor = 'transparent';
+  }
+  saveHistorySnapshot('카드 배경 이미지 제거');
   showToast('카드 배경 이미지가 제거되었습니다.');
 }
 
@@ -1287,6 +1340,10 @@ function triggerUnifiedBackgroundUpload() {
 
 function clearUnifiedBackgroundImage() {
   const mode = $studio('unifiedBgTargetSelect')?.value || 'slide';
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    if (mode === 'card-hover' && typeof clearFloatingCardHoverBgImage === 'function') { clearFloatingCardHoverBgImage(); return; }
+    if (typeof clearFloatingCardBgImage === 'function') { clearFloatingCardBgImage(); return; }
+  }
   if (mode === 'slide') clearSlideBgImage();
   else if (mode === 'all-slides') {
     slides.forEach(sEl => {

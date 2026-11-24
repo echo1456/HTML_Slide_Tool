@@ -671,7 +671,7 @@ function deleteCard(btn) {
 
 
 function addTitleCardToCurrentSlide() {
-  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   const activeSlideEl = slides[currentSlide - 1];
   if (!activeSlideEl) return;
   const gridBody = getActiveGridBody();
@@ -776,7 +776,7 @@ function addTitleCardToCurrentSlide() {
 }
 
 function addCardToCurrentSlide(type, forceFreeCanvas) {
-  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   const activeSlideEl = slides[currentSlide - 1];
   if (!activeSlideEl) return;
   const gridBody = getActiveGridBody();
@@ -1219,6 +1219,7 @@ function syncSlideNumberTokens() {
 }
 
 function insertSlideNumberToken() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   const tokenHtml = `<span data-slide-number-token="true" contenteditable="false" class="inline-block px-2 py-0.5 rounded bg-ink text-white font-mono text-[11px] font-extrabold mx-1">${String(currentSlide).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}</span>`;
   const sel = window.getSelection();
   if (sel && sel.rangeCount > 0) {
@@ -1477,7 +1478,7 @@ function addSlideWithLayout(layoutKey) {
 }
 
 function resetCurrentSlideToInitial() {
-  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   if (!initialDeckStageHtml) {
     showToast('복원할 초기 슬라이드 원본 데이터가 없습니다.');
     return;

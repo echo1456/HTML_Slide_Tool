@@ -228,6 +228,11 @@ function initFlexibleBentoGrid(gridBody, cards, initialCardRects) {
     const colSum = rawColSpans.reduce((a, b) => a + b, 0);
     if (colSum !== 24 && rawColSpans.length > 0) {
       rawColSpans[rawColSpans.length - 1] = Math.max(3, rawColSpans[rawColSpans.length - 1] + (24 - colSum));
+      while (rawColSpans.reduce((a, b) => a + b, 0) > 24) {
+        const maxC = rawColSpans.indexOf(Math.max(...rawColSpans));
+        if (rawColSpans[maxC] <= 3) break;
+        rawColSpans[maxC]--;
+      }
     }
     let colCursor = 1;
     row.items.forEach((it, i) => {
@@ -519,10 +524,12 @@ function applyGroupProportionalTransform(snapshots, initGroupRect, dir, dx, dy, 
     const newHeightPx = Math.max(14, snap.rect.height * scaleY);
 
     if (el.classList.contains('ppt-free-obj')) {
-      el.style.left = (((newLeftPx - slideRect.left) / slideRect.width) * 100).toFixed(2) + '%';
-      el.style.top = (((newTopPx - slideRect.top) / slideRect.height) * 100).toFixed(2) + '%';
-      el.style.width = ((newWidthPx / slideRect.width) * 100).toFixed(2) + '%';
-      el.style.height = ((newHeightPx / slideRect.height) * 100).toFixed(2) + '%';
+      const safeSW = Math.max(1, slideRect.width);
+      const safeSH = Math.max(1, slideRect.height);
+      el.style.left = (((newLeftPx - slideRect.left) / safeSW) * 100).toFixed(2) + '%';
+      el.style.top = (((newTopPx - slideRect.top) / safeSH) * 100).toFixed(2) + '%';
+      el.style.width = ((newWidthPx / safeSW) * 100).toFixed(2) + '%';
+      el.style.height = ((newHeightPx / safeSH) * 100).toFixed(2) + '%';
     } else {
       const stScale = typeof getStageScale === 'function' ? getStageScale() : 1;
       const deltaX = (newLeftPx - snap.rect.left) / stScale;

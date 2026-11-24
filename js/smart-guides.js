@@ -34,7 +34,7 @@ function computeAndRenderSmartGuides(movingEls, proposedLeftPx, proposedTopPx, g
   const movingSet = new Set(movingEls);
   const firstEl = movingEls[0];
   const parentCard = (firstEl && !firstEl.classList.contains('ppt-free-obj') && !firstEl.classList.contains('slide-card'))
-    ? firstEl.closest('.slide-card')
+    ? firstEl.closest('.slide-card, .ppt-free-obj[data-shape-type="freeCard"]')
     : null;
 
   const vCandidates = [];
@@ -73,7 +73,7 @@ function computeAndRenderSmartGuides(movingEls, proposedLeftPx, proposedTopPx, g
     : '.ppt-free-obj, .slide-card';
 
   const others = Array.from(scopeEl.querySelectorAll(selector)).filter(el => {
-    if (el.style.visibility === 'hidden' || el.style.display === 'none') return false;
+    if (el.style.visibility === 'hidden' || el.style.display === 'none' || el.getAttribute('data-layer-hidden') === 'true') return false;
     for (const m of movingSet) {
       if (m === el || m.contains(el) || el.contains(m)) return false;
     }

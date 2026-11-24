@@ -1,5 +1,88 @@
 # Changelog
 
+## [v5.6.6] - 2026-11-24 — Test 15 라운드트립 파일 확장자 보완 및 동일 파일 재불러오기 초기화 개선
+
+### Fixed
+- **Playwright Test 15 (`tests/stress-and-compat.spec.mjs`) 확장자 명시 업로드 보완**: Playwright 임시 다운로드 경로(`dl.path()`)의 확장자 누락으로 `.endsWith('.json')` 분기가 우회되지 않도록 `setInputFiles({ name: suggestedFilename(), mimeType, buffer })` 형식으로 교체.
+- **동일 파일명 연속 재불러오기 지원 (`js/storage.js`)**: `#projectFileImporter` `change` 이벤트 처리 후 `e.target.value = ''`로 자동 초기화해 같은 이름의 작업 파일을 연속으로 다시 불러올 때도 이벤트가 누락되지 않도록 개선.
+
+---
+
+## [v5.6.5] - 2026-11-24 — GitHub Actions CI 자동화 테스트 확장 (기본안 4대 영역 · Playwright Chromium E2E 11종 → 17종)
+
+### Added (Testing & CI)
+- **`tests/stress-and-compat.spec.mjs` 신규 추가 (Test 12 ~ Test 17, 총 17개 Playwright Chromium E2E 스위트)**:
+  - **Test 12 (실제 포인터 복합 조작)**: `page.mouse` 기반 자유 도형 8방향 핸들 드래그 리사이즈, 빈 캔버스 러버밴드 마퀴 다중 선택, 즉시 테스트 모드(`Alt+P`) Before/After 슬라이더 좌우 풀스윕(`12%`↔`88%`) 드래그 검증.
+  - **Test 13 (연속 히스토리 & 대용량 스트레스)**: 15회 연속 삽입 → 15회 `Undo` 연타 → 15회 `Redo` 연타 무결성 및 차트·표·위젯·플로팅 카드가 혼합된 **22장 대용량 덱** 전체 순회·직렬화 안정성 검증.
+  - **Test 14 (PPTX OOXML 바이너리 심층 검사)**: 실제 다운로드한 `.pptx` ZIP을 파싱해 `[Content_Types].xml`, `ppt/presentation.xml`, `ppt/slides/slide3.xml` 내부의 `<a:tbl>`, 셀 텍스트, 조절된 폰트 크기(`26px` → `sz="1950"`), 병합 셀(`gridSpan="2"`)까지 XML 레벨에서 검증.
+  - **Test 15 (내보내기 → 재불러오기 라운드트립)**: 커스텀 제목·`4:3` 비율·포인트 컬러·비교 표·그라데이션 플로팅 카드를 **JSON 작업 파일** 및 **편집 가능 단독 HTML**로 내보낸 뒤 백지 초기화 후 실제 `<input type="file">`로 재불러오기해 100% 복원 확인.
+  - **Test 16 (다중 해상도 & 다중 비율 인쇄 검증)**: 일반 노트북(`1280×720` 발표/편집) 및 모바일(`390×844` 열람) 뷰포트 가로 넘침(`scrollWidth`) 0건 검사 + `16:9`·`4:3`·`9:16` 3종 비율 `@media print` 정밀 치수 검증.
+  - **Test 17 (실전 오프라인 PWA 검증)**: Service Worker 활성화·제어 획득 후 `context.setOffline(true)`로 네트워크를 완전 차단하고 `page.reload()` 실행 시 오프라인 부팅 및 슬라이드 전환 정상 동작 확인.
+- **`build.py` 테스트 게이트 확장**: `REQUIRED_PACKAGE_FILES`에 `tests/stress-and-compat.spec.mjs` 추가(`47 → 48개`) 및 `--test` 단계에서 Playwright 테스트 파일 자체의 어휘/구문 무결성까지 자동 검증.
+
+---
+
+## [v5.6.4] - 2026-11-24 — 5단계 전수검사 Phase 5 (최종 완료): 플로팅 카드 그라데이션·마스크 영속화 · 저장/복원/내보내기 정화 · 라이트박스 호환성 · Playwright E2E 11종 인증
+
+### Fixed & Hardened
+- **[P0] 플로팅 카드 배경 그라데이션 & 페이드 마스크 영속화 완성 (`js/floating-cards.js`, `js/theme.js`, `js/storage.js`)**:
+  - 기존 미리보기 스타일 갱신 시 소실되고 저장/Sanitizer에서 누락되던 플로팅 카드 배경·호버 그라데이션(`data-fc-bg-img`, `data-fc-hover-bg-img`)과 페이드 마스크(`data-fc-bg-mask`, `data-fc-hover-bg-mask`)를 편집 → 저장 → Sanitizer 정화 → 발표 라이트박스 전 구간에 걸쳐 100% 보존.
+- **[P0] 프로젝트 전환·파일 가져오기·템플릿 적용·자동복구·초기화 시 이전 덱의 플로팅 카드 잔류 차단 (`js/history.js`)**: 외부 덱 로드(`!fromHistory`) 시 열려 있는 플로팅 카드 편집 패널과 라이트박스를 자동 닫아 컨텍스트 오염 방지.
+- **[P0] 단독 HTML 내보내기 비대화 방지 및 PDF 인쇄 전 팝업 정리 (`js/export.js`)**: `buildSerializedStandaloneHTML()` 복제본에서 `#fcRichBodyEditor`와 `#floatingCardLightboxBody`의 잔여 DOM/Base64를 비워 파일 용량 팽창을 방지하고, `saveAsPDF()` 인쇄 직전 열린 플로팅 카드 팝업을 자동 닫음.
+- **[P1] 슬라이드 구조 변경 함수 4종 엄격 잠금 가드(`slideOnly = true`) 통일 (`js/navigation.js`)**: `insertSlideNumberToken`, `addTitleCardToCurrentSlide`, `addCardToCurrentSlide`, `resetCurrentSlideToInitial`이 플로팅 카드 열림 여부와 무관하게 잠긴 슬라이드를 보호.
+- **[P1] `#floatingCardLightbox` 구형 브라우저/WebKit 호환성 폴백 추가 (`css/slides.css`)**: `inset: 0`과 함께 `top/right/bottom/left: 0`을 명시해 모든 브라우저에서 팝업 내 Before/After 슬라이더 치수 및 풀스윕 드래그 보장.
+- **[Testing] `tests/e2e.spec.mjs` Test 11 신설 (총 11개 Playwright Chromium E2E 스위트)**: Phase 1~5 핵심 수정 사항 전체를 GitHub Actions CI에서 영구 회귀 검증.
+
+---
+
+## [v5.6.3] - 2026-11-24 — 5단계 전수검사 Phase 4: 미디어 · 차트/비교표 · 4종 인터랙티브 위젯 · 플로팅 팝업 카드 통합 동작 5건 해결
+
+### Fixed
+- **[P0] 플로팅 팝업 카드 발표 라이트박스(`#floatingCardLightbox`) 내부 4종 인터랙티브 위젯 및 `#slide-N` 이동 링크 완전 동작 복구 (`js/main.js`, `js/floating-cards.js`)**:
+  - 기존 `#slideStage`에만 연결되어 있던 Before/After 마우스·터치 슬라이더 드래그, 3D 플립 카드 클릭 전환, 핫스팟 핀 토글·외부 클릭 닫기, `#slide-N` 인라인 이동 링크를 `#floatingCardLightbox`에도 완전 바인딩해 팝업 내부 위젯이 발표/테스트 모드에서 100% 정상 동작.
+  - 편집 모드 플로팅 카드 미리보기(`#fcRichBodyEditor`) 내부에서도 핫스팟 핀 드래그 이동 및 토글 지원.
+- **[P0] 차트/비교표 26개 편집 함수 일괄 잠금 보호 (`js/charts.js`)**: `isChartMutationLocked(widget, notify)` 중앙 가드를 도입해 잠긴 슬라이드 및 잠긴 차트 레이어의 유형 변경·데이터 행/열 삭제·셀 병합/분할·CSV 덮어쓰기 우회를 원천 차단 (플로팅 카드 편집 컨텍스트는 정상 허용).
+- **[P0] 플로팅 카드 내부 동영상·이미지·오디오·웹/유튜브 임베드 리사이즈 핸들 및 히스토리 연동 완성 (`js/media.js`)**: `insertDirectVideoFile`, `insertWebEmbedWidget`, `insertDirectImageFile`, `insertAudioFile`이 `#fcRichBodyEditor` 삽입 시 `fc-resizable-item` + `makeFcBlockResizable()` + `recordFcSnapshot()`을 적용하고, 미디어 스타일/슬롯 함수 10종에 잠금 가드 보강.
+- **[P1] `embedWidgetIntoCard()` 플로팅 카드 위젯 유출 차단 및 `freeCard` 임베드 지원 (`js/widgets.js`)**: 플로팅 카드 내부 위젯에서 `📥 카드에 넣기` 클릭 시 배경 슬라이드로 빠져나가던 버그를 차단.
+- **[P1] 플로팅 카드 보관함 삭제·링크 연결 안정화 (`js/floating-cards.js`)**: 현재 편집 중인 카드를 삭제하면 편집 패널을 자동 닫기하고, 잠긴 슬라이드나 `#fcRichBodyEditor` 내부 요소에 잘못된 팝업 링크가 걸리지 않도록 보호.
+
+---
+
+## [v5.6.2] - 2026-11-24 — 5단계 전수검사 Phase 3: 텍스트 편집기 · 디자인(테마/배경/그라데이션/호버) · 반응형 모션/빌드 스텝 6건 해결
+
+### Fixed
+- **[P0] 플로팅 카드 내부 부분 텍스트 드래그 서식(`getUsableTextRange`, `captureEditableTextSelection`) 복구 (`js/text-editor.js`)**: 기존 `#slideStage`만 허용하던 제한을 `#fcRichBodyEditor`(새 창 분리 포함)까지 확장해 플로팅 카드 내부 일부 단어에만 굵게·색상·형광펜·글자크기·강조알약·부분링크가 정상 적용되도록 교정.
+- **[P0] 통합 배경 `✕` 제거 버튼(`clearUnifiedBackgroundImage`) 및 그라데이션 초기화(`clearAppliedGradient`), 호버 배경색·투명도(`applySelectedCardHoverBgColor`, `applySelectedHoverBgOpacity`)의 플로팅 카드 통합 라우팅 (`js/theme.js`)**.
+- **[P0] `applyGradientToElementOrMedia()`의 자유좌표 카드(`freeCard`) 및 상단 타이틀 바(`.slide-header-bar`) 호버/페이드 마스크 지원 (`js/theme.js`)**.
+- **[P1] `clearSelectedCardBgImage()` 카드 배경사진 제거 시 투명 배경 고착 버그 수정 (`js/theme.js`)**: 배경사진 제거 시 `filter`/`maskImage`까지 정리하고 `data-card-bg-hex` 기준 배경색을 정상 복원.
+- **[P1] 부분 하이퍼링크(`applyInlineTextLink`) 위험 프로토콜(`javascript:`, `vbscript:`, `data:`) 명시 차단 및 텍스트·디자인·모션 잠금 가드 10종 보강 (`js/text-editor.js`, `js/theme.js`, `js/effects.js`)**: `adjustListIndent`, `transformSelectedTextCase`, `toggleTextAutoFit`, `applyTextBackgroundBox`, `applySelectedCardHoverBgColor`, `applySelectedHoverBgOpacity`, `clearSelectedCardHoverBgImage`, `applyGeneralAnimationToSelected`, `clearSlideBuildOrders`, `toggleSelectedCardHover`.
+- **[P1] 플로팅 카드 포커스 상태 `Ctrl+A` 전체 블록 선택을 `isFcFocused` 전용 단축키 블록으로 통합 (`js/main.js`)**.
+
+---
+
+## [v5.6.1] - 2026-11-24 — 5단계 전수검사 Phase 2: 캔버스 편집 · 2D 벤토 그리드 · 자유좌표 분리 · 복사/붙여넣기 · 히스토리 6건 해결
+
+### Fixed
+- **[P0] `pasteCopiedElements()` 그리드 없는 슬라이드 크래시(`TypeError`) 방지 · `freeCard` 승격 · 그룹 복사 보존 (`js/selection.js`)**: `.slide-grid-body`가 없는 표지/빈 슬라이드에서 붙여넣기 시 발생하던 `null.style` 크래시를 차단하고, 카드 붙여넣기 시 점선 텍스트박스 대신 `freeCard`로 승격하며, 2개 이상 묶인 그룹 요소 붙여넣기 시 새 그룹 ID로 재매핑 보존.
+- **[P0] `detachElementToFreeLayer()` 그리드 카드 `⤢ 자유분리` 시 스타일·배경 이미지·호버·링크 유실 방지 (`js/selection.js`)**: 다크 테마(`card-theme-dark`), 배경/호버/틴트 레이어(`.card-bg-layer`, `.card-hover-bg-layer`, `.card-bg-tint`), 반응형 모션(`data-fx`), 플로팅 카드 링크(`data-floating-card-*`) 및 둥글기를 온전히 승계하고 목차·연결선 자동 동기화.
+- **[P0] `restoreStageHtml()` Undo/Redo 직후 분리된(Stale) DOM 참조 초기화 및 전체 패널 동기화 (`js/history.js`)**: `lastFocusedEditable`, `activeChartCellTarget`, `selectedTableCellKeys`, `savedTextSelectionRange`를 즉시 비워 Undo 직후 옛 DOM 노드에 서식이 적용되는 버그 차단, 잠금·숨김·노트·레이어·필름스트립 동기화 추가.
+- **[P1] `Ctrl+A` 플로팅 카드 컨텍스트 라우팅 및 숨김 레이어 오선택 방지 (`js/main.js`)**: 플로팅 카드 포커스 시 카드 내부 블록만 전체 선택, 슬라이드 `Ctrl+A`·마퀴 선택에서 숨김 레이어 제외.
+- **[P1] `js/bento-grid.js` 24열 벤토 초기화 열 합계 초과(`>24`) 클램핑 및 0-나눗셈(`NaN%`) 방어**.
+- **[P2] `js/smart-guides.js` `freeCard` 내부 스냅 지원 및 숨김 레이어 스냅 대상 제외**.
+
+---
+
+## [v5.6.0] - 2026-11-24 — 5단계 전수검사 Phase 1: 전역 무결성 · CI/CD · PWA Service Worker · 4중 매니페스트 정합성 게이트
+
+### Fixed & Hardened
+- **[P0] GitHub Pages 배포 워크플로 2-Job(`build` → `deploy`, `needs: build`) 분리 (`.github/workflows/deploy-pages.yml`)**: 단일 Job 실행 시 아티팩트 업로드 직후 색인 지연으로 간헐 발생하던 `No artifacts named "github-pages" were found` 오류를 영구 해결.
+- **[P0] PWA Service Worker(`sw.js`) 오프라인 미캐시 폴백 `undefined` 반환 수정**: 오프라인 상태에서 미캐시 자산·외부 폰트 요청 시 `undefined` 대신 유효한 `Response`(`503`/`204`)를 반환해 Service Worker `TypeError` 거부 경고 제거.
+- **[P1] `build.py` 4중 매니페스트 정합성 자동 게이트 신설 및 `JS_FILES` 순서 100% 일치화**: `index.html` `<script>` 순서, `build.py` (`JS_FILES` & `REQUIRED_PACKAGE_FILES`), `sw.js` (`APP_SHELL_ASSETS`) 간 불일치·누락을 빌드 테스트 단계에서 원천 차단.
+- **[P1] `js/safe-events.js` 렉시컬 전역 브리지에 `activeEditingContext` 추가** 및 `index.html` 전체 선언형 이벤트 표현식 AST 파싱 전수 검증.
+- **[P2] `js/storage.js` `buildProjectPackageZipBlob()`에 `typeof buildZipBlobFromEntries` 안전 가드 추가**.
+
+---
+
 ## [v5.5.3] - 2026-11-24 — Step 4 모듈 분할 완료: `js/selection.js`에서 `js/bento-grid.js` (24열 2D 벤토 그리드 엔진) 독립 분리
 
 ### Refactored

@@ -779,18 +779,35 @@ function updateFloatingCardPreviewStyle() {
   const tintLayer = $fc('fcEditorBgTintLayer');
 
   if (bgLayer && hoverLayer && tintLayer) {
-    bgLayer.style.backgroundImage = bgImgUrl ? `url("${bgImgUrl}")` : '';
+    const bgCssVal = bgImgUrl
+      ? (/^(?:linear|radial)-gradient\(/i.test(bgImgUrl) ? bgImgUrl : `url("${bgImgUrl}")`)
+      : '';
+    const bgMaskVal = editor.getAttribute('data-fc-bg-mask') || '';
+    bgLayer.style.backgroundImage = bgCssVal;
+    bgLayer.style.webkitMaskImage = bgMaskVal;
+    bgLayer.style.maskImage = bgMaskVal;
+    if (bgMaskVal) {
+      bgLayer.style.webkitMaskRepeat = 'no-repeat'; bgLayer.style.maskRepeat = 'no-repeat';
+      bgLayer.style.webkitMaskSize = '100% 100%'; bgLayer.style.maskSize = '100% 100%';
+    }
     bgLayer.style.filter = bgBlurPx > 0 ? `blur(${bgBlurPx}px)` : '';
     bgLayer.style.transform = bgBlurPx > 0 ? 'scale(1.06)' : '';
 
     const curFcFx = $fc('fcReactiveFxSelect')?.value || 'none';
-    const showHoverPreview = Boolean(hoverBgImgUrl) && curFcFx !== 'none';
-    hoverLayer.style.backgroundImage = showHoverPreview ? `url("${hoverBgImgUrl}")` : '';
+    const hoverCssVal = hoverBgImgUrl
+      ? (/^(?:linear|radial)-gradient\(/i.test(hoverBgImgUrl) ? hoverBgImgUrl : `url("${hoverBgImgUrl}")`)
+      : '';
+    const hoverMaskVal = editor.getAttribute('data-fc-hover-bg-mask') || '';
+    const showHoverPreview = Boolean(hoverCssVal) && curFcFx !== 'none';
+    hoverLayer.style.backgroundImage = showHoverPreview ? hoverCssVal : '';
+    hoverLayer.style.webkitMaskImage = showHoverPreview ? hoverMaskVal : '';
+    hoverLayer.style.maskImage = showHoverPreview ? hoverMaskVal : '';
     hoverLayer.style.filter = hoverBgBlurPx > 0 ? `blur(${hoverBgBlurPx}px)` : '';
     hoverLayer.style.transform = hoverBgBlurPx > 0 ? 'scale(1.06)' : '';
     hoverLayer.classList.toggle('has-hover-img', showHoverPreview);
 
-    tintLayer.style.backgroundColor = rgbaOverlay;
+    // When background is a pure gradient with 100% solid tint, keep tint subtle unless explicitly customized; otherwise apply tint overlay
+    tintLayer.style.backgroundColor = (/^(?:linear|radial)-gradient\(/i.test(bgCssVal) && alphaPct >= 100) ? 'transparent' : rgbaOverlay;
   }
 
   const curFcFx = $fc('fcReactiveFxSelect')?.value || 'none';
@@ -1024,6 +1041,37 @@ function clearFloatingCardBgImage() {
     editor.dataset.unifiedMainBound = 'true';
     editor.addEventListener('mousedown', (ev) => {
       if (typeof setActiveEditingContext === 'function') setActiveEditingContext('floating-card');
+      const editHsDot = ev.target && ev.target.closest ? ev.target.closest('.iw-hs-dot') : null;
+      if (editHsDot && editor.contains(editHsDot)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const pinEl = editHsDot.closest('.iw-hs-pin');
+        const hsStage = editHsDot.closest('.iw-hs-stage');
+        if (pinEl && hsStage) {
+          const stRect = hsStage.getBoundingClientRect();
+          const startX = ev.clientX, startY = ev.clientY;
+          let dragged = false;
+          const docRef = editor.ownerDocument || document;
+          const onPinMove = (me) => {
+            if (Math.abs(me.clientX - startX) > 3 || Math.abs(me.clientY - startY) > 3) dragged = true;
+            if (!dragged || stRect.width <= 0 || stRect.height <= 0) return;
+            const pctX = Math.max(4, Math.min(96, ((me.clientX - stRect.left) / stRect.width) * 100));
+            const pctY = Math.max(6, Math.min(94, ((me.clientY - stRect.top) / stRect.height) * 100));
+            pinEl.style.left = pctX.toFixed(1) + '%';
+            pinEl.style.top = pctY.toFixed(1) + '%';
+            if (typeof syncHotspotPinPopoverSide === 'function') syncHotspotPinPopoverSide(pinEl);
+          };
+          const onPinUp = () => {
+            docRef.removeEventListener('mousemove', onPinMove);
+            docRef.removeEventListener('mouseup', onPinUp);
+            if (dragged && typeof recordFcSnapshot === 'function') recordFcSnapshot();
+            else if (typeof toggleHotspotPin === 'function') toggleHotspotPin(pinEl);
+          };
+          docRef.addEventListener('mousemove', onPinMove);
+          docRef.addEventListener('mouseup', onPinUp);
+        }
+        return;
+      }
       const hit = ev.target && ev.target.closest ? ev.target.closest('.ppt-chart-widget, .ppt-interactive-widget, .card-embedded-obj, .fc-resizable-item, h1, h2, h3, h4, p, blockquote, li, img') : null;
       if (hit && editor.contains(hit) && typeof selectElementForInspector === 'function') {
         selectElementForInspector(hit, Boolean(ev.shiftKey));
@@ -1204,14 +1252,20 @@ function openFloatingCardEditor(cardId) {
   // Keep outer #fcRichBodyEditor non-monolithic so each text block is an independent selectable/deletable text box!
   if (editor) editor.setAttribute('contenteditable', 'false');
   const rawBgImg = existing ? (existing.getAttribute('data-fc-bg-img') || '') : '';
-  const cleanUrl = rawBgImg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+  const cleanUrl = /^(?:linear|radial)-gradient\(/i.test(rawBgImg) ? rawBgImg : rawBgImg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
   if (cleanUrl) editor.setAttribute('data-fc-bg-img-url', cleanUrl);
   else editor.removeAttribute('data-fc-bg-img-url');
+  const rawBgMask = existing ? (existing.getAttribute('data-fc-bg-mask') || '') : '';
+  if (rawBgMask) editor.setAttribute('data-fc-bg-mask', rawBgMask);
+  else editor.removeAttribute('data-fc-bg-mask');
 
   const rawHoverBgImg = existing ? (existing.getAttribute('data-fc-hover-bg-img') || '') : '';
-  const cleanHoverUrl = rawHoverBgImg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+  const cleanHoverUrl = /^(?:linear|radial)-gradient\(/i.test(rawHoverBgImg) ? rawHoverBgImg : rawHoverBgImg.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
   if (cleanHoverUrl) editor.setAttribute('data-fc-hover-bg-img-url', cleanHoverUrl);
   else editor.removeAttribute('data-fc-hover-bg-img-url');
+  const rawHoverMask = existing ? (existing.getAttribute('data-fc-hover-bg-mask') || '') : '';
+  if (rawHoverMask) editor.setAttribute('data-fc-hover-bg-mask', rawHoverMask);
+  else editor.removeAttribute('data-fc-hover-bg-mask');
 
   editor.innerHTML = existing
     ? existing.innerHTML
@@ -1439,8 +1493,14 @@ function saveFloatingCardFromEditor() {
   recordEl.setAttribute('data-fc-pos-preset', posPreset);
   recordEl.setAttribute('data-fc-pos-x', posX);
   recordEl.setAttribute('data-fc-pos-y', posY);
-  recordEl.setAttribute('data-fc-bg-img', bgImgUrl ? `url("${bgImgUrl}")` : '');
-  recordEl.setAttribute('data-fc-hover-bg-img', hoverBgImgUrl ? `url("${hoverBgImgUrl}")` : '');
+  const bgMaskSaved = editor ? (editor.getAttribute('data-fc-bg-mask') || '') : '';
+  const hoverMaskSaved = editor ? (editor.getAttribute('data-fc-hover-bg-mask') || '') : '';
+  const serializedBgImg = bgImgUrl ? (/^(?:linear|radial)-gradient\(/i.test(bgImgUrl) ? bgImgUrl : `url("${bgImgUrl}")`) : '';
+  const serializedHoverBgImg = hoverBgImgUrl ? (/^(?:linear|radial)-gradient\(/i.test(hoverBgImgUrl) ? hoverBgImgUrl : `url("${hoverBgImgUrl}")`) : '';
+  recordEl.setAttribute('data-fc-bg-img', serializedBgImg);
+  recordEl.setAttribute('data-fc-hover-bg-img', serializedHoverBgImg);
+  if (bgMaskSaved) recordEl.setAttribute('data-fc-bg-mask', bgMaskSaved); else recordEl.removeAttribute('data-fc-bg-mask');
+  if (hoverMaskSaved) recordEl.setAttribute('data-fc-hover-bg-mask', hoverMaskSaved); else recordEl.removeAttribute('data-fc-hover-bg-mask');
   recordEl.innerHTML = cleanHtml;
 
   populateFloatingCardSelect();
@@ -1509,6 +1569,7 @@ function setLinkedFloatingCardIds(el, ids) {
 }
 
 function setSelectedFloatingCardDisplayMode(mode) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   if (!selectedElement) return;
   selectedElement.setAttribute('data-floating-card-mode', mode === 'multi' ? 'multi' : 'paged');
   saveHistorySnapshot();
@@ -1550,8 +1611,9 @@ function renderLinkedFloatingCardsList() {
 }
 
 function addFloatingCardLinkToSelected(explicitFcId) {
-  if (!selectedElement) {
-    showToast('먼저 플로팅 카드를 연결할 요소를 선택해 주세요.');
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
+  if (!selectedElement || (selectedElement.closest && selectedElement.closest('#fcRichBodyEditor'))) {
+    showToast('먼저 슬라이드 위의 요소(버튼·카드·도형·텍스트)를 선택해 주세요.');
     return;
   }
   const sel = $studio('floatingCardSelect');
@@ -1575,6 +1637,7 @@ function addFloatingCardLinkToSelected(explicitFcId) {
 }
 
 function removeFloatingCardLinkFromSelected(fcId) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   if (!selectedElement) return;
   const nextIds = getLinkedFloatingCardIds(selectedElement).filter(id => id !== fcId);
   setLinkedFloatingCardIds(selectedElement, nextIds);
@@ -1584,6 +1647,7 @@ function removeFloatingCardLinkFromSelected(fcId) {
 }
 
 function moveLinkedFloatingCardOrder(idx, dir) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   if (!selectedElement) return;
   const ids = getLinkedFloatingCardIds(selectedElement);
   const targetIdx = idx + dir;
@@ -1614,6 +1678,9 @@ function deleteSelectedFloatingCard() {
   const store = ensureFloatingCardsStore();
   const item = store ? store.querySelector(`[data-fc-id="${fcId}"]`) : null;
   if (item) item.remove();
+  if (typeof activeEditingFloatingCardId !== 'undefined' && activeEditingFloatingCardId === fcId && typeof closeFloatingCardEditor === 'function') {
+    closeFloatingCardEditor();
+  }
   document.querySelectorAll('[data-floating-card-id], [data-floating-card-ids]').forEach(el => {
     const remaining = getLinkedFloatingCardIds(el).filter(id => id !== fcId);
     setLinkedFloatingCardIds(el, remaining);
@@ -1761,10 +1828,25 @@ function hydrateFloatingCardSurface(boxEl, recordEl, bodyTargetEl, extraTopHtml,
   hoverImgLayer.style.filter = (hasReactiveFx && hoverBgBlurPx > 0) ? `blur(${hoverBgBlurPx}px)` : '';
   hoverImgLayer.style.transform = (hasReactiveFx && hoverBgBlurPx > 0) ? 'scale(1.06)' : '';
 
+  const bgMaskCss = recordEl.getAttribute('data-fc-bg-mask') || '';
+  const hoverMaskCss = recordEl.getAttribute('data-fc-hover-bg-mask') || '';
+  imgLayer.style.webkitMaskImage = bgMaskCss;
+  imgLayer.style.maskImage = bgMaskCss;
+  if (bgMaskCss) {
+    imgLayer.style.webkitMaskRepeat = 'no-repeat'; imgLayer.style.maskRepeat = 'no-repeat';
+    imgLayer.style.webkitMaskSize = '100% 100%'; imgLayer.style.maskSize = '100% 100%';
+  }
+  hoverImgLayer.style.webkitMaskImage = hasReactiveFx ? hoverMaskCss : '';
+  hoverImgLayer.style.maskImage = hasReactiveFx ? hoverMaskCss : '';
+  if (hasReactiveFx && hoverMaskCss) {
+    hoverImgLayer.style.webkitMaskRepeat = 'no-repeat'; hoverImgLayer.style.maskRepeat = 'no-repeat';
+    hoverImgLayer.style.webkitMaskSize = '100% 100%'; hoverImgLayer.style.maskSize = '100% 100%';
+  }
+
   if (bgImg || effectiveHoverBgImg) {
     imgLayer.style.backgroundImage = bgImg || '';
     boxEl.style.backgroundColor = 'transparent';
-    tintLayer.style.backgroundColor = rgbaOverlay;
+    tintLayer.style.backgroundColor = (/^(?:linear|radial)-gradient\(/i.test(bgImg || '') && Number(opacity) >= 100) ? 'transparent' : rgbaOverlay;
   } else {
     imgLayer.style.backgroundImage = '';
     tintLayer.style.backgroundColor = 'transparent';
@@ -1978,6 +2060,7 @@ function onLinkActionTypeChange(val) {
 }
 
 function applyLinkActionToSelected() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true, true)) return;
   if (!selectedElement) {
     showToast('먼저 액션이나 링크를 연결할 텍스트·카드·도형을 클릭해 주세요.');
     return;

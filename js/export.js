@@ -81,6 +81,8 @@ function saveAsPDF(includeSpeakerNotes) {
     openOverflowAuditModal(issues);
     return;
   }
+  if (typeof closeFloatingCardLightbox === 'function') closeFloatingCardLightbox();
+  if (typeof closeFloatingCardEditor === 'function') closeFloatingCardEditor();
   clearSelectionInspector();
   const tocModal = document.getElementById('tocModal');
   if (tocModal) { if (typeof closeModalSafe === 'function') closeModalSafe(tocModal); else { tocModal.classList.add('hidden'); tocModal.classList.remove('flex'); tocModal.style.display = 'none'; } }
@@ -188,7 +190,14 @@ function buildSerializedStandaloneHTML(presentationOnly) {
   clonedRoot.querySelectorAll('.iw-hs-pin.is-open').forEach(el => el.classList.remove('is-open'));
   const clonedTooltip = clonedRoot.querySelector('#pptChartTooltip'); if (clonedTooltip) clonedTooltip.style.display = 'none';
   const clonedLb = clonedRoot.querySelector('#floatingCardLightbox');
-  if (clonedLb) { clonedLb.classList.remove('open', 'fc-multi-open'); clonedLb.querySelectorAll('.fc-multi-card-item').forEach(n => n.remove()); }
+  if (clonedLb) {
+    clonedLb.classList.remove('open', 'fc-multi-open');
+    clonedLb.querySelectorAll('.fc-multi-card-item').forEach(n => n.remove());
+    const clonedLbBody = clonedLb.querySelector('#floatingCardLightboxBody');
+    if (clonedLbBody) clonedLbBody.innerHTML = '';
+  }
+  const clonedFcEd = clonedRoot.querySelector('#fcRichBodyEditor');
+  if (clonedFcEd) clonedFcEd.innerHTML = '';
   ['#pptScreenBlackoutOverlay', '#pptDrawCanvas', '#pptDrawToolbar', '#saveChoiceModal', '#floatingCardEditorModal', '#findReplaceModal', '#overflowAuditModal', '#slideCommentsModal', '#slideSorterModal', '#reuseSlidesModal', '#starterTemplateModal', '#shortcutsHelpModal', '#onboardingGuideModal', '#tocModal', '#pptContextMenu', '#autosaveRecoveryBanner'].forEach(sel => {
     const ov = clonedRoot.querySelector(sel);
     if (ov) { ov.classList.add('hidden'); ov.classList.remove('flex'); ov.style.display = ''; }

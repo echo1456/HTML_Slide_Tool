@@ -38,12 +38,12 @@ JS_FILES = [
     "js/effects.js",
     "js/floating-cards.js",
     "js/widgets.js",
+    "js/export.js",
+    "js/pwa-fs.js",
     "js/studio.js",
     "js/smart-guides.js",
     "js/main.js",
     "js/safe-events.js",
-    "js/export.js",
-    "js/pwa-fs.js",
 ]
 
 COLORS = {
@@ -829,13 +829,13 @@ REQUIRED_PACKAGE_FILES = [
     "js/effects.js",
     "js/floating-cards.js",
     "js/widgets.js",
+    "js/bundle-data.js",
+    "js/export.js",
+    "js/pwa-fs.js",
     "js/studio.js",
     "js/smart-guides.js",
     "js/main.js",
     "js/safe-events.js",
-    "js/bundle-data.js",
-    "js/export.js",
-    "js/pwa-fs.js",
     "docs/CHANGELOG.md",
     "docs/PROJECT_GUIDE.md",
     "docs/ROADMAP_PROGRESS.md",
@@ -844,6 +844,7 @@ REQUIRED_PACKAGE_FILES = [
     "playwright.config.mjs",
     "tests/csp-server.py",
     "tests/e2e.spec.mjs",
+    "tests/stress-and-compat.spec.mjs",
     ".github/workflows/ci.yml",
     ".github/workflows/deploy-pages.yml",
 ]
@@ -872,6 +873,22 @@ def run_automated_verification_suite():
     verify_static_integrity(html, js_sources)
     doc = lxml_html.fromstring(html)
     all_ids = doc.xpath("//@id")
+    # 4-Way Manifest Parity Gate (index.html <-> build.py JS_FILES <-> sw.js APP_SHELL_ASSETS <-> REQUIRED_PACKAGE_FILES)
+    html_js_order = [s for s in re.findall(r'<script\s+src="(js/[^"]+)"', html) if s != "js/bundle-data.js"]
+    if html_js_order != JS_FILES:
+        raise RuntimeError(f"index.html <script> 순서와 build.py JS_FILES 불일치: html={html_js_order} vs build={JS_FILES}")
+    with open(os.path.join(BASE_DIR, "sw.js"), "r", encoding="utf-8") as swf:
+        sw_assets = set(re.findall(r"'\./([^']+)'", swf.read()))
+    for expected_asset in list(CSS_FILES) + list(JS_FILES) + ["js/bundle-data.js"]:
+        if expected_asset not in sw_assets:
+            raise RuntimeError(f"sw.js APP_SHELL_ASSETS 누락: {expected_asset}")
+        if expected_asset not in REQUIRED_PACKAGE_FILES:
+            raise RuntimeError(f"build.py REQUIRED_PACKAGE_FILES 누락: {expected_asset}")
+    for spec_rel in ("tests/e2e.spec.mjs", "tests/stress-and-compat.spec.mjs"):
+        spec_p = os.path.join(BASE_DIR, spec_rel)
+        if os.path.exists(spec_p):
+            with open(spec_p, "r", encoding="utf-8") as sf:
+                verify_js_lexical_syntax(spec_rel, sf.read())
     for rel in REQUIRED_PACKAGE_FILES:
         if not os.path.exists(os.path.join(BASE_DIR, rel)):
             raise RuntimeError(f"필수 파일 누락: {rel}")

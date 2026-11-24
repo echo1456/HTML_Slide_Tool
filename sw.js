@@ -1,5 +1,5 @@
 /* HTML Slide Tool — Offline-First PWA Service Worker (Auto-versioned by build.py) */
-const CACHE_NAME = 'html-slide-tool-v5.5.3';
+const CACHE_NAME = 'html-slide-tool-v5.6.6';
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
@@ -75,7 +75,7 @@ self.addEventListener('fetch', (event) => {
           }
           return resp;
         })
-        .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+        .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./index.html') : null)).then((res) => res || new Response('', { status: 503, statusText: 'Offline' })))
     );
     return;
   }
@@ -90,7 +90,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
           }
           return resp;
-        }).catch(() => cached);
+        }).catch(() => cached || new Response('', { status: 204 }));
         return cached || netFetch;
       })
     );

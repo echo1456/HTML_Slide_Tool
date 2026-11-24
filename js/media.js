@@ -55,6 +55,7 @@ function insertMediaBoxIntoCard() {
 }
 
 function setCardMediaDockPosition(pos, explicitMediaBox) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const mediaBox = explicitMediaBox || (selectedElement && (selectedElement.classList.contains('card-inline-media') ? selectedElement : selectedElement.querySelector('.card-inline-media')));
   if (!mediaBox) {
     showToast('먼저 위치를 변경할 카드 내 미디어를 클릭해 주세요.');
@@ -91,6 +92,7 @@ function setCardMediaDockPosition(pos, explicitMediaBox) {
 }
 
 function setCardMediaSizeValue(val) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) return;
   const px = Number(val) || 220;
   const lbl = $studio('cardMediaSizeLabel');
   if (lbl) lbl.textContent = `${px}px`;
@@ -117,6 +119,7 @@ function getActiveMediaBoxAndElement() {
 }
 
 function setInnerMediaScale(pctVal, isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) return;
   const pct = Math.max(20, Math.min(150, Number(pctVal) || 100));
   const slider = $studio('innerMediaScaleSlider');
   const lbl = $studio('innerMediaScaleLabel');
@@ -165,6 +168,7 @@ function adjustSlotMediaScale(slotEl, deltaPct) {
 }
 
 function toggleCardInlineMediaFit(mediaBox) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   if (!mediaBox) return;
   const el = mediaBox.querySelector('.inline-media-el');
   if (!el) return;
@@ -667,6 +671,7 @@ function syncVideoSourceInspectorUI(el) {
 }
 
 function applyVideoSourcePathFromStudio() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const vid = getSelectedVideoElement();
   const inp = $studio('videoSourcePathInput');
   if (!vid || !inp) {
@@ -707,13 +712,15 @@ function insertDirectVideoFile(file) {
 
     const targetCard = shouldInsertIntoSelectedCard();
     if (targetCard) {
+      const isFcHost = targetCard.id === 'fcRichBodyEditor';
       const cardRect = targetCard.getBoundingClientRect();
-      const stScale = typeof getStageScale === 'function' ? getStageScale() : 1;
+      const stScale = (!isFcHost && typeof getStageScale === 'function') ? getStageScale() : 1;
       const targetW = Math.max(140, (cardRect.width / stScale) - 48);
       const targetH = Math.max(110, Math.min(360, Math.round(targetW * (vh / vw))));
-      const obj = document.createElement('div');
-      obj.className = 'card-embedded-obj my-2 shadow-sm';
+      const obj = (targetCard.ownerDocument || document).createElement('div');
+      obj.className = isFcHost ? 'card-embedded-obj fc-resizable-item my-2 shadow-sm' : 'card-embedded-obj my-2 shadow-sm';
       obj.setAttribute('data-shape-type', 'video');
+      if (isFcHost) obj.setAttribute('contenteditable', 'false');
       obj.style.width = '100%';
       obj.style.height = targetH + 'px';
       obj.style.padding = '0px';
@@ -723,9 +730,10 @@ function insertDirectVideoFile(file) {
       obj.innerHTML = `<video src="${videoUrl}" data-media-name="${escapeAttr(file.name)}" controls playsinline loop class="w-full h-full object-contain block"></video>`;
       targetCard.appendChild(obj);
       initVideoErrorFallbacks(obj);
+      if (isFcHost && typeof makeFcBlockResizable === 'function') makeFcBlockResizable(obj);
       selectElementForInspector(obj);
-      refreshLayerList();
-      saveHistorySnapshot();
+      if (isFcHost) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); }
+      else { refreshLayerList(); saveHistorySnapshot(); }
       showToast('선택한 카드 내부에 동영상이 소속 삽입되었습니다! (저장 후 HTML과 같은 폴더의 media/ 에 파일을 두세요)');
       return;
     }
@@ -899,6 +907,7 @@ function applyImageToSlot(slotEl, dataUrl, natW, natH) {
 }
 
 function toggleImageFit(slotEl) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const mediaEl = slotEl.querySelector('.slot-img:not(.hidden), video.slot-video');
   if (!mediaEl) return;
   if (mediaEl.classList.contains('object-cover')) {
@@ -923,6 +932,7 @@ function adjustSlotHeight(slotEl, deltaPx) {
 }
 
 function clearImageSlot(slotEl) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const imgEl = slotEl.querySelector('.slot-img');
   const placeholder = slotEl.querySelector('.slot-placeholder');
   if (imgEl) {
@@ -1067,6 +1077,7 @@ function initMediaListeners() {
 
 /* ==================== UNIVERSAL ELEMENT OPACITY CONTROL ==================== */
 function setSelectedElementOpacity(val, isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(!isLiveInput)) return;
   const pct = Math.max(5, Math.min(100, Number(val) || 100));
   const slider = $studio('elementOpacitySlider');
   const lbl = $studio('elementOpacityLabel');
@@ -1100,6 +1111,7 @@ function syncElementOpacityUI(el) {
 }
 
 function setSelectedElementRadiusPx(val, isLiveInput) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(!isLiveInput)) return;
   const num = Math.max(0, Math.min(9999, Number(val) || 0));
   const radStr = num >= 9999 ? '9999px' : `${num}px`;
   const slider = $studio('shapeRadiusRangeSlider');
@@ -1358,6 +1370,7 @@ function executeReplaceMediaPreserveProps(file) {
   }
 }
 function toggleVideoPlaybackOption(optName) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const vid = getSelectedVideoElement(); if (!vid) return;
   const nextVal = !(vid[optName] || vid.hasAttribute(optName));
   vid[optName] = nextVal; if (nextVal) vid.setAttribute(optName, ''); else vid.removeAttribute(optName);
@@ -1407,9 +1420,18 @@ function insertAudioFile(file) {
     const innerHtml = `<div class="flex items-center justify-between gap-2 text-xs"><span data-editable contenteditable="true" class="font-bold text-ink truncate">🎵 ${safeTitle}</span><button type="button" data-on-click="toggleAudioPersist(this)" class="px-2 py-0.5 rounded bg-canvas hover:border-gopro border border-borderline font-mono text-[10px] font-bold text-ink cursor-pointer shrink-0">🔁 슬라이드 연속재생 OFF</button></div><audio controls preload="metadata" src="${audioSrc}"${mediaNameAttr} class="w-full h-8"></audio>`;
     const targetCard = shouldInsertIntoSelectedCard();
     if (targetCard) {
-      const obj = document.createElement('div'); obj.className = 'card-embedded-obj ppt-audio-widget my-2 shadow-xs'; obj.setAttribute('data-shape-type', 'audio');
+      const isFcHost = targetCard.id === 'fcRichBodyEditor';
+      const obj = (targetCard.ownerDocument || document).createElement('div');
+      obj.className = isFcHost ? 'card-embedded-obj ppt-audio-widget fc-resizable-item my-2 shadow-xs' : 'card-embedded-obj ppt-audio-widget my-2 shadow-xs';
+      obj.setAttribute('data-shape-type', 'audio');
+      if (isFcHost) obj.setAttribute('contenteditable', 'false');
       obj.style.width = '100%'; obj.style.height = 'auto'; obj.innerHTML = innerHtml;
-      targetCard.appendChild(obj); selectElementForInspector(obj); refreshLayerList(); saveHistorySnapshot('오디오 삽입'); return;
+      targetCard.appendChild(obj);
+      if (isFcHost && typeof makeFcBlockResizable === 'function') makeFcBlockResizable(obj);
+      selectElementForInspector(obj);
+      if (isFcHost) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); }
+      else { refreshLayerList(); saveHistorySnapshot('오디오 삽입'); }
+      return;
     }
     const activeSlideEl = slides[currentSlide - 1]; if (!activeSlideEl) return;
     ensureFreeLayersOnAllSlides();
@@ -1587,10 +1609,18 @@ function insertWebEmbedWidget(explicitUrl) {
 
   const targetCard = shouldInsertIntoSelectedCard();
   if (targetCard) {
-    const obj = document.createElement('div'); obj.className = 'card-embedded-obj ppt-embed-widget my-2 shadow-sm'; obj.setAttribute('data-shape-type', 'embed');
+    const isFcHost = targetCard.id === 'fcRichBodyEditor';
+    const obj = (targetCard.ownerDocument || document).createElement('div');
+    obj.className = isFcHost ? 'card-embedded-obj ppt-embed-widget fc-resizable-item my-2 shadow-sm' : 'card-embedded-obj ppt-embed-widget my-2 shadow-sm';
+    obj.setAttribute('data-shape-type', 'embed');
+    if (isFcHost) obj.setAttribute('contenteditable', 'false');
     if (ytId) obj.setAttribute('data-yt-vid-id', ytId);
     obj.style.width = '100%'; obj.style.height = '240px'; obj.style.padding = '0px'; obj.innerHTML = innerHtml;
-    targetCard.appendChild(obj); selectElementForInspector(obj); refreshLayerList(); saveHistorySnapshot('웹/유튜브 임베드 삽입');
+    targetCard.appendChild(obj);
+    if (isFcHost && typeof makeFcBlockResizable === 'function') makeFcBlockResizable(obj);
+    selectElementForInspector(obj);
+    if (isFcHost) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); }
+    else { refreshLayerList(); saveHistorySnapshot('웹/유튜브 임베드 삽입'); }
     if (ytId && isLocal) showToast('로컬(file://) 환경에서는 클릭 시 팝업으로 안전 재생되는 YouTube 카드로 삽입됩니다. (웹 배포 시 인라인 자동 전환)');
     return;
   }
@@ -1626,15 +1656,18 @@ function insertDirectImageFile(file) {
 
       const targetCard = typeof shouldInsertIntoSelectedCard === 'function' ? shouldInsertIntoSelectedCard() : null;
       if (targetCard) {
-        const obj = document.createElement('div');
-        obj.className = 'card-embedded-obj my-2 shadow-sm overflow-hidden rounded-xl border border-borderline';
+        const isFcHost = targetCard.id === 'fcRichBodyEditor';
+        const obj = (targetCard.ownerDocument || document).createElement('div');
+        obj.className = isFcHost ? 'card-embedded-obj fc-resizable-item fc-img-wrap my-2 shadow-sm overflow-hidden rounded-xl border border-borderline' : 'card-embedded-obj my-2 shadow-sm overflow-hidden rounded-xl border border-borderline';
         obj.setAttribute('data-shape-type', 'image');
+        if (isFcHost) obj.setAttribute('contenteditable', 'false');
         obj.style.width = '100%'; obj.style.height = 'auto';
         obj.innerHTML = `<img src="${resizedDataUrl}" data-img-nat-w="${w}" data-img-nat-h="${h}" class="w-full h-auto object-contain block" alt="첨부 이미지">`;
         targetCard.appendChild(obj);
+        if (isFcHost && typeof makeFcBlockResizable === 'function') makeFcBlockResizable(obj);
         selectElementForInspector(obj);
-        refreshLayerList();
-        saveHistorySnapshot('카드 내 이미지 직접 삽입');
+        if (isFcHost) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); }
+        else { refreshLayerList(); saveHistorySnapshot('카드 내 이미지 직접 삽입'); }
         return;
       }
 

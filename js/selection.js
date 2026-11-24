@@ -82,21 +82,51 @@ function detachElementToFreeLayer(el, silentBatch) {
 
   if (el.classList.contains('slide-card')) {
     freeBox.setAttribute('data-shape-type', 'freeCard');
-    const computedBg = window.getComputedStyle(el).backgroundColor;
-    freeBox.style.backgroundColor = computedBg && computedBg !== 'rgba(0, 0, 0, 0)' ? computedBg : '#FFFFFF';
+    const csEl = window.getComputedStyle(el);
+    const computedBg = csEl.backgroundColor;
+    const hasBgLayerImg = Boolean((el.querySelector(':scope > .card-bg-layer')?.style.backgroundImage || '').includes('url(') || (el.querySelector(':scope > .card-hover-bg-layer')?.style.backgroundImage || '').includes('url('));
+    freeBox.style.backgroundColor = hasBgLayerImg ? 'transparent' : (computedBg && computedBg !== 'rgba(0, 0, 0, 0)' ? computedBg : '#FFFFFF');
     freeBox.style.border = '1px solid #CBD5E1';
-    freeBox.style.borderRadius = '16px';
+    freeBox.style.borderRadius = el.style.borderRadius || '16px';
     freeBox.style.padding = '20px';
     freeBox.style.boxShadow = '0 10px 25px rgba(0,0,0,0.08)';
     freeBox.style.overflow = 'auto';
+    if (el.classList.contains('card-theme-dark')) freeBox.classList.add('card-theme-dark');
+    if (el.classList.contains('hover-reactive')) freeBox.classList.add('hover-reactive');
+    if (el.style.color) freeBox.style.color = el.style.color;
+    ['--card-bg-color', '--card-hover-bg', '--fx-shadow-color', '--fx-border-color', '--fx-border-width'].forEach(vName => {
+      const v = el.style.getPropertyValue(vName);
+      if (v) freeBox.style.setProperty(vName, v);
+    });
+    ['data-card-bg-hex', 'data-card-bg-alpha', 'data-hover-bg-hex', 'data-hover-bg-alpha', 'data-fx', 'data-fx-basis', 'data-fx-shadow', 'data-fx-border', 'data-floating-card-id', 'data-floating-card-ids', 'data-floating-card-mode', 'data-goto-slide', 'data-goto-url', 'data-layer-name'].forEach(attr => {
+      if (el.hasAttribute(attr)) freeBox.setAttribute(attr, el.getAttribute(attr));
+    });
 
     const clone = el.cloneNode(true);
     clone.querySelectorAll('.card-edit-controls').forEach(c => c.remove());
+    const preservedBgLayers = [];
+    Array.from(clone.children).forEach(ch => {
+      if (ch.classList && (ch.classList.contains('card-bg-layer') || ch.classList.contains('card-hover-bg-layer') || ch.classList.contains('card-bg-tint'))) {
+        preservedBgLayers.push(ch);
+        ch.remove();
+      }
+    });
     const oldGridBody = el.closest('.slide-grid-body');
     const vacated = (oldGridBody && oldGridBody.getAttribute('data-bento-2d') === 'true') ? getBento2DCoords(el) : null;
-    freeBox.innerHTML = `<div class="w-full h-full flex flex-col justify-between">${clone.innerHTML}</div>`;
+    preservedBgLayers.forEach(ly => freeBox.appendChild(ly));
+    const innerWrap = document.createElement('div');
+    innerWrap.className = 'w-full h-full flex flex-col justify-between relative';
+    innerWrap.style.zIndex = '2';
+    innerWrap.innerHTML = clone.innerHTML;
+    freeBox.appendChild(innerWrap);
     el.remove();
-    if (oldGridBody) { if (vacated) fillVacatedBentoRect(oldGridBody, vacated); if (typeof rebalanceSlideGridLayout === 'function') rebalanceSlideGridLayout(oldGridBody); }
+    if (oldGridBody) {
+      if (vacated) fillVacatedBentoRect(oldGridBody, vacated);
+      if (typeof rebalanceSlideGridLayout === 'function') rebalanceSlideGridLayout(oldGridBody);
+      if (typeof syncTocCardsOrderAndLabels === 'function') syncTocCardsOrderAndLabels();
+      if (typeof buildModalGrid === 'function') buildModalGrid();
+    }
+    if (typeof updateSlideConnectors === 'function') updateSlideConnectors(activeSlideEl);
   } else if (el.classList.contains('image-slot-box')) {
     freeBox.setAttribute('data-shape-type', 'image');
     freeBox.style.backgroundColor = '#FFFFFF';
@@ -1659,6 +1689,12 @@ async function pasteCopiedElements(allowSystemClipboardRead) {
   const explicitSelectedCard = getTargetCardForHierarchy();
   const targetCard = explicitSelectedCard || activeSlideEl.querySelector('.slide-card');
 
+  const pasteGroupCounts = new Map();
+  clipItems.forEach(item => {
+    const m = String(item.html || '').match(/data-group-id="([^"]+)"/);
+    if (m && m[1]) pasteGroupCounts.set(m[1], (pasteGroupCounts.get(m[1]) || 0) + 1);
+  });
+  const pasteRemappedGroups = new Map();
   const pastedNodes = [];
   let pastedCardIntoGrid = false;
   clipItems.forEach((item, idx) => {
@@ -1672,7 +1708,13 @@ async function pasteCopiedElements(allowSystemClipboardRead) {
     node.removeAttribute('data-layer-locked');
     node.removeAttribute('data-conn-node-id');
     node.removeAttribute('data-trigger-node-id');
-    node.removeAttribute('data-group-id');
+    const origPasteGid = node.getAttribute('data-group-id');
+    if (origPasteGid && (pasteGroupCounts.get(origPasteGid) || 0) >= 2) {
+      if (!pasteRemappedGroups.has(origPasteGid)) pasteRemappedGroups.set(origPasteGid, 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+      node.setAttribute('data-group-id', pasteRemappedGroups.get(origPasteGid));
+    } else {
+      node.removeAttribute('data-group-id');
+    }
     node.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
     node.querySelectorAll('[data-layer-locked]').forEach(n => n.removeAttribute('data-layer-locked'));
     node.querySelectorAll('[data-conn-node-id]').forEach(n => n.removeAttribute('data-conn-node-id'));
@@ -1732,7 +1774,25 @@ async function pasteCopiedElements(allowSystemClipboardRead) {
       gridBody.appendChild(node);
       pastedNodes.push(node);
       pastedCardIntoGrid = true;
-    } else if (targetCard && (explicitSelectedCard || gridBody.style.display !== 'none')) {
+    } else if (item.kind === 'slide-card' && freeLayer) {
+      const freeBox = document.createElement('div');
+      freeBox.className = 'ppt-free-obj shadow-md';
+      freeBox.setAttribute('data-shape-type', 'freeCard');
+      freeBox.style.left = (18 + idx * 3) + '%';
+      freeBox.style.top = (18 + idx * 3) + '%';
+      freeBox.style.width = '42%';
+      freeBox.style.height = '44%';
+      freeBox.style.backgroundColor = node.style.backgroundColor || '#FFFFFF';
+      freeBox.style.border = '1px solid #CBD5E1';
+      freeBox.style.borderRadius = node.style.borderRadius || '16px';
+      freeBox.style.padding = '20px';
+      freeBox.style.overflow = 'auto';
+      freeBox.style.zIndex = String(freeLayer.children.length + 20);
+      node.querySelectorAll('.card-edit-controls').forEach(c => c.remove());
+      freeBox.innerHTML = `<div class="w-full h-full flex flex-col justify-between relative" style="z-index:2;">${node.innerHTML}</div>`;
+      freeLayer.appendChild(freeBox);
+      pastedNodes.push(freeBox);
+    } else if (targetCard && (explicitSelectedCard || (gridBody && gridBody.style.display !== 'none'))) {
       if (node.classList.contains('sub-box') && targetCard.querySelector('.sub-box-group')) {
         targetCard.querySelector('.sub-box-group').appendChild(node);
       } else {

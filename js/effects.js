@@ -402,6 +402,7 @@ function syncReactiveFxUI(el) {
 }
 
 function toggleSelectedCardHover() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const card = getTargetCardForHierarchy();
   if (!card) {
     showToast('먼저 호버 반응을 설정할 카드를 클릭해 주세요.');
@@ -570,7 +571,7 @@ const GENERAL_ANIM_LABELS = {
 };
 function setElementBuildOrder(rawStep) {
   const activeSlideEl = slides[currentSlide - 1];
-  if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') { showToast('잠긴 슬라이드에서는 등장 순서를 변경할 수 없습니다.'); return; }
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const rawTargets = (selectedElements && selectedElements.length > 0) ? selectedElements : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []);
   const targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true');
   if (targets.length === 0) return;
@@ -579,6 +580,7 @@ function setElementBuildOrder(rawStep) {
   syncBuildOrderUI(targets[targets.length - 1]); saveHistorySnapshot(stepNum > 0 ? `클릭 등장 순서 ${stepNum}단계` : '클릭 등장 순서 해제');
 }
 function clearSlideBuildOrders() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const activeSlideEl = slides[currentSlide - 1]; if (!activeSlideEl) return; let cleared = 0;
   activeSlideEl.querySelectorAll('[data-build-order]').forEach(el => { el.removeAttribute('data-build-order'); el.classList.remove('build-step-pending', 'build-step-revealed'); cleared++; });
   syncBuildOrderUI(selectedElement); if (cleared > 0) saveHistorySnapshot('슬라이드 등장 순서 일괄 해제');
@@ -608,6 +610,7 @@ function rewindSlideBuildStep(slideEl) {
 }
 
 function applyGeneralAnimationToSelected(animType) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const targets = (selectedElements && selectedElements.length > 1)
     ? selectedElements
     : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []);

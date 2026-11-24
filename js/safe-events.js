@@ -271,6 +271,7 @@ function resolveSafeLexicalIdentifier(name, env) {
   if (name === 'isEditMode') return typeof isEditMode !== 'undefined' ? isEditMode : false;
   if (name === 'isInteractiveTestMode') return typeof isInteractiveTestMode !== 'undefined' ? isInteractiveTestMode : false;
   if (name === 'activeScreenBlackoutMode') return typeof activeScreenBlackoutMode !== 'undefined' ? activeScreenBlackoutMode : null;
+  if (name === 'activeEditingContext') return typeof activeEditingContext !== 'undefined' ? activeEditingContext : 'slide';
   if (__SAFE_BLOCKED_CALLS.has(name) || __SAFE_BLOCKED_PROPS.has(name)) return undefined;
   return env.ctx ? env.ctx[name] : undefined;
 }

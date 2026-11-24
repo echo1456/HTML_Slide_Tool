@@ -304,13 +304,17 @@ function embedWidgetIntoCard(btn) {
   if (isWidgetMutationLocked(btn)) return;
   const widget = btn ? btn.closest('.ppt-interactive-widget') : null;
   if (!widget) return;
-  if (widget.closest('.slide-card') && widget.classList.contains('card-embedded-obj')) {
+  if (widget.closest('#fcRichBodyEditor')) {
+    showToast('이미 플로팅 팝업 카드 내부에 배치된 위젯입니다.');
+    return;
+  }
+  if ((widget.closest('.slide-card') || widget.closest('.ppt-free-obj[data-shape-type="freeCard"]')) && widget.classList.contains('card-embedded-obj')) {
     showToast('이미 카드 내부에 배치된 위젯입니다. ⤢ 자유분리로 꺼낼 수 있습니다.');
     return;
   }
   const activeSlideEl = slides[currentSlide - 1];
   if (!activeSlideEl) return;
-  const cards = Array.from(activeSlideEl.querySelectorAll('.slide-card')).filter(c => !c.closest('.ppt-free-obj'));
+  const cards = Array.from(activeSlideEl.querySelectorAll('.slide-card, .ppt-free-obj[data-shape-type="freeCard"]')).filter(c => c !== widget && !c.contains(widget));
   if (cards.length === 0) {
     showToast('현재 슬라이드에 카드가 없습니다. 먼저 [+ 카드]로 카드를 추가해 주세요.');
     return;

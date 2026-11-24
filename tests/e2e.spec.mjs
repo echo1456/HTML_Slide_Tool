@@ -482,4 +482,73 @@ test.describe('HTML Slide Tool — Real Chromium E2E & Strict CSP Suite', () => 
     });
     expect(allFixedOk).toBe(true);
   });
+
+  test('11. v5.6.4 Five-Phase Exhaustive Audit Regression Guard (FC Gradient/Mask Persist, Lightbox Interactive Widgets, Detached FreeCard Style, Export Bloat Prevention)', async ({ page }) => {
+    await page.keyboard.press('e');
+
+    const phase5Ok = await page.evaluate(() => {
+      goToSlide(3);
+
+      // Phase 2: Detached freeCard preserves dark theme + bg layer + borderRadius + fx
+      const card = slides[2].querySelector('.slide-card');
+      selectElementForInspector(card, false);
+      applySelectedCardBgColor('#0F172A', false);
+      card.style.borderRadius = '24px';
+      card.setAttribute('data-fx', 'hover-lift');
+      const freeCard = detachElementToFreeLayer(card);
+      const detachOk = freeCard && freeCard.getAttribute('data-shape-type') === 'freeCard' &&
+                       freeCard.classList.contains('card-theme-dark') &&
+                       freeCard.style.borderRadius === '24px' &&
+                       freeCard.getAttribute('data-fx') === 'hover-lift';
+
+      // Phase 4 & 5: Floating Card gradient + mask persist through Save -> Sanitizer -> Presentation Lightbox + Live Widgets!
+      openFloatingCardEditor(null);
+      setGradientMode('fill');
+      applyGradientToTarget('card');
+      setGradientMode('mask');
+      applyGradientToTarget('card');
+      insertInteractiveWidget('flip-card');
+      insertInteractiveWidget('hotspot');
+      insertInteractiveWidget('before-after');
+      const savedFcId = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor();
+
+      // Verify sanitizer preserves FC gradient & mask attributes on export/reload!
+      const rawStore = document.getElementById('pptFloatingCardsStore').outerHTML;
+      const sanitizedStore = sanitizeImportedStageHtml(rawStore);
+      const sanOk = sanitizedStore.includes('data-fc-bg-img="linear-gradient(') &&
+                    sanitizedStore.includes('data-fc-bg-mask="linear-gradient(');
+
+      // Verify standalone HTML export clears #fcRichBodyEditor & #floatingCardLightboxBody (zero stale bloat)
+      const standaloneHtml = buildSerializedStandaloneHTML(false);
+      const noStaleBloat = standaloneHtml.includes('id="fcRichBodyEditor"') && !standaloneHtml.includes('id="floatingCardLightboxBody"><div');
+
+      // Switch to Presentation Mode & test live 3D Flip + Hotspot + Before/After Slider inside #floatingCardLightbox!
+      toggleEditMode(false);
+      openFloatingCardLightbox(savedFcId);
+      const lbContent = document.getElementById('floatingCardLightboxContent');
+      const lbBody = document.getElementById('floatingCardLightboxBody');
+      const lbBgLayer = lbContent.querySelector('.fc-bg-img-layer');
+      const lbGradOk = Boolean(lbBgLayer && lbBgLayer.style.backgroundImage.includes('gradient(') && (lbBgLayer.style.maskImage || lbBgLayer.style.webkitMaskImage || '').includes('gradient('));
+
+      const flipScene = lbBody.querySelector('.iw-flip-scene');
+      flipScene.click();
+      const flipOk = flipScene.classList.contains('is-flipped');
+
+      const hsDot = lbBody.querySelector('.iw-hs-dot');
+      hsDot.click();
+      const hsOk = hsDot.closest('.iw-hs-pin').classList.contains('is-open');
+
+      const baStage = lbBody.querySelector('.iw-ba-stage');
+      const r = baStage.getBoundingClientRect();
+      const tx = r.left + r.width * 0.25;
+      baStage.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientX: tx, clientY: r.top + 10 }));
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0, clientX: tx, clientY: r.top + 10 }));
+      const baOk = parseFloat(baStage.getAttribute('data-ba-pos') || '50') < 35;
+
+      closeFloatingCardLightbox();
+      return detachOk && sanOk && noStaleBloat && lbGradOk && flipOk && hsOk && baOk;
+    });
+    expect(phase5Ok).toBe(true);
+  });
 });

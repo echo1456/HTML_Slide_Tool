@@ -1130,6 +1130,7 @@ async function buildProjectPackageZipBlob() {
     }
   }
   const safeName = `${title.replace(/[^a-zA-Z0-9\uAC00-\uD7A3_-]/g, '_').slice(0, 30)}.pptstudio.zip`;
+  if (typeof buildZipBlobFromEntries !== 'function') { showToast('ZIP 패키징 모듈을 찾을 수 없습니다.'); return null; }
   return { blob: buildZipBlobFromEntries(entries, 'application/zip'), safeName, mediaCount };
 }
 
@@ -1321,7 +1322,16 @@ function sanitizeImportedStageHtml(rawHtml) {
       }
 
       if (name === 'data-fc-bg-img' || name === 'data-fc-hover-bg-img') {
-        if (val && !/^url\(\s*["']?(?:data:image\/(?:png|jpe?g|gif|webp);base64,[a-zA-Z0-9+/=]+|media\/[a-zA-Z0-9._-]+)["']?\s*\)$/i.test(val)) {
+        const isSafeUrl = /^url\(\s*["']?(?:data:image\/(?:png|jpe?g|gif|webp);base64,[a-zA-Z0-9+/=]+|media\/[a-zA-Z0-9._-]+)["']?\s*\)$/i.test(val);
+        const isSafeGrad = /^(?:linear|radial)-gradient\([a-zA-Z0-9#%,.\s()-]+\)$/i.test(val) && !/url\s*\(|expression\s*\(|javascript:/i.test(val);
+        if (val && !isSafeUrl && !isSafeGrad) {
+          el.removeAttribute(attr.name);
+        }
+        return;
+      }
+      if (name === 'data-fc-bg-mask' || name === 'data-fc-hover-bg-mask') {
+        const isSafeMask = /^(?:linear|radial)-gradient\([a-zA-Z0-9#%,.\s()-]+\)$/i.test(val) && !/url\s*\(|expression\s*\(|javascript:/i.test(val);
+        if (val && !isSafeMask) {
           el.removeAttribute(attr.name);
         }
         return;
@@ -1599,7 +1609,11 @@ function initStorageListeners() {
     importer.addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      await importProjectFileObject(file, null);
+      try {
+        await importProjectFileObject(file, null);
+      } finally {
+        e.target.value = '';
+      }
     });
   }
 }

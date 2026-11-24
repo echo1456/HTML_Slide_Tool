@@ -182,6 +182,14 @@ function readChartData(widget) {
     return p;
   } catch (e) { return getDefaultChartData('bar-v'); }
 }
+function isChartMutationLocked(widget, notify) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(Boolean(notify))) return true;
+  if (widget && (widget.getAttribute('data-layer-locked') === 'true' || (widget.closest && widget.closest('[data-layer-locked="true"]')))) {
+    if (notify && typeof showToast === 'function') showToast('잠긴 차트/표 레이어는 편집할 수 없습니다.');
+    return true;
+  }
+  return false;
+}
 function recordChartChangeHistory(label) { const isFcActive = (typeof isFloatingCardCanvasActive === 'function') ? isFloatingCardCanvasActive() : isFloatingCardStudioOpen(); if (isFcActive) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); } else saveHistorySnapshot(label || '차트/표 편집'); }
 function writeChartDataAndRender(widget, data) { widget.setAttribute('data-chart-json', JSON.stringify(data)); widget.innerHTML = renderChartWidgetInnerHtml(data); syncChartInspectorUI(widget); }
 function syncTableCellSizeInputs(cellEl) {
@@ -221,7 +229,7 @@ function startTableRowResize(e, handleEl, rowKey) {
   const onUp = () => { ownerDoc.removeEventListener('mousemove', onMove); ownerDoc.removeEventListener('mouseup', onUp); widget.setAttribute('data-chart-json', JSON.stringify(data)); recordChartChangeHistory('표 행 높이 조절'); };
   ownerDoc.addEventListener('mousemove', onMove); ownerDoc.addEventListener('mouseup', onUp);
 }
-function applySelectedTableCellDimension(dim, rawVal) {
+function applySelectedTableCellDimension(dim, rawVal) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const widget = getSelectedChartWidget(); if (!widget || !activeChartCellTarget || !widget.contains(activeChartCellTarget)) return;
   const data = readChartData(widget); if (data.type !== 'table') return;
   const colIdx = parseInt(activeChartCellTarget.getAttribute('data-col-idx') || '-1', 10), rowKey = activeChartCellTarget.getAttribute('data-row-key'), px = Math.max(24, Math.min(900, Number(rawVal) || 80));
@@ -258,7 +266,7 @@ function selectChartPartForColor(e, partEl, itemIdx) {
   else if (!widget.closest('.ppt-free-obj')) selectElementForInspector(widget);
   selectedTableCellKeys.clear(); activeChartCellTarget = partEl; partEl.setAttribute('data-item-idx', String(itemIdx)); syncChartInspectorUI(widget);
 }
-function applyChartCellFillColor(hexColor, isLiveInput) {
+function applyChartCellFillColor(hexColor, isLiveInput) { if (isChartMutationLocked(getSelectedChartWidget(), !isLiveInput)) return;
   const widget = getSelectedChartWidget(); if (!widget) return;
   const data = readChartData(widget);
   if (selectedTableCellKeys.size > 1) {
@@ -274,7 +282,7 @@ function applyChartCellFillColor(hexColor, isLiveInput) {
   }
   widget.style.backgroundColor = hexColor; if (!isLiveInput) recordChartChangeHistory('차트 배경색');
 }
-function applyChartCellTextColor(hexColor, isLiveInput) {
+function applyChartCellTextColor(hexColor, isLiveInput) { if (isChartMutationLocked(getSelectedChartWidget(), !isLiveInput)) return;
   const widget = getSelectedChartWidget(); if (!widget) return;
   const data = readChartData(widget);
   if (selectedTableCellKeys.size > 1) {
@@ -361,8 +369,8 @@ function insertChartOrTable(type, targetMode) {
   recordChartChangeHistory('차트/표 삽입');
   showToast('슬라이드에 그래프/표가 삽입되었습니다.');
 }
-function changeSelectedChartType(nextType) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); d.type = nextType; if (nextType === 'donut' && d.legendPosition === 'none') d.legendPosition = 'right'; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 유형 전환'); }
-function toggleChartAccentSync(checked) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); d.syncAccent = Boolean(checked); if (!d.syncAccent && Array.isArray(d.items)) d.items.forEach((it, i) => { if (!it.color) it.color = DEFAULT_CHART_PALETTE[i % DEFAULT_CHART_PALETTE.length]; }); writeChartDataAndRender(w, d); recordChartChangeHistory('차트 포인트 컬러 연동'); }
+function changeSelectedChartType(nextType) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); d.type = nextType; if (nextType === 'donut' && d.legendPosition === 'none') d.legendPosition = 'right'; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 유형 전환'); }
+function toggleChartAccentSync(checked) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); d.syncAccent = Boolean(checked); if (!d.syncAccent && Array.isArray(d.items)) d.items.forEach((it, i) => { if (!it.color) it.color = DEFAULT_CHART_PALETTE[i % DEFAULT_CHART_PALETTE.length]; }); writeChartDataAndRender(w, d); recordChartChangeHistory('차트 포인트 컬러 연동'); }
 function syncActiveScenarioFromChartData(d, structuralOp, itemOrIdx) {
   if (!d || !d.scenariosEnabled || !Array.isArray(d.scenarios) || d.scenarios.length === 0) return;
   const activeIdx = Math.max(0, Math.min(d.scenarios.length - 1, Number(d.activeScenarioIdx) || 0));
@@ -382,15 +390,15 @@ function syncActiveScenarioFromChartData(d, structuralOp, itemOrIdx) {
   }
 }
 
-function updateChartItemField(idx, field, val, isLiveInput) {
+function updateChartItemField(idx, field, val, isLiveInput) { if (isChartMutationLocked(getSelectedChartWidget(), !isLiveInput)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (!d.items || !d.items[idx]) return;
   if (field === 'value') d.items[idx].value = Math.max(-100000000, Math.min(100000000, Number(val) || 0));
   else if (field === 'color') { d.syncAccent = false; d.items[idx].color = val; } else d.items[idx][field] = val;
   syncActiveScenarioFromChartData(d); w.setAttribute('data-chart-json', JSON.stringify(d)); w.innerHTML = renderChartWidgetInnerHtml(d);
   if (!isLiveInput) { syncChartInspectorUI(w); recordChartChangeHistory('차트 항목 수정'); }
 }
-function setChartValueAffix(kind, rawVal) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w), c = String(rawVal || '').slice(0, 12); if (kind === 'prefix') d.valuePrefix = c; else d.valueSuffix = c; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 데이터 단위 설정'); }
-function setChartLegendPosition(pos) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); d.legendPosition = pos || 'none'; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 범례 위치 변경'); }
+function setChartValueAffix(kind, rawVal) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w), c = String(rawVal || '').slice(0, 12); if (kind === 'prefix') d.valuePrefix = c; else d.valueSuffix = c; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 데이터 단위 설정'); }
+function setChartLegendPosition(pos) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); d.legendPosition = pos || 'none'; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 범례 위치 변경'); }
 function toggleCsvPastePanel() { const p = $studio('csvPasteImportPanel'); if (!p) return; p.classList.toggle('hidden'); if (!p.classList.contains('hidden')) { const ta = $studio('csvPasteTextarea'); if (ta) ta.focus(); } }
 function parseDelimitedTableText(rawText) {
   const text = String(rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
@@ -415,7 +423,7 @@ function parseDelimitedTableText(rawText) {
   if (row.some(c => c.length > 0)) rows.push(row);
   return rows;
 }
-function applyCsvPasteToChartOrTable(explicitText) {
+function applyCsvPasteToChartOrTable(explicitText) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const ta = $studio('csvPasteTextarea'), raw = explicitText !== undefined ? explicitText : (ta ? ta.value : ''), parsedRows = parseDelimitedTableText(raw);
   if (parsedRows.length === 0) {
     showToast('붙여넣을 엑셀·CSV 데이터를 입력해 주세요.');
@@ -453,7 +461,7 @@ function getSelectedTableCellCoords() {
   if (rowKey === 'header') return { section: 'th', rIdx: 0, cIdx, cellKey };
   const rIdx = parseInt(rowKey || '-1', 10); return { section: rIdx >= 0 ? 'td' : null, rIdx, cIdx, cellKey };
 }
-function mergeSelectedTableCells() {
+function mergeSelectedTableCells() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return;
   if (!d.merges) d.merges = {};
   if (!d.hiddenCells) d.hiddenCells = {};
@@ -555,7 +563,7 @@ function mergeSelectedTableCells() {
   }
   writeChartDataAndRender(w, d); recordChartChangeHistory('표 인접 셀 병합');
 }
-function splitSelectedTableCell() {
+function splitSelectedTableCell() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return;
   const { section, rIdx, cIdx, cellKey } = getSelectedTableCellCoords();
   if (cellKey && d.merges[cellKey]) {
@@ -632,7 +640,7 @@ function shiftTableCellStylesOnCol(data, pivotCol, delta) {
   }
 }
 
-function insertTableRowAt(offset) {
+function insertTableRowAt(offset) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w);
   if (d.type !== 'table') { addChartDataRow(); return; }
   const { section, rIdx } = getSelectedTableCellCoords(), colCount = d.tableHeaders ? d.tableHeaders.length : 3;
@@ -642,7 +650,7 @@ function insertTableRowAt(offset) {
   resetTableMerges(d); d.summaryRowIndices = (d.summaryRowIndices || []).map(idx => idx >= insertIdx ? idx + 1 : idx);
   writeChartDataAndRender(w, d); recordChartChangeHistory('표 중간 행 삽입');
 }
-function insertTableColAt(offset) {
+function insertTableColAt(offset) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return;
   const { cIdx } = getSelectedTableCellCoords(), insertIdx = cIdx >= 0 ? Math.max(0, Math.min(d.tableHeaders.length, cIdx + offset)) : d.tableHeaders.length;
   d.tableHeaders.splice(insertIdx, 0, `새 열 ${insertIdx + 1}`); d.tableRows.forEach(row => row.splice(insertIdx, 0, '내용 입력'));
@@ -650,7 +658,7 @@ function insertTableColAt(offset) {
   shiftTableCellStylesOnCol(d, insertIdx, 1);
   resetTableMerges(d); writeChartDataAndRender(w, d); recordChartChangeHistory('표 중간 열 삽입');
 }
-function removeSelectedTableCol() {
+function removeSelectedTableCol() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table' || !Array.isArray(d.tableHeaders) || d.tableHeaders.length <= 1) return;
   const { cIdx } = getSelectedTableCellCoords(), targetCol = (cIdx >= 0 && cIdx < d.tableHeaders.length) ? cIdx : (d.tableHeaders.length - 1);
   d.tableHeaders.splice(targetCol, 1); d.tableRows.forEach(row => { if (targetCol < row.length) row.splice(targetCol, 1); });
@@ -659,7 +667,7 @@ function removeSelectedTableCol() {
   resetTableMerges(d); activeChartCellTarget = null; selectedTableCellKeys.clear();
   writeChartDataAndRender(w, d); recordChartChangeHistory('표 선택 열 삭제');
 }
-function removeSelectedTableRow() {
+function removeSelectedTableRow() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w);
   if (d.type !== 'table') { if (Array.isArray(d.items) && d.items.length > 1) removeChartDataRow(d.items.length - 1); return; }
   if (!Array.isArray(d.tableRows) || d.tableRows.length <= 1) return;
@@ -669,11 +677,11 @@ function removeSelectedTableRow() {
   resetTableMerges(d); recalculateTableSummaryRows(d); activeChartCellTarget = null; selectedTableCellKeys.clear();
   writeChartDataAndRender(w, d); recordChartChangeHistory('표 선택 행 삭제');
 }
-function toggleTableOption(optName) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (optName === 'header') d.showHeaderRow = !(d.showHeaderRow !== false); else if (optName === 'firstCol') d.highlightFirstCol = !d.highlightFirstCol; else if (optName === 'zebra') d.zebraStriping = !(d.zebraStriping !== false); writeChartDataAndRender(w, d); recordChartChangeHistory('표 스타일 옵션 변경'); }
-function setTableCellPaddingPreset(padStr) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; d.cellPadding = padStr || '7px 10px'; writeChartDataAndRender(w, d); recordChartChangeHistory('표 셀 여백 변경'); }
-function setTableColumnAlign(alignVal) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!d.colAligns) d.colAligns = {}; const { cIdx } = getSelectedTableCellCoords(); if (cIdx >= 0) d.colAligns[String(cIdx)] = alignVal; else d.tableHeaders.forEach((_, idx) => { d.colAligns[String(idx)] = alignVal; }); writeChartDataAndRender(w, d); recordChartChangeHistory('표 열 정렬 변경'); }
-function updateTableBorderStyle(prop, val) { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!d.tableBorder) d.tableBorder = { style: 'solid', width: 1, color: '#E2E4E9' }; if (prop === 'style') d.tableBorder.style = val; else if (prop === 'width') d.tableBorder.width = Math.max(0, Math.min(6, Number(val) || 0)); else if (prop === 'color') d.tableBorder.color = val; writeChartDataAndRender(w, d); recordChartChangeHistory('표 테두리 스타일 변경'); }
-function equalizeTableColWidths() {
+function toggleTableOption(optName) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (optName === 'header') d.showHeaderRow = !(d.showHeaderRow !== false); else if (optName === 'firstCol') d.highlightFirstCol = !d.highlightFirstCol; else if (optName === 'zebra') d.zebraStriping = !(d.zebraStriping !== false); writeChartDataAndRender(w, d); recordChartChangeHistory('표 스타일 옵션 변경'); }
+function setTableCellPaddingPreset(padStr) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; d.cellPadding = padStr || '7px 10px'; writeChartDataAndRender(w, d); recordChartChangeHistory('표 셀 여백 변경'); }
+function setTableColumnAlign(alignVal) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!d.colAligns) d.colAligns = {}; const { cIdx } = getSelectedTableCellCoords(); if (cIdx >= 0) d.colAligns[String(cIdx)] = alignVal; else d.tableHeaders.forEach((_, idx) => { d.colAligns[String(idx)] = alignVal; }); writeChartDataAndRender(w, d); recordChartChangeHistory('표 열 정렬 변경'); }
+function updateTableBorderStyle(prop, val) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!d.tableBorder) d.tableBorder = { style: 'solid', width: 1, color: '#E2E4E9' }; if (prop === 'style') d.tableBorder.style = val; else if (prop === 'width') d.tableBorder.width = Math.max(0, Math.min(6, Number(val) || 0)); else if (prop === 'color') d.tableBorder.color = val; writeChartDataAndRender(w, d); recordChartChangeHistory('표 테두리 스타일 변경'); }
+function equalizeTableColWidths() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return;
   const d = readChartData(w); if (d.type !== 'table' || !Array.isArray(d.tableHeaders) || d.tableHeaders.length === 0) return;
   const tableEl = w.querySelector('table.ppt-data-table');
@@ -689,7 +697,7 @@ function equalizeTableColWidths() {
   recordChartChangeHistory('표 열 너비 균등 배분');
   showToast(`텍스트 크기(${maxFontPx}px)에 맞춰 열 너비가 ${eachW}px로 균등 배분되었습니다.`);
 }
-function equalizeTableRowHeights() {
+function equalizeTableRowHeights() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return;
   const d = readChartData(w); if (d.type !== 'table') return;
   const tableEl = w.querySelector('table.ppt-data-table');
@@ -815,15 +823,15 @@ function appendTableSummaryRow(aggType) {
   const newIdx = d.tableRows.length; d.tableRows.push(summaryRow); if (!Array.isArray(d.summaryRowIndices)) d.summaryRowIndices = []; d.summaryRowIndices.push(newIdx);
   writeChartDataAndRender(w, d); recordChartChangeHistory(aggType === 'avg' ? '표 평균 행 추가' : '표 합계 행 추가');
 }
-function addChartDataCol() { const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!Array.isArray(d.tableHeaders)) d.tableHeaders = ['구분 항목', '항목 1']; const nextColNum = d.tableHeaders.length + 1; d.tableHeaders.push(`새 열 ${nextColNum}`); if (!Array.isArray(d.tableRows)) d.tableRows = []; d.tableRows.forEach(row => { while (row.length < d.tableHeaders.length) row.push('내용 입력'); }); if (Array.isArray(d.colWidths) && d.colWidths.length > 0) d.colWidths.push(130); writeChartDataAndRender(w, d); recordChartChangeHistory('표 열 추가'); }
-function removeChartDataCol() { removeSelectedTableCol(); }
-function addChartDataRow() {
+function addChartDataCol() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table') return; if (!Array.isArray(d.tableHeaders)) d.tableHeaders = ['구분 항목', '항목 1']; const nextColNum = d.tableHeaders.length + 1; d.tableHeaders.push(`새 열 ${nextColNum}`); if (!Array.isArray(d.tableRows)) d.tableRows = []; d.tableRows.forEach(row => { while (row.length < d.tableHeaders.length) row.push('내용 입력'); }); if (Array.isArray(d.colWidths) && d.colWidths.length > 0) d.colWidths.push(130); writeChartDataAndRender(w, d); recordChartChangeHistory('표 열 추가'); }
+function removeChartDataCol() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; removeSelectedTableCol(); }
+function addChartDataRow() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w);
   if (d.type === 'table') { const colCount = d.tableHeaders ? d.tableHeaders.length : 3; d.tableRows.push(Array.from({ length: colCount }, (_, i) => i === 0 ? `새 비교 항목 ${d.tableRows.length + 1}` : '내용 입력')); const nextIdx = d.items.length; d.items.push({ label: `행 ${d.tableRows.length}`, value: 70, sub: 'ROW', color: DEFAULT_CHART_PALETTE[nextIdx % DEFAULT_CHART_PALETTE.length] }); }
   else { const nextIdx = d.items.length; const addedItem = { label: `항목 ${nextIdx + 1}`, value: 75, sub: 'NEW DATA', color: DEFAULT_CHART_PALETTE[nextIdx % DEFAULT_CHART_PALETTE.length] }; d.items.push(addedItem); syncActiveScenarioFromChartData(d, 'add', addedItem); }
   writeChartDataAndRender(w, d); recordChartChangeHistory('차트/표 행 추가');
 }
-function removeChartDataRow(idx) {
+function removeChartDataRow(idx) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w);
   if (d.type === 'table') {
     if (d.tableRows.length <= 1) return;
@@ -887,7 +895,7 @@ function onTableCellInlineEdit(el, rIdx, cIdx) {
 }
 
 /* ==================== v4.8.0: LIVE CHART SCENARIOS & KPI COUNT-UP ANIMATION ==================== */
-function toggleChartScenariosOnSelected() {
+function toggleChartScenariosOnSelected() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget();
   if (!w) { showToast('먼저 시나리오 토글을 추가할 차트나 KPI를 선택해 주세요.'); return; }
   const d = readChartData(w);

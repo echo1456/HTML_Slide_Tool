@@ -777,6 +777,10 @@ body:not(.edit-mode) [data-floating-card-id] {
 }
 #floatingCardLightbox {
   position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   inset: 0;
   z-index: 75;
   background: rgba(15, 23, 42, 0.58);
