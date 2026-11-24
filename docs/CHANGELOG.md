@@ -1,5 +1,13 @@
 # Changelog
 
+## [v5.6.7] - 2026-11-24 — CI 17종 전수 통과 마무리: 뷰포트 스케일 전환 0ms 즉시 반응화(모바일/창 리사이즈 지연 제거) & Test 15 기대값 보정
+
+### Fixed
+- **[P1] 브라우저 창 리사이즈·모바일 회전·도킹 폭 변경 시 250ms 스케일 지연 제거 (`css/slides.css`, `js/state.js`)**: `updateStageViewportScale()`에서 `--stage-scale`이 변경될 때 `body.stage-rescaling`으로 즉시 동기 리플로우를 적용해 창 크기 변경·모바일 전환 직후 슬라이드와 선택 오버레이가 0ms로 정위치 정렬되도록 개선 (슬라이드 간 전환 애니메이션은 그대로 유지). CI Test 16 모바일(`390×844`) 치수 측정 실패 원인 해결.
+- **[Testing] Test 15 (`tests/stress-and-compat.spec.mjs`) 백지 템플릿 슬라이드 수 기대값 보정**: `startBlankUniversalDeck()`(`applyStarterTemplate('blank')`)은 표지+본문 2장 스타터 덱을 생성하므로 초기화 검증을 `toHaveCount(2)`로 교정.
+
+---
+
 ## [v5.6.6] - 2026-11-24 — Test 15 라운드트립 파일 확장자 보완 및 동일 파일 재불러오기 초기화 개선
 
 ### Fixed

@@ -62,6 +62,11 @@
 body.scaled-stage #slideStage {
   background-color: #E5E7EB;
 }
+body.stage-rescaling .slide,
+body.stage-rescaling .slide.active,
+body.stage-rescaling .slide[data-transition] {
+  transition: none !important;
+}
 body.scaled-stage .slide {
   inset: auto;
   left: 50%;

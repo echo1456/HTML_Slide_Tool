@@ -281,6 +281,7 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     });
 
     const expectedSlideCount = await page.evaluate(() => slides.length);
+    expect(expectedSlideCount).toBeGreaterThan(2);
 
     // Part A: JSON Export -> Reset to Blank -> Re-Import JSON via real <input type="file">
     const jsonDlPromise = page.waitForEvent('download');
@@ -292,9 +293,9 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(exportedJson.aspectRatio).toBe('4:3');
     expect(exportedJson.accentColor.toLowerCase()).toBe('#e11d48');
 
-    // Wipe stage to blank 1-slide deck, then import exported JSON with explicit .json filename!
+    // Wipe stage to blank 2-slide starter deck, then import exported JSON with explicit .json filename!
     await page.evaluate(() => startBlankUniversalDeck());
-    await expect(page.locator('#slideStage .slide')).toHaveCount(1);
+    await expect(page.locator('#slideStage .slide')).toHaveCount(2);
 
     await page.locator('#projectFileImporter').setInputFiles({
       name: jsonDl.suggestedFilename() || 'roundtrip_test.json',
@@ -329,7 +330,7 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(htmlContent).not.toContain('data-presentation-only="true"');
 
     await page.evaluate(() => startBlankUniversalDeck());
-    await expect(page.locator('#slideStage .slide')).toHaveCount(1);
+    await expect(page.locator('#slideStage .slide')).toHaveCount(2);
 
     await page.locator('#projectFileImporter').setInputFiles({
       name: htmlDl.suggestedFilename() || 'roundtrip_test.html',

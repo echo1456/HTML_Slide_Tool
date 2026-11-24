@@ -1,4 +1,4 @@
-window.PPTStudio = window.PPTStudio || { version: 'v5.6.6', offlineRuntimeRules: new Set() };
+window.PPTStudio = window.PPTStudio || { version: 'v5.6.7', offlineRuntimeRules: new Set() };
 
 function openModalSafe(elOrId) {
   const modal = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -350,12 +350,20 @@ function updateStageViewportScale() {
   const baseFitScale = Math.min(availW / LOGICAL_STAGE_WIDTH, availH / LOGICAL_STAGE_HEIGHT);
   const safeBase = baseFitScale > 0 ? baseFitScale : 1;
   currentStageScale = Math.max(0.15, safeBase * userZoomFactor);
+  const prevScaleStr = document.documentElement.style.getPropertyValue('--stage-scale').trim();
+  const nextScaleStr = currentStageScale.toFixed(6);
+  const scaleChanged = prevScaleStr !== '' && prevScaleStr !== nextScaleStr;
+  if (scaleChanged) document.body.classList.add('stage-rescaling');
   document.body.classList.add('scaled-stage');
   document.documentElement.style.setProperty('--stage-w', `${LOGICAL_STAGE_WIDTH}px`);
   document.documentElement.style.setProperty('--stage-h', `${LOGICAL_STAGE_HEIGHT}px`);
-  document.documentElement.style.setProperty('--stage-scale', currentStageScale.toFixed(6));
+  document.documentElement.style.setProperty('--stage-scale', nextScaleStr);
   document.documentElement.style.setProperty('--stage-pan-x', `${Math.round(stagePanX)}px`);
   document.documentElement.style.setProperty('--stage-pan-y', `${Math.round(stagePanY)}px`);
+  if (scaleChanged) {
+    void stage.offsetWidth;
+    document.body.classList.remove('stage-rescaling');
+  }
   const zoomLbl = document.getElementById('stageZoomLabel');
   if (zoomLbl) zoomLbl.textContent = `${Math.round(userZoomFactor * 100)}%`;
   if (typeof renderRulerTicks === 'function') renderRulerTicks();
