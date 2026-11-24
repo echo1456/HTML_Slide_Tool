@@ -1,4 +1,4 @@
-window.PPTStudio = window.PPTStudio || { version: 'v5.6.7', offlineRuntimeRules: new Set() };
+window.PPTStudio = window.PPTStudio || { version: 'v5.6.9', offlineRuntimeRules: new Set() };
 
 function openModalSafe(elOrId) {
   const modal = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -268,6 +268,7 @@ function setDeckAspectRatio(ratioStr, silent) {
   if (sel2) sel2.value = mode;
   updateStageViewportScale();
   if (typeof updateSlideConnectors === 'function') updateSlideConnectors();
+  if (typeof syncFloatingCardLightboxScale === 'function') syncFloatingCardLightboxScale();
   if (typeof presenterPopupWin !== 'undefined' && presenterPopupWin && !presenterPopupWin.closed && presenterPopupWin.document) {
     presenterPopupWin.document.documentElement.style.setProperty('--stage-w', `${LOGICAL_STAGE_WIDTH}px`);
     presenterPopupWin.document.documentElement.style.setProperty('--stage-h', `${LOGICAL_STAGE_HEIGHT}px`);

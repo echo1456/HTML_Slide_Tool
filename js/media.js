@@ -510,7 +510,11 @@ function updateSelectedShapeStyle(prop, val, isLiveInput) {
   const activeSlideEl = slides[currentSlide - 1];
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(false)) return;
   const rawTargets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
-  const targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true' && (el.classList.contains('ppt-free-obj') || el.classList.contains('card-embedded-obj') || el.classList.contains('sub-box') || el.classList.contains('card-inner-textbox') || el.classList.contains('slide-card')));
+  let targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true' && (el.classList.contains('ppt-free-obj') || el.classList.contains('card-embedded-obj') || el.classList.contains('sub-box') || el.classList.contains('card-inner-textbox') || el.classList.contains('slide-card') || el.classList.contains('slide-header-bar')));
+  if (targets.length === 0 && typeof getTargetCardForHierarchy === 'function') {
+    const parentContainer = getTargetCardForHierarchy();
+    if (parentContainer && parentContainer.getAttribute('data-layer-locked') !== 'true') targets = [parentContainer];
+  }
   if (targets.length === 0) return;
   targets.forEach(el => {
     const type = el.getAttribute('data-shape-type');
@@ -521,7 +525,7 @@ function updateSelectedShapeStyle(prop, val, isLiveInput) {
       if (el.classList.contains('ppt-interactive-widget')) return;
       if (isLineVector || isSvgIcon) { el.style.color = val; el.querySelectorAll('.shape-stroke').forEach(s => s.setAttribute('stroke', val)); el.querySelectorAll('.shape-fill').forEach(s => s.setAttribute('fill', val)); }
       else if (isPolyVector) el.querySelectorAll('.shape-fill').forEach(s => s.setAttribute('fill', val));
-      else if (el.classList.contains('slide-card')) {
+      else if (el.classList.contains('slide-card') || el.classList.contains('slide-header-bar') || (el.classList.contains('ppt-free-obj') && el.getAttribute('data-shape-type') === 'freeCard')) {
         const darkFill = typeof isDarkHexColor === 'function' ? isDarkHexColor(val) : false;
         el.classList.toggle('card-theme-dark', darkFill);
         el.style.color = darkFill ? '#F9FAFB' : '';
@@ -574,7 +578,11 @@ function toggleSelectedShapeShadow() {
   const activeSlideEl = slides[currentSlide - 1];
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const rawTargets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
-  const targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true' && (el.classList.contains('ppt-free-obj') || el.classList.contains('card-embedded-obj') || el.classList.contains('sub-box') || el.classList.contains('slide-card')));
+  let targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true' && (el.classList.contains('ppt-free-obj') || el.classList.contains('card-embedded-obj') || el.classList.contains('sub-box') || el.classList.contains('slide-card') || el.classList.contains('slide-header-bar')));
+  if (targets.length === 0 && typeof getTargetCardForHierarchy === 'function') {
+    const parentContainer = getTargetCardForHierarchy();
+    if (parentContainer && parentContainer.getAttribute('data-layer-locked') !== 'true') targets = [parentContainer];
+  }
   if (targets.length === 0) return;
   targets.forEach(el => {
     el.style.boxShadow = el.style.boxShadow ? '' : '0 14px 30px rgba(0, 0, 0, 0.18)';

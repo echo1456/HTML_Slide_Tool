@@ -175,24 +175,32 @@ function getTargetTextEl() {
   if (sel && sel.anchorNode) {
     const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
     if (fcEd && node && fcEd.contains(node)) {
-      const fcHit = node.closest('[data-editable], h1, h2, h3, h4, p, li, blockquote, .fc-text-box');
+      const fcHit = node.closest('th[data-cell-key], td[data-cell-key], [data-editable], h1, h2, h3, h4, p, li, blockquote, .fc-text-box');
       if (fcHit && fcEd.contains(fcHit)) return fcHit;
     }
-    const ed = node ? node.closest('[data-editable], #headerSectionBadge, .header-editable') : null;
+    const ed = node ? node.closest('th[data-cell-key], td[data-cell-key], [data-editable], #headerSectionBadge, .header-editable') : null;
     if (ed && (!fcEd || fcEd.contains(ed))) return ed;
+  }
+  if (typeof activeChartCellTarget !== 'undefined' && activeChartCellTarget) {
+    const cellOwnerDoc = activeChartCellTarget.ownerDocument || document;
+    if (cellOwnerDoc.body && cellOwnerDoc.body.contains(activeChartCellTarget)) {
+      const inCurrentScope = fcEd ? fcEd.contains(activeChartCellTarget) : Boolean(activeChartCellTarget.closest('#slideStage'));
+      if (inCurrentScope && (!selectedElement || selectedElement.contains(activeChartCellTarget) || selectedElement === activeChartCellTarget)) {
+        return activeChartCellTarget;
+      }
+    }
   }
   if (fcEd) {
     if (selectedElement && fcEd.contains(selectedElement)) {
-      if (selectedElement.matches('[data-editable], h1, h2, h3, h4, p, li, blockquote, .fc-text-box')) return selectedElement;
+      if (selectedElement.classList.contains('ppt-chart-widget')) return selectedElement;
+      if (selectedElement.matches('th[data-cell-key], td[data-cell-key], [data-editable], h1, h2, h3, h4, p, li, blockquote, .fc-text-box')) return selectedElement;
       const innerFc = selectedElement.querySelector('[data-editable], h1, h2, h3, h4, p, li, blockquote');
       if (innerFc) return innerFc;
     }
     return fcEd.querySelector('h1, h2, h3, h4, p, li, blockquote, [data-editable]') || fcEd;
   }
-  if (typeof activeChartCellTarget !== 'undefined' && activeChartCellTarget && document.body.contains(activeChartCellTarget) && (!fcEd || fcEd.contains(activeChartCellTarget))) {
-    if (!selectedElement || selectedElement.contains(activeChartCellTarget) || selectedElement === activeChartCellTarget) {
-      return activeChartCellTarget;
-    }
+  if (selectedElement && selectedElement.classList.contains('ppt-chart-widget')) {
+    return selectedElement;
   }
   if (selectedElement) {
     if (selectedElement.hasAttribute('data-editable')) return selectedElement;
@@ -304,6 +312,52 @@ function reapplyCurrentTextColor() {
   if (picker) applyTextColor(picker.value);
 }
 
+function persistTableFontSizeToJson(targetNode, nextPx) {
+  if (!targetNode || typeof readChartData !== 'function') return null;
+  const tblWidget = (targetNode.classList && targetNode.classList.contains('ppt-chart-widget'))
+    ? targetNode
+    : (targetNode.closest ? targetNode.closest('.ppt-chart-widget') : null);
+  if (!tblWidget) return null;
+  const d = readChartData(tblWidget);
+  if (!d || d.type !== 'table') return null;
+  if (!d.cellStyles) d.cellStyles = {};
+
+  const cellEl = (targetNode.matches && targetNode.matches('th[data-cell-key], td[data-cell-key]'))
+    ? targetNode
+    : (targetNode.closest ? targetNode.closest('th[data-cell-key], td[data-cell-key]') : null);
+  const titleEl = (!cellEl && targetNode.tagName === 'H4')
+    ? targetNode
+    : (!cellEl && targetNode.closest ? targetNode.closest('h4') : null);
+
+  if (cellEl) {
+    const cellKey = cellEl.getAttribute('data-cell-key');
+    const keys = (typeof selectedTableCellKeys !== 'undefined' && selectedTableCellKeys.size > 0 && (!cellKey || selectedTableCellKeys.has(cellKey)))
+      ? Array.from(selectedTableCellKeys)
+      : [cellKey].filter(Boolean);
+    keys.forEach(ck => {
+      if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
+      d.cellStyles[ck].fontSize = nextPx;
+      const domCell = tblWidget.querySelector(`[data-cell-key="${ck}"]`);
+      if (domCell) domCell.style.setProperty('font-size', nextPx + 'px', 'important');
+    });
+  } else if (titleEl && tblWidget.contains(titleEl)) {
+    d.titleFontSize = nextPx;
+    titleEl.style.setProperty('font-size', nextPx + 'px', 'important');
+  } else {
+    d.tableFontSize = nextPx;
+    tblWidget.querySelectorAll('th[data-cell-key], td[data-cell-key]').forEach(c => {
+      const ck = c.getAttribute('data-cell-key');
+      if (ck) {
+        if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
+        d.cellStyles[ck].fontSize = nextPx;
+      }
+      c.style.setProperty('font-size', nextPx + 'px', 'important');
+    });
+  }
+  tblWidget.setAttribute('data-chart-json', JSON.stringify(d));
+  return tblWidget;
+}
+
 function adjustSelectedFontSize(delta) {
   if ((typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) || (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true')) return;
   const usable = getUsableTextRange();
@@ -319,20 +373,31 @@ function adjustSelectedFontSize(delta) {
   const targets = getMultiTextTargets();
   if (targets.length > 0) {
     let lastPx = 18;
+    const touchedTableWidgets = new Set();
     targets.forEach(target => {
-      const currentPx = parseFloat(window.getComputedStyle(target).fontSize) || 18;
+      const refNode = target.classList && target.classList.contains('ppt-chart-widget')
+        ? (target.querySelector('td[data-cell-key], th[data-cell-key]') || target)
+        : target;
+      const currentPx = parseFloat(window.getComputedStyle(refNode).fontSize) || 14;
       const nextPx = Math.max(10, Math.min(120, Math.round(currentPx + delta * 2)));
-      target.style.setProperty('font-size', nextPx + 'px', 'important');
+      if (!(target.classList && target.classList.contains('ppt-chart-widget'))) {
+        target.style.setProperty('font-size', nextPx + 'px', 'important');
+      }
       target.querySelectorAll('span[style*="font-size"]').forEach(sp => {
         const spPx = parseFloat(window.getComputedStyle(sp).fontSize) || nextPx;
         sp.style.setProperty('font-size', Math.max(10, Math.min(120, Math.round(spPx + delta * 2))) + 'px', 'important');
       });
+      const tw = persistTableFontSizeToJson(target, nextPx);
+      if (tw) touchedTableWidgets.add(tw);
       lastPx = nextPx;
     });
+    if (touchedTableWidgets.size === 0 && typeof activeChartCellTarget !== 'undefined' && activeChartCellTarget) {
+      persistTableFontSizeToJson(activeChartCellTarget, lastPx);
+    }
     const inputEl = $studio('fontSizeInput');
     if (inputEl) inputEl.value = lastPx;
     positionSelectionOverlay();
-    saveHistorySnapshot();
+    saveHistorySnapshot('글자 크기 조절');
   } else {
     showToast('크기를 조절할 텍스트를 먼저 클릭해 주세요.');
   }
@@ -343,7 +408,25 @@ function setSelectedFontSizePx(pxVal, isLiveInput) {
   const nextPx = Math.max(10, Math.min(120, Number(pxVal) || 18));
   const usable = getUsableTextRange();
   if (usable && (!selectedElements || selectedElements.length <= 1)) {
-    const span = document.createElement('span');
+    const ancEl = usable.range.commonAncestorContainer.nodeType === 3 ? usable.range.commonAncestorContainer.parentElement : usable.range.commonAncestorContainer;
+    const ownerDoc = ancEl ? ancEl.ownerDocument : document;
+    const cellHost = ancEl && ancEl.closest ? ancEl.closest('th[data-cell-key], td[data-cell-key]') : null;
+    if (cellHost) {
+      // Inside a table cell, persist font size directly on the cell & data-chart-json so re-renders & reopening FC preserve it!
+      cellHost.style.setProperty('font-size', nextPx + 'px', 'important');
+      cellHost.querySelectorAll('span[style*="font-size"]').forEach(sp => {
+        sp.style.setProperty('font-size', nextPx + 'px', 'important');
+      });
+      persistTableFontSizeToJson(cellHost, nextPx);
+      savedTextSelectionRange = null;
+      if (usable.sel) usable.sel.removeAllRanges();
+      if (!isLiveInput) {
+        saveHistorySnapshot('표 셀 글자 크기 변경');
+        showToast(`표 셀의 글자 크기가 ${nextPx}px로 변경되었습니다.`);
+      }
+      return;
+    }
+    const span = ownerDoc.createElement('span');
     span.style.setProperty('font-size', nextPx + 'px', 'important');
     try {
       const extracted = usable.range.extractContents();
@@ -352,6 +435,7 @@ function setSelectedFontSizePx(pxVal, isLiveInput) {
       });
       span.appendChild(extracted);
       usable.range.insertNode(span);
+      if (ancEl) persistTableFontSizeToJson(ancEl, nextPx);
       savedTextSelectionRange = null;
       if (usable.sel) usable.sel.removeAllRanges();
       if (!isLiveInput) {
@@ -365,66 +449,21 @@ function setSelectedFontSizePx(pxVal, isLiveInput) {
   if (targets.length > 0) {
     const touchedTableWidgets = new Set();
     targets.forEach(target => {
-      target.style.setProperty('font-size', nextPx + 'px', 'important');
+      if (!(target.classList && target.classList.contains('ppt-chart-widget'))) {
+        target.style.setProperty('font-size', nextPx + 'px', 'important');
+      }
       target.querySelectorAll('span[style*="font-size"]').forEach(sp => {
         sp.style.setProperty('font-size', nextPx + 'px', 'important');
       });
-      // Sync font-size into table data-chart-json so re-renders, equalizing & PPTX/PNG exports preserve it!
-      const cellEl = target.matches && target.matches('th[data-cell-key], td[data-cell-key]') ? target : (target.closest ? target.closest('th[data-cell-key], td[data-cell-key]') : null);
-      const tblWidget = target.classList && target.classList.contains('ppt-chart-widget') ? target : (target.closest ? target.closest('.ppt-chart-widget') : null);
-      if (tblWidget && typeof readChartData === 'function') {
-        const d = readChartData(tblWidget);
-        if (d && d.type === 'table') {
-          if (!d.cellStyles) d.cellStyles = {};
-          if (cellEl) {
-            const keys = (typeof selectedTableCellKeys !== 'undefined' && selectedTableCellKeys.size > 0)
-              ? Array.from(selectedTableCellKeys)
-              : [cellEl.getAttribute('data-cell-key')].filter(Boolean);
-            keys.forEach(ck => {
-              if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
-              d.cellStyles[ck].fontSize = nextPx;
-              const domCell = tblWidget.querySelector(`[data-cell-key="${ck}"]`);
-              if (domCell) domCell.style.setProperty('font-size', nextPx + 'px', 'important');
-            });
-          } else {
-            d.tableFontSize = nextPx;
-            tblWidget.querySelectorAll('th[data-cell-key], td[data-cell-key]').forEach(c => {
-              const ck = c.getAttribute('data-cell-key');
-              if (ck) {
-                if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
-                d.cellStyles[ck].fontSize = nextPx;
-              }
-              c.style.setProperty('font-size', nextPx + 'px', 'important');
-            });
-          }
-          tblWidget.setAttribute('data-chart-json', JSON.stringify(d));
-          touchedTableWidgets.add(tblWidget);
-        }
-      }
+      const tw = persistTableFontSizeToJson(target, nextPx);
+      if (tw) touchedTableWidgets.add(tw);
     });
-    // Also handle case where activeChartCellTarget is set on a table cell while targets didn't directly include it
-    if (touchedTableWidgets.size === 0 && typeof activeChartCellTarget !== 'undefined' && activeChartCellTarget && activeChartCellTarget.closest) {
-      const cw = activeChartCellTarget.closest('.ppt-chart-widget');
-      if (cw && typeof readChartData === 'function') {
-        const d = readChartData(cw);
-        if (d && d.type === 'table') {
-          if (!d.cellStyles) d.cellStyles = {};
-          const keys = (typeof selectedTableCellKeys !== 'undefined' && selectedTableCellKeys.size > 0)
-            ? Array.from(selectedTableCellKeys)
-            : [activeChartCellTarget.getAttribute('data-cell-key')].filter(Boolean);
-          keys.forEach(ck => {
-            if (!d.cellStyles[ck]) d.cellStyles[ck] = {};
-            d.cellStyles[ck].fontSize = nextPx;
-            const domCell = cw.querySelector(`[data-cell-key="${ck}"]`);
-            if (domCell) domCell.style.setProperty('font-size', nextPx + 'px', 'important');
-          });
-          cw.setAttribute('data-chart-json', JSON.stringify(d));
-        }
-      }
+    if (touchedTableWidgets.size === 0 && typeof activeChartCellTarget !== 'undefined' && activeChartCellTarget) {
+      persistTableFontSizeToJson(activeChartCellTarget, nextPx);
     }
     positionSelectionOverlay();
     if (!isLiveInput) {
-      saveHistorySnapshot();
+      saveHistorySnapshot('글자 크기 변경');
       if (targets.length > 1) {
         showToast(`${targets.length}개 선택 요소의 글자 크기가 ${nextPx}px로 변경되었습니다.`);
       }
@@ -1043,6 +1082,7 @@ function makeAllTextEditable(enable) {
     // Re-hydrate interactive table cell column/row resize handles on existing tables
     if (typeof readChartData === 'function' && typeof renderChartWidgetInnerHtml === 'function') {
       document.querySelectorAll('.ppt-chart-widget').forEach(widget => {
+        if (widget.closest('#pptFloatingCardsStore')) return;
         const d = readChartData(widget);
         if (d && d.type === 'table') {
           widget.innerHTML = renderChartWidgetInnerHtml(d);

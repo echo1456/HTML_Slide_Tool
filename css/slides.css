@@ -787,17 +787,46 @@ body:not(.edit-mode) [data-floating-card-id] {
   bottom: 0;
   left: 0;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   z-index: 75;
   background: rgba(15, 23, 42, 0.58);
   backdrop-filter: blur(6px);
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 #floatingCardLightbox.open {
   display: flex;
   animation: floatingBackdropFade 0.22s ease both;
+}
+/* Logical Stage-Synced Lightbox Container: scales 1:1 with the slide (--stage-scale) across PC, Tablet & Mobile */
+#floatingCardLightboxStage {
+  position: relative;
+  width: var(--stage-w, 1440px);
+  height: var(--stage-h, 810px);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  pointer-events: none;
+  transform-origin: center center;
+  transform: scale(var(--fc-lb-scale, var(--stage-scale, 1)));
+  overflow: visible;
+}
+#floatingCardLightboxStage #floatingCardLightboxContent,
+#floatingCardLightboxStage .fc-multi-card-item {
+  pointer-events: auto;
+  max-height: calc(var(--stage-h, 810px) - 48px);
+}
+#floatingCardLightboxStage .iw-ba-stage {
+  touch-action: none;
 }
 @keyframes floatingBackdropFade {
   from { opacity: 0; }
@@ -809,6 +838,10 @@ body:not(.edit-mode) [data-floating-card-id] {
 }
 #floatingCardLightboxContent {
   animation: floatingCardZoomIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+#floatingCardLightboxContent.fc-pos-custom,
+#floatingCardLightbox.fc-multi-open .fc-multi-card-item.fc-pos-custom {
+  animation: floatingBackdropFade 0.24s ease both;
 }
 
 /* ==================== ROBUST TEXT & HEADING REACTIVE ANIMATIONS (SLIDE 01 & ALL HEADINGS) ==================== */
@@ -956,7 +989,7 @@ body.edit-mode .fx-text-span {
 
 /* Floating Card Lightbox custom positioning */
 #floatingCardLightboxContent.fc-pos-custom {
-  position: fixed !important;
+  position: absolute !important;
   margin: 0 !important;
 }
 
@@ -1038,20 +1071,26 @@ body:not(.edit-mode) [data-el-hover-bg-img]:hover {
 /* Multi-Floating-Card Simultaneous Display Mode */
 #floatingCardLightbox.fc-multi-open {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: floatingBackdropFade 0.22s ease both;
+}
+#floatingCardLightbox.fc-multi-open #floatingCardLightboxStage {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  align-content: center;
   gap: 20px;
-  overflow-y: auto;
-  animation: floatingBackdropFade 0.22s ease both;
 }
 #floatingCardLightbox.fc-multi-open .fc-multi-card-item {
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
   animation: floatingCardZoomIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 #floatingCardLightbox.fc-multi-open .fc-multi-card-item.fc-pos-custom {
-  position: fixed !important;
+  position: absolute !important;
   margin: 0 !important;
 }
 #floatingCardLightbox.fc-multi-open .fc-multi-card-item > .fc-bg-img-layer,
@@ -1774,10 +1813,11 @@ body:not(.edit-mode) .ppt-chart-widget [data-chart-part]:hover {
     padding-left: 10px;
     padding-right: 10px;
   }
-  #floatingCardLightboxContent {
-    max-width: 94vw !important;
-    max-height: 86vh !important;
-  }
+  body.scaled-stage #floatingCardLightboxStage .md\:p-10:not([style*="padding"]) { padding: 2.5rem !important; }
+  body.scaled-stage #floatingCardLightboxStage .md\:p-8:not([style*="padding"]) { padding: 2rem !important; }
+  body.scaled-stage #floatingCardLightboxStage .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  body.scaled-stage #floatingCardLightboxStage .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  body.scaled-stage #floatingCardLightboxStage .md\:text-base:not([style*="font-size"]) { font-size: 1rem !important; }
 }
 
 /* ==================== v5.0.7: DARK THEME HIGH-CONTRAST PROTECTION (WIDGETS, HIGHLIGHTS & CHARTS) ==================== */
@@ -1881,19 +1921,29 @@ body:not(.edit-mode) .ppt-chart-widget [data-chart-part]:hover {
 .slide.theme-light .iw-flip-back .text-sky-300 { color: #7DD3FC !important; }
 
 /* Dark Card (.card-theme-dark) on Light Slides: auto-invert ink/muted/subtle text for crisp contrast */
-.slide-card.card-theme-dark {
+.slide-card.card-theme-dark,
+.slide-header-bar.card-theme-dark,
+.ppt-free-obj[data-shape-type="freeCard"].card-theme-dark {
   color: #F9FAFB;
 }
-.slide-card.card-theme-dark .text-ink:not([style*="color"]) {
+.slide-card.card-theme-dark .text-ink:not([style*="color"]),
+.slide-header-bar.card-theme-dark .text-ink:not([style*="color"]),
+.ppt-free-obj[data-shape-type="freeCard"].card-theme-dark .text-ink:not([style*="color"]) {
   color: #F9FAFB !important;
 }
-.slide-card.card-theme-dark .text-muted:not([style*="color"]) {
+.slide-card.card-theme-dark .text-muted:not([style*="color"]),
+.slide-header-bar.card-theme-dark .text-muted:not([style*="color"]),
+.ppt-free-obj[data-shape-type="freeCard"].card-theme-dark .text-muted:not([style*="color"]) {
   color: #D1D5DB !important;
 }
-.slide-card.card-theme-dark .text-subtle:not([style*="color"]) {
+.slide-card.card-theme-dark .text-subtle:not([style*="color"]),
+.slide-header-bar.card-theme-dark .text-subtle:not([style*="color"]),
+.ppt-free-obj[data-shape-type="freeCard"].card-theme-dark .text-subtle:not([style*="color"]) {
   color: #9CA3AF !important;
 }
-.slide-card.card-theme-dark .border-borderline {
+.slide-card.card-theme-dark .border-borderline,
+.slide-header-bar.card-theme-dark .border-borderline,
+.ppt-free-obj[data-shape-type="freeCard"].card-theme-dark .border-borderline {
   border-color: rgba(255, 255, 255, 0.16) !important;
 }
 .slide-card.card-theme-dark .hl-mark:not([style*="color"]),

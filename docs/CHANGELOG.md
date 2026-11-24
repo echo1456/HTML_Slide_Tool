@@ -1,5 +1,31 @@
 # Changelog
 
+## [v5.6.9] - 2026-11-24 — 플로팅 팝업 카드 1:1 슬라이드 비율 연동 스케일링 (`#floatingCardLightboxStage`) — PC · 스마트패드 · 모바일 완벽 동일 구도
+
+### Fixed & Improved
+- **[P0] 플로팅 팝업 카드 라이트박스(`#floatingCardLightbox`)의 슬라이드 1:1 비율(`--stage-scale`) 연동 (`index.html`, `css/slides.css`, `js/floating-cards.js`, `js/state.js`)**:
+  - `#floatingCardLightbox` 내부에 논리 스테이지 래퍼(`#floatingCardLightboxStage`, `var(--stage-w, 1440px) × var(--stage-h, 810px)`)를 신설해 PC·스마트패드(가로/세로)·모바일 모든 해상도에서 슬라이드와 완전히 동일한 배율(`--fc-lb-scale === --stage-scale`)로 비례 축소되도록 통일.
+  - 기존 모바일 `@media (max-width: 767px)`의 `94vw`/`86vh` 이중 축소 충돌을 제거하고, `top-left`~`bottom-right`·`custom(X%, Y%)` 위치 프리셋과 다중 동시 표시(`multi`) 모드까지 슬라이드 좌표계 기준으로 1:1 유지.
+  - `updateStageViewportScale()` 및 `window.visualViewport` 리사이즈 이벤트와 연동해 스마트패드 회전·브라우저 창 리사이즈 시 팝업 카드 배율이 0ms로 즉시 동기화.
+  - `#floatingCardLightboxStage`에 `pointer-events: none`을 적용해 카드 바깥 어느 배경을 탭해도 즉시 팝업이 닫히며, 팝업 내부 Before/After 슬라이더(`touch-action: none`) 및 3D 플립·호버 틸트 애니메이션과도 간섭 없음.
+- **[Testing] Playwright Chromium E2E `Test 19` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 19개 CI E2E 스위트로 PC(`1440×900`)·스마트패드(`1024×768`, `768×1024`)·모바일(`390×844`) 4대 뷰포트에서 900px 대형 카드와 다중 카드 동시 표시의 1:1 배율 일치·이탈 0px·배경 탭 닫기를 영구 검증.
+
+---
+
+## [v5.6.8] - 2026-11-24 — 상단 타이틀 카드 배경색 변경 완전 복구 & 플로팅 카드 내부 비교표 텍스트 크기 영속화 수정
+
+### Fixed
+- **[P0] 상단 타이틀 바(`.slide-header-bar`) 및 상단 타이틀 카드 배경색 변경 완전 복구 (`js/media.js`, `css/slides.css`)**:
+  - `updateSelectedShapeStyle()`(`채움`·`테두리`·`스포이드`·`최근 색상`) 및 `toggleSelectedShapeShadow()` 대상 필터에 `.slide-header-bar`를 추가하고, 타이틀 내부 텍스트(`h2`/`span`)가 선택된 상태에서도 상위 타이틀 카드/바(`getTargetCardForHierarchy()`)에 배경색이 정상 적용되도록 개선.
+  - `.slide-header-bar.card-theme-dark` 및 `freeCard.card-theme-dark` 다크 배경 자동 텍스트 대비 규칙을 `css/slides.css`에 추가.
+- **[P0] 플로팅 팝업 카드 내부 비교표 텍스트 크기 재오픈/타 카드 편집 시 초기화 버그 완전 해결 (`js/text-editor.js`, `js/charts.js`)**:
+  - `getTargetTextEl()`에서 플로팅 카드 내부 표 셀(`activeChartCellTarget`)을 일반 텍스트 검색보다 최우선으로 인식하고, 표 위젯 자체 선택 시 표 전체 글자 크기 변경을 지원.
+  - `persistTableFontSizeToJson()` 공통 영속화 헬퍼를 신설해 `A+`/`A-` (`adjustSelectedFontSize`), 숫자 입력(`setSelectedFontSizePx`), 셀 텍스트 드래그 선택, 표 제목(`<h4>`) 모든 경로에서 `data-chart-json`에 글자 크기를 즉시 기록.
+  - `makeAllTextEditable(true)`가 보관함(`#pptFloatingCardsStore`) 내부의 비활성 표를 불필요하게 덮어쓰지 않도록 보호하고, `selectChartCellForFill()`의 은퇴 탭 호출(`switchFcStudioTab('chart')`) 제거 및 폰트 크기 툴바 자동 동기화 추가.
+- **[Testing] Playwright Chromium E2E `Test 18` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 18개 CI E2E 스위트로 영구 회귀 보호.
+
+---
+
 ## [v5.6.7] - 2026-11-24 — CI 17종 전수 통과 마무리: 뷰포트 스케일 전환 0ms 즉시 반응화(모바일/창 리사이즈 지연 제거) & Test 15 기대값 보정
 
 ### Fixed

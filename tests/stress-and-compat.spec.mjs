@@ -462,4 +462,167 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
       await context.setOffline(false);
     }
   });
+
+  test('18. v5.6.8 User-Reported Fixes (Top Title Bar Fill Color & Dark Contrast + Floating Card Comparison Table Font Size Persistence Across Reopen & Card Switch)', async ({ page }) => {
+    await page.keyboard.press('e');
+
+    const v568Ok = await page.evaluate(() => {
+      goToSlide(3);
+
+      // 1) Top Title Bar (.slide-header-bar): fill color via updateSelectedShapeStyle('fill') AND inner h2 selection fallback!
+      const hdr = slides[2].querySelector('.slide-header-bar');
+      selectElementForInspector(hdr, false);
+      updateSelectedShapeStyle('fill', '#0F172A', false);
+      const hdrDirectFillOk = hdr.getAttribute('data-card-bg-hex') === '#0F172A' &&
+                              hdr.classList.contains('card-theme-dark') &&
+                              hdr.style.backgroundColor.includes('15, 23, 42');
+
+      // Select inner <h2> inside title bar and change fill color -> falls back cleanly to parent .slide-header-bar!
+      const hdrH2 = hdr.querySelector('h2');
+      selectElementForInspector(hdrH2, false);
+      updateSelectedShapeStyle('fill', '#1D4ED8', false);
+      const hdrChildFallbackOk = hdr.getAttribute('data-card-bg-hex') === '#1D4ED8' &&
+                                 hdr.style.backgroundColor.includes('29, 78, 216');
+
+      // 2) Floating Card Comparison Table: resize via A+ (adjustSelectedFontSize) + px input + reopen + switch to another card!
+      openFloatingCardEditor(null);
+      document.getElementById('fcTitleInput').value = 'FC_TABLE_FONT_CARD_A';
+      insertChartOrTable('table');
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      const tblW = fcEd.querySelector('.ppt-chart-widget');
+      const td0 = tblW.querySelector('td[data-cell-key="td-0-0"]');
+      selectChartCellForFill({ stopPropagation() {}, shiftKey: false }, td0);
+
+      // Test A+ button (adjustSelectedFontSize) twice (+4px) then setSelectedFontSizePx(26) on td-0-1
+      adjustSelectedFontSize(2);
+      const pxAfterAPlus = parseInt(td0.style.fontSize, 10) || 0;
+      const td1 = tblW.querySelector('td[data-cell-key="td-0-1"]');
+      selectChartCellForFill({ stopPropagation() {}, shiftKey: false }, td1);
+      setSelectedFontSizePx(26, false);
+
+      const cardAId = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor();
+
+      // Open & edit ANOTHER floating card (Card B) and save it!
+      openFloatingCardEditor(null);
+      document.getElementById('fcTitleInput').value = 'FC_OTHER_CARD_B';
+      saveFloatingCardFromEditor();
+
+      // Re-open Card A -> verify BOTH td-0-0 (A+) and td-0-1 (26px) font sizes are 100% preserved!
+      openFloatingCardEditor(cardAId);
+      const tblReopened = document.getElementById('fcRichBodyEditor').querySelector('.ppt-chart-widget');
+      const dReopened = readChartData(tblReopened);
+      const td0Reopened = tblReopened.querySelector('td[data-cell-key="td-0-0"]');
+      const td1Reopened = tblReopened.querySelector('td[data-cell-key="td-0-1"]');
+      const persistedInEditor = Boolean(
+        dReopened.cellStyles &&
+        dReopened.cellStyles['td-0-0'] && dReopened.cellStyles['td-0-0'].fontSize === pxAfterAPlus && pxAfterAPlus >= 16 &&
+        dReopened.cellStyles['td-0-1'] && dReopened.cellStyles['td-0-1'].fontSize === 26 &&
+        td0Reopened && parseInt(td0Reopened.style.fontSize, 10) === pxAfterAPlus &&
+        td1Reopened && parseInt(td1Reopened.style.fontSize, 10) === 26
+      );
+      closeFloatingCardEditor();
+
+      // Also verify in Presentation Mode Lightbox!
+      toggleEditMode(false);
+      openFloatingCardLightbox(cardAId);
+      const lbTd1 = document.getElementById('floatingCardLightboxBody').querySelector('td[data-cell-key="td-0-1"]');
+      const persistedInLightbox = Boolean(lbTd1 && parseInt(lbTd1.style.fontSize, 10) === 26);
+      closeFloatingCardLightbox();
+
+      return hdrDirectFillOk && hdrChildFallbackOk && persistedInEditor && persistedInLightbox;
+    });
+    expect(v568Ok).toBe(true);
+  });
+
+  test('19. v5.6.9 Stage-Synced Floating Card Lightbox Scaling Across PC (1440x900), Tablet (1024x768 & 768x1024) & Mobile (390x844)', async ({ page }) => {
+    await page.keyboard.press('e');
+
+    // Create a wide 900px custom Floating Card pinned to center-right + a second card for multi-card check
+    const fcIds = await page.evaluate(() => {
+      openFloatingCardEditor(null);
+      document.getElementById('fcTitleInput').value = 'SYNC_SCALE_WIDE_CARD';
+      const presetToggle = document.getElementById('fcUseWidthPresetToggle');
+      if (presetToggle) { presetToggle.checked = false; onFcWidthPresetToggle(false); }
+      document.getElementById('fcCustomWidthInput').value = '900';
+      document.getElementById('fcPositionPresetSelect').value = 'center-right';
+      insertChartOrTable('table');
+      const id1 = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor();
+
+      openFloatingCardEditor(null);
+      document.getElementById('fcTitleInput').value = 'SYNC_SCALE_CARD_2';
+      const id2 = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor();
+
+      toggleEditMode(false);
+      return { id1, id2 };
+    });
+
+    // Open single wide card and verify 1:1 --stage-scale ratio across PC, Tablet Landscape, Tablet Portrait & Mobile Portrait
+    await page.evaluate((id) => openFloatingCardLightbox(id), fcIds.id1);
+    await page.waitForTimeout(380);
+
+    for (const vp of [
+      { width: 1440, height: 900, label: 'desktop' },
+      { width: 1024, height: 768, label: 'tablet-landscape' },
+      { width: 768, height: 1024, label: 'tablet-portrait' },
+      { width: 390, height: 844, label: 'mobile-portrait' },
+    ]) {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await page.evaluate(() => updateStageViewportScale());
+
+      const m = await page.evaluate(() => {
+        const lb = document.getElementById('floatingCardLightbox');
+        const stg = document.getElementById('floatingCardLightboxStage');
+        const box = document.getElementById('floatingCardLightboxContent');
+        const stageScale = parseFloat(document.documentElement.style.getPropertyValue('--stage-scale') || '1');
+        const lbScale = parseFloat(lb.style.getPropertyValue('--fc-lb-scale') || '1');
+        const r = box.getBoundingClientRect();
+        const stgR = stg.getBoundingClientRect();
+        return {
+          stageScale,
+          lbScale,
+          boxW: r.width,
+          boxLeft: r.left,
+          boxRight: r.right,
+          boxTop: r.top,
+          boxBottom: r.bottom,
+          stgRight: stgR.right,
+          scrollW: document.documentElement.scrollWidth,
+          innerW: window.innerWidth,
+        };
+      });
+
+      // Exact 1:1 scale parity with the slide!
+      expect(Math.abs(m.lbScale - m.stageScale), `${vp.label} lbScale must match slide stageScale`).toBeLessThan(0.002);
+      // Rendered 900px card width matches 900 * stageScale!
+      expect(Math.abs(m.boxW - 900 * m.stageScale), `${vp.label} rendered card width must equal 900 * stageScale`).toBeLessThan(6);
+      // Zero viewport clipping or horizontal page overflow!
+      expect(m.boxLeft, `${vp.label} left`).toBeGreaterThanOrEqual(-1);
+      expect(m.boxRight, `${vp.label} right`).toBeLessThanOrEqual(vp.width + 1);
+      expect(m.boxTop, `${vp.label} top`).toBeGreaterThanOrEqual(-1);
+      expect(m.boxBottom, `${vp.label} bottom`).toBeLessThanOrEqual(vp.height + 1);
+      expect(m.scrollW, `${vp.label} horizontal overflow`).toBeLessThanOrEqual(m.innerW + 2);
+    }
+
+    // Verify backdrop click outside card closes Lightbox cleanly on Mobile!
+    await page.mouse.click(10, 10);
+    await expect(page.locator('#floatingCardLightbox')).not.toHaveClass(/open/);
+
+    // Verify Simultaneous Multi-Card mode also scales inside #floatingCardLightboxStage on Mobile with zero overflow!
+    await page.evaluate(({ id1, id2 }) => openFloatingCardLightbox([id1, id2], [id1, id2], 'multi'), fcIds);
+    await page.waitForTimeout(380);
+    const multiOk = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll('#floatingCardLightboxStage .fc-multi-card-item'));
+      return items.length === 2 &&
+             items.every(el => {
+               const r = el.getBoundingClientRect();
+               return r.width > 50 && r.left >= -2 && r.right <= window.innerWidth + 2;
+             });
+    });
+    expect(multiOk).toBe(true);
+    await page.evaluate(() => closeFloatingCardLightbox());
+    await page.setViewportSize({ width: 1440, height: 900 });
+  });
 });

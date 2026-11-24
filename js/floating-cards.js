@@ -1691,38 +1691,83 @@ function deleteSelectedFloatingCard() {
   showToast('플로팅 카드가 보관함에서 삭제되었습니다.');
 }
 
+function ensureFloatingCardLightboxStage() {
+  const lightbox = document.getElementById('floatingCardLightbox');
+  if (!lightbox) return null;
+  let stageEl = document.getElementById('floatingCardLightboxStage');
+  if (!stageEl) {
+    stageEl = document.createElement('div');
+    stageEl.id = 'floatingCardLightboxStage';
+    const contentBox = document.getElementById('floatingCardLightboxContent');
+    if (contentBox && contentBox.parentElement === lightbox) {
+      lightbox.insertBefore(stageEl, contentBox);
+      stageEl.appendChild(contentBox);
+    } else {
+      lightbox.appendChild(stageEl);
+    }
+  }
+  return stageEl;
+}
+
+function syncFloatingCardLightboxScale() {
+  const lightbox = document.getElementById('floatingCardLightbox');
+  if (!lightbox) return;
+  const stageW = (typeof LOGICAL_STAGE_WIDTH === 'number' && LOGICAL_STAGE_WIDTH > 0) ? LOGICAL_STAGE_WIDTH : 1440;
+  const stageH = (typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810;
+  const vv = window.visualViewport;
+  const vw = Math.max(120, vv ? vv.width : window.innerWidth);
+  const vh = Math.max(120, vv ? vv.height : window.innerHeight);
+  const maxFit = Math.min(vw / stageW, vh / stageH);
+  const slideScale = (typeof currentStageScale === 'number' && currentStageScale > 0) ? currentStageScale : maxFit;
+  // Scale 1:1 with the slide (--stage-scale); only cap if edit-mode zoom exceeds the physical viewport
+  const nextScale = Math.max(0.15, Math.min(slideScale, maxFit));
+  lightbox.style.setProperty('--fc-lb-scale', nextScale.toFixed(6));
+}
+
+if (typeof window !== 'undefined' && window.visualViewport && !window.__fcLbVisualViewportBound) {
+  window.__fcLbVisualViewportBound = true;
+  window.visualViewport.addEventListener('resize', () => {
+    if (typeof syncFloatingCardLightboxScale === 'function') syncFloatingCardLightboxScale();
+  });
+}
+
 function applyFloatingCardLightboxPosition(lightbox, contentBox, preset, posX, posY) {
-  lightbox.style.alignItems = 'center';
-  lightbox.style.justifyContent = 'center';
+  const stageEl = ensureFloatingCardLightboxStage() || lightbox;
+  if (lightbox && lightbox !== stageEl) {
+    lightbox.style.alignItems = 'center';
+    lightbox.style.justifyContent = 'center';
+  }
+  stageEl.style.alignItems = 'center';
+  stageEl.style.justifyContent = 'center';
   contentBox.classList.remove('fc-pos-custom');
   contentBox.style.left = '';
   contentBox.style.top = '';
   contentBox.style.transform = '';
 
   if (preset === 'top-left') {
-    lightbox.style.alignItems = 'flex-start';
-    lightbox.style.justifyContent = 'flex-start';
+    stageEl.style.alignItems = 'flex-start';
+    stageEl.style.justifyContent = 'flex-start';
   } else if (preset === 'top-center') {
-    lightbox.style.alignItems = 'flex-start';
-    lightbox.style.justifyContent = 'center';
+    stageEl.style.alignItems = 'flex-start';
+    stageEl.style.justifyContent = 'center';
   } else if (preset === 'top-right') {
-    lightbox.style.alignItems = 'flex-start';
-    lightbox.style.justifyContent = 'flex-end';
+    stageEl.style.alignItems = 'flex-start';
+    stageEl.style.justifyContent = 'flex-end';
   } else if (preset === 'center-left') {
-    lightbox.style.alignItems = 'center';
-    lightbox.style.justifyContent = 'flex-start';
+    stageEl.style.alignItems = 'center';
+    stageEl.style.justifyContent = 'flex-start';
   } else if (preset === 'center-right') {
-    lightbox.style.alignItems = 'center';
-    lightbox.style.justifyContent = 'flex-end';
+    stageEl.style.alignItems = 'center';
+    stageEl.style.justifyContent = 'flex-end';
   } else if (preset === 'bottom-left') {
-    lightbox.style.alignItems = 'flex-end';
-    lightbox.style.justifyContent = 'flex-start';
+    stageEl.style.alignItems = 'flex-end';
+    stageEl.style.justifyContent = 'flex-start';
   } else if (preset === 'bottom-center') {
-    lightbox.style.alignItems = 'flex-end';
-    lightbox.style.justifyContent = 'center';
+    stageEl.style.alignItems = 'flex-end';
+    stageEl.style.justifyContent = 'center';
   } else if (preset === 'bottom-right') {
-    lightbox.style.alignItems = 'flex-end';
-    lightbox.style.justifyContent = 'flex-end';
+    stageEl.style.alignItems = 'flex-end';
+    stageEl.style.justifyContent = 'flex-end';
   } else if (preset === 'custom') {
     contentBox.classList.add('fc-pos-custom');
     const parsedX = (posX !== '' && posX !== null && posX !== undefined && Number.isFinite(Number(posX))) ? Number(posX) : 50;
@@ -1780,11 +1825,11 @@ function hydrateFloatingCardSurface(boxEl, recordEl, bodyTargetEl, extraTopHtml,
     ? (isMultiSimultaneous ? 'max-w-lg' : widthClass)
     : '';
   const baseCls = isMultiSimultaneous
-    ? `fc-multi-card-item relative border-ink max-h-[82vh] overflow-y-auto safe-scroll p-6 md:p-8 shadow-2xl w-full ${appliedWidthCls}`
-    : `relative border-ink max-h-[88vh] overflow-y-auto safe-scroll p-7 md:p-10 shadow-2xl w-full ${appliedWidthCls}`;
+    ? `fc-multi-card-item relative border-ink overflow-y-auto safe-scroll p-6 md:p-8 shadow-2xl w-full ${appliedWidthCls}`
+    : `relative border-ink overflow-y-auto safe-scroll p-7 md:p-10 shadow-2xl w-full ${appliedWidthCls}`;
   boxEl.className = baseCls;
   boxEl.style.width = (!useWidthPreset && customW > 0) ? `${customW}px` : '';
-  boxEl.style.maxWidth = (!useWidthPreset && customW > 0) ? '94vw' : '';
+  boxEl.style.maxWidth = (!useWidthPreset && customW > 0) ? 'calc(var(--stage-w, 1440px) - 48px)' : '';
   boxEl.style.height = customH > 0 ? `${customH}px` : '';
   boxEl.style.color = color;
   boxEl.style.borderStyle = borderWidth === '0px' ? 'none' : 'solid';
@@ -1919,11 +1964,16 @@ function openFloatingCardLightbox(fcIdOrList, explicitList, displayMode) {
   lightbox.querySelectorAll('.fc-multi-card-item').forEach(n => n.remove());
   lightbox.classList.remove('fc-multi-open');
 
+  const stageEl = ensureFloatingCardLightboxStage() || lightbox;
+  syncFloatingCardLightboxScale();
+
   // Mode A: Simultaneous Multi-Card Display (`multi`)
   if (mode === 'multi' && validList.length > 1) {
     contentBox.style.display = 'none';
     lightbox.style.alignItems = 'center';
     lightbox.style.justifyContent = 'center';
+    stageEl.style.alignItems = 'center';
+    stageEl.style.justifyContent = 'center';
     validList.forEach(id => {
       const rec = store.querySelector(`[data-fc-id="${id}"]`);
       if (!rec) return;
@@ -1933,7 +1983,7 @@ function openFloatingCardLightbox(fcIdOrList, explicitList, displayMode) {
       innerBody.className = 'fc-multi-card-body';
       cardEl.appendChild(innerBody);
       hydrateFloatingCardSurface(cardEl, rec, innerBody, '', true);
-      lightbox.appendChild(cardEl);
+      stageEl.appendChild(cardEl);
     });
     lightbox.classList.add('open', 'fc-multi-open');
     return;

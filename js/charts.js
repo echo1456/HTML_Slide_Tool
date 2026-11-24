@@ -144,7 +144,8 @@ function renderChartWidgetInnerHtml(data) {
     }).join('');
     return `<tr${summarySet.has(rIdx) ? ' class="table-summary-row"' : ''} ${rowH > 0 ? `style="height: ${rowH}px;"` : ''}>${tds}</tr>`;
   }).join('');
-  return `<div class="flex items-center justify-between mb-2"><h4 ${editableAttr} data-on-blur="onChartTitleInlineEdit(this)" class="text-sm md:text-base font-extrabold text-ink">${escapeAttr(data.title)}</h4><span class="font-mono text-[10px] text-subtle">DATA TABLE</span></div><div class="flex-1 overflow-x-hidden overflow-y-auto safe-scroll"><table class="ppt-data-table ${zebraClass}" ${tableStyle}>${theadHtml}<tbody>${trs}</tbody></table></div>`;
+  const tblTitleFs = Number(data.titleFontSize || 0) > 0 ? ` style="font-size: ${Number(data.titleFontSize)}px !important;"` : '';
+  return `<div class="flex items-center justify-between mb-2"><h4 ${editableAttr} data-on-blur="onChartTitleInlineEdit(this)"${tblTitleFs} class="text-sm md:text-base font-extrabold text-ink">${escapeAttr(data.title)}</h4><span class="font-mono text-[10px] text-subtle">DATA TABLE</span></div><div class="flex-1 overflow-x-hidden overflow-y-auto safe-scroll"><table class="ppt-data-table ${zebraClass}" ${tableStyle}>${theadHtml}<tbody>${trs}</tbody></table></div>`;
 }
 function isFloatingCardStudioOpen() { if (typeof fcStudioPopupWin !== 'undefined' && fcStudioPopupWin && !fcStudioPopupWin.closed) return true; const m = document.getElementById('floatingCardEditorModal'); return Boolean(m && !m.classList.contains('hidden')); }
 function getSelectedChartWidget() {
@@ -245,7 +246,7 @@ function selectChartCellForFill(e, cellEl) {
   if (!isActiveEditing()) return;
   const widget = cellEl.closest('.ppt-chart-widget'); if (!widget) return;
   const fcEditor = cellEl.closest('#fcRichBodyEditor');
-  if (fcEditor && widget.dataset.chartUid) { fcEditor.dataset.activeChartId = widget.dataset.chartUid; if (typeof switchFcStudioTab === 'function') switchFcStudioTab('chart'); }
+  if (fcEditor && widget.dataset.chartUid) { fcEditor.dataset.activeChartId = widget.dataset.chartUid; }
   else if (!widget.closest('.ppt-free-obj')) selectElementForInspector(widget);
   const cellKey = cellEl.getAttribute('data-cell-key') || '', isShift = Boolean(e && e.shiftKey);
   if (isShift && cellKey && activeChartCellTarget && widget.contains(activeChartCellTarget)) {
@@ -256,13 +257,13 @@ function selectChartCellForFill(e, cellEl) {
     if (fcEditor) fcEditor.querySelectorAll('.chart-cell-selected').forEach(el => el.classList.remove('chart-cell-selected'));
     selectedTableCellKeys.clear(); if (cellKey) selectedTableCellKeys.add(cellKey); cellEl.classList.add('chart-cell-selected');
   }
-  activeChartCellTarget = cellEl; syncTableCellSizeInputs(cellEl); syncChartInspectorUI(widget);
+  activeChartCellTarget = cellEl; syncTableCellSizeInputs(cellEl); syncChartInspectorUI(widget); if (typeof syncToolbarWithTarget === 'function') syncToolbarWithTarget(cellEl);
 }
 function selectChartPartForColor(e, partEl, itemIdx) {
   if (!isActiveEditing()) return;
   const widget = partEl.closest('.ppt-chart-widget'); if (!widget) return;
   const fcEditor = partEl.closest('#fcRichBodyEditor');
-  if (fcEditor && widget.dataset.chartUid) { fcEditor.dataset.activeChartId = widget.dataset.chartUid; if (typeof switchFcStudioTab === 'function') switchFcStudioTab('chart'); }
+  if (fcEditor && widget.dataset.chartUid) { fcEditor.dataset.activeChartId = widget.dataset.chartUid; }
   else if (!widget.closest('.ppt-free-obj')) selectElementForInspector(widget);
   selectedTableCellKeys.clear(); activeChartCellTarget = partEl; partEl.setAttribute('data-item-idx', String(itemIdx)); syncChartInspectorUI(widget);
 }
