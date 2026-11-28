@@ -1803,6 +1803,8 @@ function init() {
   });
   initVideoErrorFallbacks(document);
   if (typeof hydrateYouTubeEmbedsForProtocol === 'function') hydrateYouTubeEmbedsForProtocol(document);
+  if (typeof upgradeLegacyBeforeAfterWidgets === 'function') upgradeLegacyBeforeAfterWidgets(document);
+  if (typeof syncBeforeAfterFillCardContainers === 'function') syncBeforeAfterFillCardContainers(document);
   if (typeof bindHistoryCoalesceListeners === 'function') bindHistoryCoalesceListeners(document);
   initStorageListeners();
   if (typeof initPwaAndNativeFileSystem === 'function') initPwaAndNativeFileSystem();

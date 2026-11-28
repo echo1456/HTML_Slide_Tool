@@ -1,5 +1,18 @@
 # Changelog
 
+## [v5.8.9] - 2026-11-28 — 플로팅 카드 스튜디오 내부 `⤢ 카드 채우기` 및 위젯 버튼 클릭 미작동 근본 수정
+
+### Fixed
+- **[P0] 플로팅 카드 스튜디오 내부 `.fc-resizable-item`의 `e.stopPropagation()` 클릭 차단 제거 (`js/floating-cards.js`)**:
+  - `makeFcBlockResizable()`의 클릭 리스너가 `e.stopPropagation()`을 호출해 `document`에 위임된 `safe-events.js`(`data-on-click`)까지 이벤트가 도달하지 못하던 근본 원인을 제거. 이제 플로팅 카드 내부의 `⤢ 카드 채우기`, `Before/After 사진`, `50:50`, `+ 핀 추가`, `+ 탭`, `↻ 뒷면 편집` 등 모든 위젯 버튼이 실제 클릭으로 정상 작동.
+  - 다중 동시 팝업 라이트박스(`cardEl`)의 불필요한 `stopPropagation`도 제거해 동시 팝업 내부 위젯 버튼 클릭까지 함께 복구.
+- **[P0] 새 창 분리 플로팅 카드 스튜디오(`openExternalFloatingCardWindow`) `edit-mode` 누락 수정 (`js/floating-cards.js`)**: 독립 창 `<body>`에 `edit-mode` 클래스를 부여해 새 창 분리 상태에서도 `.iw-edit-bar`가 정상 표시되도록 수정.
+- **[P0] 잠긴 슬라이드 위에서 플로팅 카드 위젯 편집 차단 해소 (`js/widgets.js`)**: `isWidgetMutationLocked()`가 `#fcRichBodyEditor` 내부 위젯에 대해서는 배경 슬라이드 잠금을 적용하지 않도록 격리.
+- **[P1] 구버전 저장 덱 50:50 위젯 자동 업그레이드 (`upgradeLegacyBeforeAfterWidgets` — `js/widgets.js`, `js/floating-cards.js`, `js/history.js`, `js/main.js`)** 및 `#fcRichBodyEditor.has-iw-fill-card` `padding: 0`·`z-index: 12` 정돈 (`css/editor.css`, `css/slides.css`).
+- **[Testing] Playwright Chromium E2E `Test 35` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 35개 CI E2E 스위트로 실제 마우스 `.click()` 기반 플로팅 카드 내부 `⤢ 카드 채우기` 토글·배경 슬라이드 잠금 격리·탭 추가·레거시 위젯 자동 업그레이드를 영구 검증.
+
+---
+
 ## [v5.8.8] - 2026-11-28 — 도넛 그래프 독립 크기/두께 조절 · 플로팅 카드 내부 핸들 리사이즈 안정화 · 50:50 위젯 카드 전체 채우기
 
 ### Added & Fixed

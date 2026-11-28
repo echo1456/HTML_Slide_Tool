@@ -617,6 +617,7 @@ body.edit-mode:not(.interactive-test-mode) .slide .ppt-interactive-widget[data-m
 /* Full-Bleed 50:50 Widget Inside Floating Card Studio (#fcRichBodyEditor) */
 #fcRichBodyEditor.has-iw-fill-card {
   min-height: 360px;
+  padding: 0 !important;
   overflow: hidden !important;
 }
 #fcRichBodyEditor .fc-resizable-item.iw-fill-card > .fc-item-move-grip,

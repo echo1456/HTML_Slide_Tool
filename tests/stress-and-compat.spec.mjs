@@ -2053,4 +2053,68 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(v588Ok.slideCardFillOk).toBe(true);
     expect(v588Ok.slideCardUnfillOk).toBe(true);
   });
+
+  test('35. v5.8.9 Floating Card Studio Real DOM Button Clicks (data-on-click Propagation for 50:50 Fill Card, Tab Add, Background Slide Lock Isolation & Legacy Widget Auto-Upgrade)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    // Lock the background slide to verify Floating Card widget buttons still work independently!
+    await page.evaluate(() => {
+      goToSlide(3);
+      slides[2].setAttribute('data-slide-locked', 'true');
+      openFloatingCardEditor(null);
+      insertInteractiveWidget('before-after');
+    });
+
+    // Click the ACTUAL `.iw-ba-fill-btn` button inside #fcRichBodyEditor (must bubble to safe-events.js on document!)
+    const fillBtn = page.locator('#fcRichBodyEditor .iw-ba-fill-btn').first();
+    await expect(fillBtn).toBeVisible();
+    await fillBtn.click();
+
+    const afterFill = await page.evaluate(() => {
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      const fcBa = fcEd.querySelector('[data-iw-type="before-after"]');
+      const btnTxt = fcBa.querySelector('.iw-ba-fill-btn')?.textContent?.trim() || '';
+      const rEd = fcEd.getBoundingClientRect();
+      const rBa = fcBa.getBoundingClientRect();
+      return {
+        hasFillCls: fcBa.classList.contains('iw-fill-card') && fcEd.classList.contains('has-iw-fill-card'),
+        btnTxt,
+        fillsEdgeToEdge: Math.abs(rBa.width - rEd.width) <= 3 && Math.abs(rBa.height - rEd.height) <= 3,
+      };
+    });
+    expect(afterFill.hasFillCls).toBe(true);
+    expect(afterFill.btnTxt).toContain('채우기 해제');
+    expect(afterFill.fillsEdgeToEdge).toBe(true);
+
+    // Click the ACTUAL button again to toggle back OFF!
+    await fillBtn.click();
+    const afterUnfill = await page.evaluate(() => {
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      const fcBa = fcEd.querySelector('[data-iw-type="before-after"]');
+      return !fcBa.classList.contains('iw-fill-card') && !fcEd.classList.contains('has-iw-fill-card');
+    });
+    expect(afterUnfill).toBe(true);
+
+    // Also verify real DOM click on Tabbed Card "+ 탭" button inside #fcRichBodyEditor AND legacy widget auto-upgrade!
+    await page.evaluate(() => {
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      fcEd.querySelector('.iw-ba-fill-btn')?.remove();
+      upgradeLegacyBeforeAfterWidgets(fcEd);
+    });
+    await expect(page.locator('#fcRichBodyEditor .iw-ba-fill-btn')).toHaveCount(1);
+
+    await page.evaluate(() => {
+      insertInteractiveWidget('tabbed-card');
+    });
+    const tabsBefore = await page.locator('#fcRichBodyEditor [data-iw-type="tabbed-card"] .iw-tab-btn').count();
+    await page.locator('#fcRichBodyEditor [data-iw-type="tabbed-card"] button[data-on-click*="addIwTab"]').click();
+    const tabsAfter = await page.locator('#fcRichBodyEditor [data-iw-type="tabbed-card"] .iw-tab-btn').count();
+    expect(tabsAfter).toBe(tabsBefore + 1);
+
+    await page.evaluate(() => {
+      closeFloatingCardEditor();
+      slides[2].removeAttribute('data-slide-locked');
+    });
+  });
 });

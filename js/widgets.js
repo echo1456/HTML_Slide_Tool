@@ -278,13 +278,43 @@ function recordWidgetChangeHistory(widgetOrChild, label) {
 }
 
 function isWidgetMutationLocked(btnOrWidget) {
-  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return true;
   const widget = btnOrWidget ? (btnOrWidget.classList && btnOrWidget.classList.contains('ppt-interactive-widget') ? btnOrWidget : btnOrWidget.closest('.ppt-interactive-widget')) : null;
+  const inFcStudio = Boolean(
+    (widget && widget.closest && widget.closest('#fcRichBodyEditor')) ||
+    (btnOrWidget && btnOrWidget.closest && btnOrWidget.closest('#fcRichBodyEditor'))
+  );
+  if (!inFcStudio && typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return true;
   if (widget && widget.getAttribute('data-layer-locked') === 'true') {
     showToast('잠긴 위젯은 편집할 수 없습니다. 배치·레이어 탭에서 잠금을 해제해 주세요.');
     return true;
   }
   return false;
+}
+
+function upgradeLegacyBeforeAfterWidgets(scopeRoot) {
+  const root = scopeRoot || document;
+  if (!root || !root.querySelectorAll) return;
+  const ownerDoc = root.ownerDocument || (root.nodeType === 9 ? root : document);
+  root.querySelectorAll('[data-iw-type="before-after"]').forEach(w => {
+    const bar = w.querySelector('.iw-edit-bar');
+    if (!bar) return;
+    const btnGroup = bar.querySelector('div') || bar;
+    let fillBtn = bar.querySelector('.iw-ba-fill-btn');
+    const isFilled = w.getAttribute('data-iw-fill-card') === 'true' || w.classList.contains('iw-fill-card');
+    if (!fillBtn) {
+      fillBtn = ownerDoc.createElement('button');
+      fillBtn.type = 'button';
+      fillBtn.className = 'iw-ba-fill-btn';
+      fillBtn.setAttribute('data-on-click', 'event.stopPropagation(); toggleBeforeAfterFillCard(this)');
+      fillBtn.setAttribute('title', '50:50 비교 위젯을 카드 전체에 여백 없이 꽉 채우기');
+      fillBtn.textContent = isFilled ? '⤡ 채우기 해제' : '⤢ 카드 채우기';
+      const embedBtn = btnGroup.querySelector('.iw-embed-card-btn');
+      if (embedBtn) btnGroup.insertBefore(fillBtn, embedBtn);
+      else btnGroup.appendChild(fillBtn);
+    } else {
+      fillBtn.textContent = isFilled ? '⤡ 채우기 해제' : '⤢ 카드 채우기';
+    }
+  });
 }
 
 function setBeforeAfterPosition(stageEl, pct) {

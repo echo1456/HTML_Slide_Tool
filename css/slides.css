@@ -2033,7 +2033,7 @@ body:not(.edit-mode) .ppt-chart-widget [data-chart-part]:hover {
   box-shadow: none !important;
   transform: none !important;
   overflow: hidden !important;
-  z-index: 6;
+  z-index: 12;
 }
 .ppt-interactive-widget.iw-fill-card > .iw-ba-stage {
   width: 100% !important;

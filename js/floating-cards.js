@@ -339,7 +339,8 @@ function restoreFcEditorState(jsonStr) {
     activeFcInnerBlock = null;
     
     editor.innerHTML = st.html;
-    enhanceAllFcResizableItems(editor);
+    if (typeof upgradeLegacyBeforeAfterWidgets === 'function') upgradeLegacyBeforeAfterWidgets(editor);
+  enhanceAllFcResizableItems(editor);
     const restoredChart = editor.querySelector('.ppt-chart-widget');
     if (restoredChart) {
       if (!restoredChart.dataset.chartUid) restoredChart.dataset.chartUid = 'fc_chart_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -444,7 +445,8 @@ function makeFcBlockResizable(blockEl) {
   if (!blockEl.dataset.fcClickBound) {
     blockEl.dataset.fcClickBound = '1';
     blockEl.addEventListener('click', (e) => {
-      e.stopPropagation();
+      // Do NOT stopPropagation() here: safe-events.js delegates data-on-click at document level
+      // (and editor's click handler already checks !e.target.closest('.fc-resizable-item')).
       selectFcInnerBlock(blockEl);
     });
   }
@@ -783,7 +785,7 @@ function openExternalFloatingCardWindow() {
     .fc-resizer-se { position: absolute; bottom: -6px; right: -6px; width: 14px; height: 14px; border-radius: 4px; background: #111111; border: 2px solid #FFFFFF; cursor: nwse-resize; z-index: 21; }
   </style>
 </head>
-<body></body>
+<body class="edit-mode"></body>
 </html>`);
   win.document.close();
 
@@ -2258,7 +2260,7 @@ function openFloatingCardLightbox(fcIdOrList, explicitList, displayMode) {
       const rec = store.querySelector(`[data-fc-id="${id}"]`);
       if (!rec) return;
       const cardEl = document.createElement('div');
-      cardEl.addEventListener('click', (ev) => ev.stopPropagation());
+      /* Backdrop checks event.target===this; allow bubble so safe-events.js data-on-click works inside multi-card lightbox */
       const innerBody = document.createElement('div');
       innerBody.className = 'fc-multi-card-body';
       cardEl.appendChild(innerBody);
