@@ -273,12 +273,42 @@ body.edit-mode .header-editable:focus {
   border-radius: 6px;
 }
 
-/* Floating Card Live Preview Drag-Resize Handles */
+/* Floating Card Live Preview True 1:1 WYSIWYG Stage & Drag-Resize Handles (v5.8.6) */
+#fcPreviewStageViewport {
+  position: relative;
+  box-sizing: border-box;
+}
+#fcPreviewScaleFrame {
+  position: relative;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
 #fcPreviewResizeBox {
   position: relative;
-  margin: 0 auto;
-  max-width: 100%;
+  margin: 0;
+  max-width: none !important;
+  box-sizing: border-box;
+  transform-origin: top left;
+  transform: scale(var(--fc-preview-scale, 1));
+  overflow: visible;
 }
+#fcPreviewResizeBox > #fcEditorBgPreviewLayer,
+#fcPreviewResizeBox > #fcEditorHoverBgPreviewLayer,
+#fcPreviewResizeBox > #fcEditorBgTintLayer {
+  border-radius: inherit;
+  overflow: hidden;
+}
+#fcRichBodyEditor {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 2.5rem;
+  font-size: 16px;
+  line-height: 1.5;
+  border-radius: inherit;
+}
+#fcRichBodyEditor .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+#fcRichBodyEditor .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+#fcRichBodyEditor .md\:text-base:not([style*="font-size"]) { font-size: 1rem !important; }
 .fc-resizer-e {
   position: absolute;
   top: 50%;
@@ -390,7 +420,7 @@ body.edit-mode .header-editable:focus {
 
 /* Floating Card Studio Live Background Layer (supports independent blur without blurring text) */
 #fcPreviewResizeBox {
-  overflow: hidden;
+  isolation: isolate;
 }
 #fcEditorBgPreviewLayer,
 #fcEditorHoverBgPreviewLayer,

@@ -1873,4 +1873,83 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(r2Ok.nonEdSurvived).toBe(true);
     expect(r2Ok.masterSkippedLocked).toBe(true);
   });
+
+  test('33. v5.8.6 True 1:1 WYSIWYG Floating Card Studio Parity (Exact Aspect Ratio, Identical 40px Padding & Logical Dimensions, Scale-Synced Text Placement & Overlay Drag Isolation)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const parity = await page.evaluate(() => {
+      openFloatingCardEditor(null);
+      const toggle = document.getElementById('fcUseWidthPresetToggle');
+      toggle.checked = false;
+      onFcWidthPresetToggle(false);
+      document.getElementById('fcCustomWidthInput').value = '1000';
+      document.getElementById('fcCustomHeightInput').value = '560';
+      updateFloatingCardPreviewStyle();
+
+      const previewBox = document.getElementById('fcPreviewResizeBox');
+      const editor = document.getElementById('fcRichBodyEditor');
+      const prevScale = getFcPreviewScale();
+      const prevBoxW = previewBox.offsetWidth;
+      const prevBoxH = previewBox.offsetHeight;
+      const prevRect = previewBox.getBoundingClientRect();
+      const prevAspect = prevRect.width / Math.max(1, prevRect.height);
+      const edPadL = parseFloat(window.getComputedStyle(editor).paddingLeft);
+      const edPadT = parseFloat(window.getComputedStyle(editor).paddingTop);
+
+      // Place heading offset inside scaled preview and record its logical offset relative to card top-left
+      const firstBox = editor.querySelector('.fc-text-box');
+      applyFcInnerBlockOffsetClamped(firstBox, 140, 80);
+      const hBoxRectPrev = firstBox.getBoundingClientRect();
+      const relPrevX = (hBoxRectPrev.left - prevRect.left) / prevScale;
+      const relPrevY = (hBoxRectPrev.top - prevRect.top) / prevScale;
+
+      // Also verify dragging an FC text element via #ovDragHandle keeps it inside #fcRichBodyEditor (NEVER detaches to slide!)
+      const h3 = editor.querySelector('h3');
+      selectElementForInspector(h3, false);
+      const ovDrag = document.getElementById('ovDragHandle');
+      ovDrag.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 200, clientY: 200, button: 0 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 230, clientY: 215 }));
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: 230, clientY: 215 }));
+      const stayedInsideFc = editor.contains(h3);
+
+      const fcId = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor();
+      toggleEditMode(false);
+      openFloatingCardLightbox(fcId);
+
+      const lbBox = document.getElementById('floatingCardLightboxContent');
+      lbBox.style.animation = 'none';
+      const lbScale = parseFloat(document.getElementById('floatingCardLightbox').style.getPropertyValue('--fc-lb-scale') || '1');
+      const lbRect = lbBox.getBoundingClientRect();
+      const lbAspect = lbRect.width / Math.max(1, lbRect.height);
+      const lbPadL = parseFloat(window.getComputedStyle(lbBox).paddingLeft);
+      const lbPadT = parseFloat(window.getComputedStyle(lbBox).paddingTop);
+      const lbFirstBox = document.getElementById('floatingCardLightboxBody').querySelector('.fc-text-box');
+      const hBoxRectLb = lbFirstBox.getBoundingClientRect();
+      const relLbX = (hBoxRectLb.left - lbRect.left) / lbScale;
+      const relLbY = (hBoxRectLb.top - lbRect.top) / lbScale;
+      closeFloatingCardLightbox();
+      lbBox.style.animation = '';
+
+      return {
+        prevBoxW,
+        prevBoxH,
+        prevScale,
+        aspectDelta: Math.abs(prevAspect - lbAspect),
+        padMatch: Math.abs(edPadL - lbPadL) < 1 && Math.abs(edPadT - lbPadT) < 1,
+        textDeltaX: Math.abs(relPrevX - relLbX),
+        textDeltaY: Math.abs(relPrevY - relLbY),
+        stayedInsideFc,
+      };
+    });
+
+    expect(parity.prevBoxW).toBe(1000);
+    expect(parity.prevBoxH).toBe(560);
+    expect(parity.aspectDelta).toBeLessThan(0.02);
+    expect(parity.padMatch).toBe(true);
+    expect(parity.textDeltaX).toBeLessThan(4);
+    expect(parity.textDeltaY).toBeLessThan(4);
+    expect(parity.stayedInsideFc).toBe(true);
+  });
 });

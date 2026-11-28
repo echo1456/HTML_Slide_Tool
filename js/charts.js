@@ -195,7 +195,7 @@ function recordChartChangeHistory(label) { const isFcActive = (typeof isFloating
 function writeChartDataAndRender(widget, data) { widget.setAttribute('data-chart-json', JSON.stringify(data)); widget.innerHTML = renderChartWidgetInnerHtml(data); syncChartInspectorUI(widget); }
 function syncTableCellSizeInputs(cellEl) {
   if (!cellEl) return;
-  const scale = (typeof getStageScale === 'function' && !cellEl.closest('#fcRichBodyEditor')) ? getStageScale() : 1, rect = cellEl.getBoundingClientRect();
+  const scale = cellEl.closest('#fcRichBodyEditor') ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : (typeof getStageScale === 'function' ? getStageScale() : 1), rect = cellEl.getBoundingClientRect();
   const wPx = Math.max(24, Math.round(rect.width / scale)), hPx = Math.max(20, Math.round(rect.height / scale));
   if ($studio('tableCellWidthInput')) $studio('tableCellWidthInput').value = String(wPx);
   if ($studio('tableCellHeightInput')) $studio('tableCellHeightInput').value = String(hPx);
@@ -204,7 +204,7 @@ function startTableColResize(e, handleEl, colIdx) {
   if (!isActiveEditing()) return; e.preventDefault(); e.stopPropagation();
   const cell = handleEl.parentElement, table = cell ? cell.closest('table') : null, widget = cell ? cell.closest('.ppt-chart-widget') : null; if (!cell || !table || !widget) return;
   selectChartCellForFill(e, cell);
-  const ownerDoc = cell.ownerDocument || document, scale = (typeof getStageScale === 'function' && !cell.closest('#fcRichBodyEditor')) ? getStageScale() : 1, data = readChartData(widget);
+  const ownerDoc = cell.ownerDocument || document, scale = cell.closest('#fcRichBodyEditor') ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : (typeof getStageScale === 'function' ? getStageScale() : 1), data = readChartData(widget);
   const colCount = data.tableHeaders ? data.tableHeaders.length : 1;
   const initWidths = Array.from({ length: colCount }, (_, idx) => { const s = table.querySelector(`[data-col-idx="${idx}"]`); return s ? Math.max(44, Math.round(s.getBoundingClientRect().width / scale)) : 120; });
   table.style.tableLayout = 'fixed'; data.colWidths = [...initWidths]; const startX = e.clientX;
@@ -220,7 +220,7 @@ function startTableRowResize(e, handleEl, rowKey) {
   if (!isActiveEditing()) return; e.preventDefault(); e.stopPropagation();
   const cell = handleEl.parentElement, tr = cell ? cell.closest('tr') : null, widget = cell ? cell.closest('.ppt-chart-widget') : null; if (!cell || !tr || !widget) return;
   selectChartCellForFill(e, cell);
-  const ownerDoc = cell.ownerDocument || document, scale = (typeof getStageScale === 'function' && !cell.closest('#fcRichBodyEditor')) ? getStageScale() : 1, initH = Math.max(24, Math.round(tr.getBoundingClientRect().height / scale)), data = readChartData(widget);
+  const ownerDoc = cell.ownerDocument || document, scale = cell.closest('#fcRichBodyEditor') ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : (typeof getStageScale === 'function' ? getStageScale() : 1), initH = Math.max(24, Math.round(tr.getBoundingClientRect().height / scale)), data = readChartData(widget);
   if (!data.rowHeights) data.rowHeights = {}; const startY = e.clientY;
   const onMove = (me) => {
     const nextH = Math.max(24, Math.min(480, Math.round(initH + (me.clientY - startY) / scale))); data.rowHeights[String(rowKey)] = nextH;
@@ -687,7 +687,7 @@ function equalizeTableColWidths() { if (isChartMutationLocked(getSelectedChartWi
   const w = getSelectedChartWidget(); if (!w) return;
   const d = readChartData(w); if (d.type !== 'table' || !Array.isArray(d.tableHeaders) || d.tableHeaders.length === 0) return;
   const tableEl = w.querySelector('table.ppt-data-table');
-  const scale = (typeof getStageScale === 'function' && !w.closest('#fcRichBodyEditor')) ? getStageScale() : 1;
+  const scale = w.closest('#fcRichBodyEditor') ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : (typeof getStageScale === 'function' ? getStageScale() : 1);
   // Estimate minimum column width needed for adjusted text size so text never collapses
   let maxFontPx = Number(d.tableFontSize || 12);
   if (d.cellStyles) Object.values(d.cellStyles).forEach(cs => { if (cs && Number(cs.fontSize) > maxFontPx) maxFontPx = Number(cs.fontSize); });
@@ -703,7 +703,7 @@ function equalizeTableRowHeights() { if (isChartMutationLocked(getSelectedChartW
   const w = getSelectedChartWidget(); if (!w) return;
   const d = readChartData(w); if (d.type !== 'table') return;
   const tableEl = w.querySelector('table.ppt-data-table');
-  const scale = (typeof getStageScale === 'function' && !w.closest('#fcRichBodyEditor')) ? getStageScale() : 1;
+  const scale = w.closest('#fcRichBodyEditor') ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : (typeof getStageScale === 'function' ? getStageScale() : 1);
   let maxNaturalH = 34;
   if (tableEl) {
     const trs = Array.from(tableEl.querySelectorAll('tr'));

@@ -414,18 +414,19 @@ function selectFcInnerBlock(blockEl) {
 function applyFcInnerBlockOffsetClamped(blockEl, nextX, nextY) {
   const editor = $fc('fcRichBodyEditor');
   if (!blockEl || !editor) return;
+  const scale = typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1;
   const curX = parseFloat(blockEl.getAttribute('data-fc-offset-x') || '0') || 0;
   const curY = parseFloat(blockEl.getAttribute('data-fc-offset-y') || '0') || 0;
   const eRect = editor.getBoundingClientRect();
   const bRect = blockEl.getBoundingClientRect();
-  const baseLeft = bRect.left - curX;
-  const baseTop = bRect.top - curY;
-  const pad = 12;
+  const baseLeft = bRect.left - curX * scale;
+  const baseTop = bRect.top - curY * scale;
+  const padScreen = 12 * scale;
 
-  const minX = Math.round((eRect.left + pad) - baseLeft);
-  const maxX = Math.max(minX, Math.round((eRect.right - pad - bRect.width) - baseLeft));
-  const minY = Math.round((eRect.top + pad) - baseTop);
-  const maxY = Math.max(minY, Math.round((eRect.bottom - pad - bRect.height) - baseTop));
+  const minX = Math.round(((eRect.left + padScreen) - baseLeft) / scale);
+  const maxX = Math.max(minX, Math.round(((eRect.right - padScreen - bRect.width) - baseLeft) / scale));
+  const minY = Math.round(((eRect.top + padScreen) - baseTop) / scale);
+  const maxY = Math.max(minY, Math.round(((eRect.bottom - padScreen - bRect.height) - baseTop) / scale));
 
   const clampedX = Math.max(minX, Math.min(maxX, Math.round(nextX)));
   const clampedY = Math.max(minY, Math.min(maxY, Math.round(nextY)));
@@ -476,17 +477,20 @@ function makeFcBlockResizable(blockEl) {
       const initY = parseFloat(blockEl.getAttribute('data-fc-offset-y') || '0') || 0;
 
       const onMove = (me) => {
-        let dx = me.clientX - startX;
-        let dy = me.clientY - startY;
+        const scale = typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1;
+        let dx = (me.clientX - startX) / scale;
+        let dy = (me.clientY - startY) / scale;
         if (me.shiftKey && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
           if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
           else dx = 0;
         }
         applyFcInnerBlockOffsetClamped(blockEl, initX + dx, initY + dy);
+        if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
       };
       const onUp = () => {
         doc.removeEventListener('mousemove', onMove);
         doc.removeEventListener('mouseup', onUp);
+        if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale();
         recordFcSnapshot();
       };
       startManagedDragSession(doc, onMove, onUp);
@@ -503,17 +507,21 @@ function makeFcBlockResizable(blockEl) {
       const editor = $fc('fcRichBodyEditor');
       const startX = e.clientX;
       const startY = e.clientY;
+      const initScale = typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1;
       const initRect = blockEl.getBoundingClientRect();
-      const maxW = editor ? Math.max(160, editor.clientWidth - 48) : 600;
+      const initLogicalW = blockEl.offsetWidth || (initRect.width / initScale);
+      const initLogicalH = blockEl.offsetHeight || (initRect.height / initScale);
+      const maxW = editor ? Math.max(160, editor.clientWidth - 80) : 592;
 
       const onMove = (me) => {
+        const scale = typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1;
         if (axis === 'se' || axis === 'e') {
-          const nextW = Math.max(80, Math.min(maxW, Math.round(initRect.width + (me.clientX - startX))));
+          const nextW = Math.max(80, Math.min(maxW, Math.round(initLogicalW + (me.clientX - startX) / scale)));
           const wPct = Math.max(15, Math.min(100, Math.round((nextW / maxW) * 100)));
           blockEl.style.width = `${wPct}%`;
-            }
+        }
         if (axis === 'se' || axis === 's') {
-          const nextH = Math.max(36, Math.min(650, Math.round(initRect.height + (me.clientY - startY))));
+          const nextH = Math.max(36, Math.min(680, Math.round(initLogicalH + (me.clientY - startY) / scale)));
           blockEl.style.height = `${nextH}px`;
           blockEl.style.maxHeight = 'none';
           const innerImg = blockEl.querySelector('img');
@@ -526,6 +534,7 @@ function makeFcBlockResizable(blockEl) {
       const onUp = () => {
         doc.removeEventListener('mousemove', onMove);
         doc.removeEventListener('mouseup', onUp);
+        if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale();
         recordFcSnapshot();
       };
       startManagedDragSession(doc, onMove, onUp);
@@ -679,6 +688,7 @@ function fitFloatingCardPanelToSafeWorkspace(mode) {
     panel.style.maxWidth = safe.width + 'px';
     panel.style.maxHeight = safe.height + 'px';
   }
+  if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale();
   if (typeof positionSelectionOverlay === 'function' && selectedElement && panel.contains(selectedElement)) {
     positionSelectionOverlay();
   }
@@ -742,12 +752,13 @@ function openExternalFloatingCardWindow() {
     .fc-item-resize-grip-e { position: absolute; right: -3px; top: 50%; transform: translateY(-50%); width: 8px; height: 28px; border-radius: 9999px; background: #0055FF; border: 1.5px solid #FFFFFF; cursor: ew-resize; z-index: 30; }
     .fc-item-resize-grip-s { position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); width: 28px; height: 8px; border-radius: 9999px; background: #0055FF; border: 1.5px solid #FFFFFF; cursor: ns-resize; z-index: 30; }
     .fc-item-move-grip { position: absolute; left: 4px; top: 4px; padding: 1px 6px; border-radius: 5px; background: rgba(17,17,17,0.85); color: #FFE600; font-size: 10px; font-weight: 700; cursor: move; z-index: 31; }
-    #fcPreviewResizeBox { position: relative; margin: 0 auto; max-width: 100%; overflow: hidden; }
-    #fcEditorBgPreviewLayer, #fcEditorHoverBgPreviewLayer, #fcEditorBgTintLayer { position: absolute; inset: 0; pointer-events: none; background-size: cover; background-position: center; background-repeat: no-repeat; }
+    #fcPreviewScaleFrame { position: relative; flex-shrink: 0; margin: 0 auto; }
+    #fcPreviewResizeBox { position: relative; margin: 0; max-width: none !important; box-sizing: border-box; transform-origin: top left; transform: scale(var(--fc-preview-scale, 1)); overflow: visible; isolation: isolate; }
+    #fcEditorBgPreviewLayer, #fcEditorHoverBgPreviewLayer, #fcEditorBgTintLayer { position: absolute; inset: 0; pointer-events: none; background-size: cover; background-position: center; background-repeat: no-repeat; border-radius: inherit; overflow: hidden; }
     #fcEditorHoverBgPreviewLayer { opacity: 0; }
     #fcPreviewResizeBox:hover #fcEditorHoverBgPreviewLayer.has-hover-img { opacity: 1; }
     #fcEditorBgTintLayer { z-index: 1; }
-    #fcRichBodyEditor { position: relative; z-index: 2; }
+    #fcRichBodyEditor { position: relative; z-index: 2; box-sizing: border-box; width: 100%; padding: 2.5rem; font-size: 16px; line-height: 1.5; border-radius: inherit; }
     .fc-resizer-e { position: absolute; top: 50%; right: -7px; transform: translateY(-50%); width: 10px; height: 36px; border-radius: 9999px; background: #0055FF; cursor: ew-resize; z-index: 20; }
     .fc-resizer-s { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); width: 36px; height: 10px; border-radius: 9999px; background: #0055FF; cursor: ns-resize; z-index: 20; }
     .fc-resizer-se { position: absolute; bottom: -6px; right: -6px; width: 14px; height: 14px; border-radius: 4px; background: #111111; border: 2px solid #FFFFFF; cursor: nwse-resize; z-index: 21; }
@@ -799,6 +810,8 @@ function openExternalFloatingCardWindow() {
   if (typeof bindHistoryCoalesceListeners === 'function') bindHistoryCoalesceListeners(win.document);
   const editor = $fc('fcRichBodyEditor');
   if (editor) enhanceAllFcResizableItems(editor);
+  win.addEventListener('resize', () => { if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale(); });
+  setTimeout(() => { if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale(); }, 50);
   if (modal) {
     if (typeof closeModalSafe === 'function') closeModalSafe(modal);
     else { modal.classList.add('hidden'); modal.classList.remove('flex'); modal.style.display = 'none'; }
@@ -1022,6 +1035,87 @@ function onFcCustomSizeInput() {
   updateFloatingCardPreviewStyle();
 }
 
+const FC_WIDTH_PRESET_PX_MAP = {
+  'max-w-lg': 512,
+  'max-w-2xl': 672,
+  'max-w-4xl': 896
+};
+let __fcPreviewZoomMode = 'fit'; // 'fit' (True-Ratio Auto-Scale to Viewport) | 'actual' (100% 1:1 px with scroll)
+let __currentFcPreviewScale = 1;
+
+function getFcLogicalDimensionsFromInputs() {
+  const maxStageW = Math.max(320, ((typeof LOGICAL_STAGE_WIDTH === 'number' && LOGICAL_STAGE_WIDTH > 0) ? LOGICAL_STAGE_WIDTH : 1440) - 48);
+  const maxStageH = Math.max(200, ((typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810) - 48);
+  const usePreset = Boolean($fc('fcUseWidthPresetToggle')?.checked);
+  const widthClass = $fc('fcWidthSelect')?.value || 'max-w-2xl';
+  const customW = Number($fc('fcCustomWidthInput')?.value || 0);
+  const customH = Number($fc('fcCustomHeightInput')?.value || 0);
+  const hasCustomW = !usePreset && customW > 0;
+  const presetPx = FC_WIDTH_PRESET_PX_MAP[widthClass] || 672;
+  const logicalW = hasCustomW ? Math.max(240, Math.min(maxStageW, Math.round(customW))) : Math.min(maxStageW, presetPx);
+  const logicalH = customH > 0 ? Math.max(120, Math.min(maxStageH, Math.round(customH))) : 0;
+  return { logicalW, logicalH, maxStageW, maxStageH, hasCustomW, widthClass };
+}
+
+function getFcPreviewScale() {
+  return (typeof __currentFcPreviewScale === 'number' && __currentFcPreviewScale > 0) ? __currentFcPreviewScale : 1;
+}
+
+function toggleFcPreviewZoomMode(forceMode) {
+  __fcPreviewZoomMode = (forceMode === 'fit' || forceMode === 'actual')
+    ? forceMode
+    : (__fcPreviewZoomMode === 'fit' ? 'actual' : 'fit');
+  syncFcPreviewViewportScale();
+}
+
+function syncFcPreviewViewportScale() {
+  const viewport = $fc('fcPreviewStageViewport');
+  const frame = $fc('fcPreviewScaleFrame');
+  const box = $fc('fcPreviewResizeBox');
+  const editor = $fc('fcRichBodyEditor');
+  if (!box || !editor) return 1;
+
+  const dims = getFcLogicalDimensionsFromInputs();
+  const measuredLogicalW = Math.max(240, box.offsetWidth || dims.logicalW);
+  const measuredLogicalH = Math.max(80, dims.logicalH > 0 ? dims.logicalH : (box.offsetHeight || editor.scrollHeight || 220));
+
+  let nextScale = 1;
+  if (__fcPreviewZoomMode === 'fit' && viewport) {
+    const vpCs = (viewport.ownerDocument.defaultView || window).getComputedStyle(viewport);
+    const padX = (parseFloat(vpCs.paddingLeft) || 16) + (parseFloat(vpCs.paddingRight) || 16);
+    const padY = (parseFloat(vpCs.paddingTop) || 16) + (parseFloat(vpCs.paddingBottom) || 16);
+    const availW = Math.max(200, viewport.clientWidth - padX - 18);
+    const availH = Math.max(160, viewport.clientHeight - padY - 18);
+    const fitW = availW / measuredLogicalW;
+    const fitH = dims.logicalH > 0 ? (availH / measuredLogicalH) : 1;
+    nextScale = Math.max(0.25, Math.min(1, fitW, fitH));
+  }
+
+  __currentFcPreviewScale = nextScale;
+  box.style.setProperty('--fc-preview-scale', nextScale.toFixed(6));
+  if (frame) {
+    frame.style.width = `${Math.round(measuredLogicalW * nextScale)}px`;
+    frame.style.height = `${Math.round(measuredLogicalH * nextScale)}px`;
+  }
+
+  const statusEl = $fc('fcPreviewSizeStatus');
+  if (statusEl) {
+    const pct = Math.round(nextScale * 100);
+    const ratioTxt = dims.logicalH > 0 ? ` (${(measuredLogicalW / Math.max(1, measuredLogicalH)).toFixed(2)}:1)` : '';
+    const hTxt = dims.logicalH > 0 ? `${dims.logicalH}px` : `자동(${Math.round(measuredLogicalH)}px)`;
+    statusEl.textContent = `실제 팝업 1:1 비율 · ${measuredLogicalW} × ${hTxt}${ratioTxt} · 미리보기 ${pct}%`;
+  }
+  const zoomBtn = $fc('fcPreviewZoomToggleBtn');
+  if (zoomBtn) {
+    const pct = Math.round(nextScale * 100);
+    zoomBtn.textContent = __fcPreviewZoomMode === 'fit' ? `자동맞춤 (${pct}%)` : '100% 원본';
+  }
+  if (typeof positionSelectionOverlay === 'function' && selectedElement && editor.contains(selectedElement)) {
+    positionSelectionOverlay();
+  }
+  return nextScale;
+}
+
 function startFcPreviewResize(e, dir) {
   e.preventDefault();
   e.stopPropagation();
@@ -1032,8 +1126,9 @@ function startFcPreviewResize(e, dir) {
 
   const startX = e.clientX;
   const startY = e.clientY;
-  const initW = editor.offsetWidth || 540;
-  const initH = editor.offsetHeight || 220;
+  const initScale = getFcPreviewScale();
+  const initW = box.offsetWidth || getFcLogicalDimensionsFromInputs().logicalW;
+  const initH = box.offsetHeight || 240;
 
   // Only disable width preset when actually dragging horizontally ('e' or 'se'); vertical-only ('s') drag preserves width preset!
   if (dir.includes('e')) {
@@ -1048,8 +1143,8 @@ function startFcPreviewResize(e, dir) {
   const maxStageH = Math.max(200, ((typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810) - 48);
 
   const onMove = (me) => {
-    const dx = me.clientX - startX;
-    const dy = me.clientY - startY;
+    const dx = (me.clientX - startX) / Math.max(0.2, initScale);
+    const dy = (me.clientY - startY) / Math.max(0.2, initScale);
     if (dir.includes('e')) {
       const nextW = Math.max(240, Math.min(maxStageW, Math.round(initW + dx)));
       box.style.width = nextW + 'px';
@@ -1057,14 +1152,17 @@ function startFcPreviewResize(e, dir) {
     }
     if (dir.includes('s')) {
       const nextH = Math.max(120, Math.min(maxStageH, Math.round(initH + dy)));
-      editor.style.height = nextH + 'px';
+      box.style.height = nextH + 'px';
+      editor.style.height = '100%';
       editor.style.maxHeight = 'none';
       if ($fc('fcCustomHeightInput')) $fc('fcCustomHeightInput').value = String(nextH);
     }
+    syncFcPreviewViewportScale();
   };
   const onUp = () => {
     doc.removeEventListener('mousemove', onMove);
     doc.removeEventListener('mouseup', onUp);
+    syncFcPreviewViewportScale();
     recordFcSnapshot();
   };
   startManagedDragSession(doc, onMove, onUp);
@@ -1074,24 +1172,22 @@ function applyFcPreviewSizeFromInputs() {
   const box = $fc('fcPreviewResizeBox');
   const editor = $fc('fcRichBodyEditor');
   if (!box || !editor) return;
-  const usePreset = Boolean($fc('fcUseWidthPresetToggle')?.checked);
-  const customW = Number($fc('fcCustomWidthInput')?.value || 0);
-  const customH = Number($fc('fcCustomHeightInput')?.value || 0);
-  const maxStageW = Math.max(320, ((typeof LOGICAL_STAGE_WIDTH === 'number' && LOGICAL_STAGE_WIDTH > 0) ? LOGICAL_STAGE_WIDTH : 1440) - 48);
-  const maxStageH = Math.max(200, ((typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810) - 48);
+  const dims = getFcLogicalDimensionsFromInputs();
 
-  if (!usePreset && customW > 0) {
-    box.style.width = `${Math.max(240, Math.min(maxStageW, customW))}px`;
-  } else {
-    box.style.width = '100%';
-  }
-  if (customH > 0) {
-    editor.style.height = `${Math.max(120, Math.min(maxStageH, customH))}px`;
+  // Always render #fcPreviewResizeBox at EXACT Lightbox logical width & height (1:1 WYSIWYG parity!)
+  box.style.width = `${dims.logicalW}px`;
+  box.style.maxHeight = `${dims.maxStageH}px`;
+  if (dims.logicalH > 0) {
+    box.style.height = `${dims.logicalH}px`;
+    editor.style.height = '100%';
     editor.style.maxHeight = 'none';
   } else {
+    box.style.height = '';
     editor.style.height = '';
-    editor.style.maxHeight = 'none';
+    const bw = parseFloat(box.style.borderWidth || '2') || 0;
+    editor.style.maxHeight = `${Math.max(120, dims.maxStageH - bw * 2)}px`;
   }
+  syncFcPreviewViewportScale();
 }
 
 function insertTextBoxIntoFloatingCardEditor() {
@@ -1214,7 +1310,7 @@ function bindFloatingCardUnifiedCanvasListeners(editor) {
     }
   };
   editor.addEventListener('scroll', syncFcOverlayOnScroll, { passive: true });
-  const outerFcScroll = editor.closest('#fcPreviewResizeBox')?.parentElement;
+  const outerFcScroll = editor.closest('#fcPreviewStageViewport') || editor.closest('#fcPreviewResizeBox')?.parentElement;
   if (outerFcScroll && !outerFcScroll.dataset.fcScrollBound) {
     outerFcScroll.dataset.fcScrollBound = 'true';
     outerFcScroll.addEventListener('scroll', syncFcOverlayOnScroll, { passive: true });
@@ -1473,6 +1569,7 @@ function openFloatingCardEditor(cardId) {
     });
     let fcTypeTimer = null;
     editor.addEventListener('input', () => {
+      if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale();
       clearTimeout(fcTypeTimer);
       fcTypeTimer = setTimeout(() => recordFcSnapshot(), 400);
     });
@@ -1514,7 +1611,7 @@ function openFloatingCardEditor(cardId) {
     fitFloatingCardPanelToSafeWorkspace('open');
   }
   if (typeof setActiveEditingContext === 'function') setActiveEditingContext('floating-card');
-  setTimeout(() => { if (editor) editor.focus(); }, 30);
+  setTimeout(() => { if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale(); if (editor) editor.focus(); }, 30);
 }
 
 function closeFloatingCardEditor() {

@@ -1,4 +1,4 @@
-window.PPTStudio = window.PPTStudio || { version: 'v5.8.5', offlineRuntimeRules: new Set() };
+window.PPTStudio = window.PPTStudio || { version: 'v5.8.6', offlineRuntimeRules: new Set() };
 
 function openModalSafe(elOrId) {
   const modal = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -173,6 +173,7 @@ function syncResponsiveElementOffsets() {
 
   // Backfill normalized ratios for legacy elements that only have pixel data-offset-x / data-offset-y
   document.querySelectorAll('[data-offset-x], [data-offset-y]').forEach(el => {
+    if (el.closest('#fcRichBodyEditor, #pptFloatingCardsStore, #floatingCardLightbox')) return;
     if (!el.hasAttribute('data-offset-rx') && !el.hasAttribute('data-offset-ry')) {
       const legacyX = parseFloat(el.getAttribute('data-offset-x') || '0') || 0;
       const legacyY = parseFloat(el.getAttribute('data-offset-y') || '0') || 0;
@@ -184,6 +185,7 @@ function syncResponsiveElementOffsets() {
   });
 
   document.querySelectorAll('[data-offset-rx], [data-offset-ry]').forEach(el => {
+    if (el.closest('#fcRichBodyEditor, #pptFloatingCardsStore, #floatingCardLightbox')) return;
     const rx = parseFloat(el.getAttribute('data-offset-rx') || '0') || 0;
     const ry = parseFloat(el.getAttribute('data-offset-ry') || '0') || 0;
     const nextPxX = Math.round(rx * slideW);

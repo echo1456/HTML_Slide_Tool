@@ -338,15 +338,17 @@ function bindGlobalEditorListeners() {
       return;
     }
 
-    // Case D: Any Inner Card Element (Headings, Paragraphs, Spans, Tiers, Charts, Blocks)
+    // Case D: Any Inner Card or Floating Card Element (Headings, Paragraphs, Spans, Tiers, Charts, Blocks)
     // Strictly isolated to the target element so sibling elements inside the card NEVER shift or resize!
-    if (targetEl.closest('.slide-card')) {
+    if (targetEl.closest('.slide-card, #fcRichBodyEditor')) {
       const innerEl = targetEl;
-      const initScale = getStageScale();
+      const isInsideFc = Boolean(innerEl.closest('#fcRichBodyEditor'));
+      const getActiveCoordScale = () => isInsideFc ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : getStageScale();
+      const initScale = getActiveCoordScale();
       const initRect = innerEl.getBoundingClientRect();
       const initLogicalW = initRect.width / initScale;
       const initLogicalH = initRect.height / initScale;
-      const parentCard = innerEl.closest('.slide-card');
+      const parentCard = innerEl.closest('.slide-card, #fcRichBodyEditor');
       const parentRect = parentCard.getBoundingClientRect();
       const parentLogicalW = parentRect.width / initScale;
       const parentLogicalH = parentRect.height / initScale;
@@ -368,7 +370,7 @@ function bindGlobalEditorListeners() {
       }));
 
       const onInnerResizeMove = (me) => {
-        const scale = getStageScale();
+        const scale = getActiveCoordScale();
         const dx = (me.clientX - startX) / scale;
         const dy = (me.clientY - startY) / scale;
         const maxInnerW = Math.max(40, parentLogicalW - 24);
@@ -432,7 +434,12 @@ function bindGlobalEditorListeners() {
       const onInnerResizeUp = () => {
         document.removeEventListener('mousemove', onInnerResizeMove);
         document.removeEventListener('mouseup', onInnerResizeUp);
-        saveHistorySnapshot();
+        if (isInsideFc) {
+          if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale();
+          if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+        } else {
+          saveHistorySnapshot();
+        }
       };
 
       startManagedDragSession(document, onInnerResizeMove, onInnerResizeUp);
@@ -629,31 +636,43 @@ function bindGlobalEditorListeners() {
         return;
       }
 
-      if (!obj.classList.contains('ppt-free-obj') && obj.closest('.slide-card')) {
-        const initOffX = parseFloat(obj.getAttribute('data-offset-x') || '0') || 0;
-        const initOffY = parseFloat(obj.getAttribute('data-offset-y') || '0') || 0;
+      if (!obj.classList.contains('ppt-free-obj') && obj.closest('.slide-card, #fcRichBodyEditor')) {
+        const isInFcDrag = Boolean(obj.closest('#fcRichBodyEditor'));
+        const isFcBlock = isInFcDrag && obj.classList.contains('fc-resizable-item');
+        const initOffX = parseFloat(obj.getAttribute(isFcBlock ? 'data-fc-offset-x' : 'data-offset-x') || '0') || 0;
+        const initOffY = parseFloat(obj.getAttribute(isFcBlock ? 'data-fc-offset-y' : 'data-offset-y') || '0') || 0;
         const initInnerRect = obj.getBoundingClientRect();
         const onMoveInner = (me) => {
-          const scale = getStageScale();
+          const scale = isInFcDrag ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : getStageScale();
           const { dx: rawDx, dy: rawDy, lockedAxis } = applyShiftAxisLock(me.clientX - startX, me.clientY - startY, me.shiftKey);
-          const { snappedLeftPx, snappedTopPx } = computeAndRenderSmartGuides(
-            [obj],
-            initInnerRect.left + rawDx,
-            initInnerRect.top + rawDy,
-            initInnerRect.width,
-            initInnerRect.height,
-            slideEl,
-            lockedAxis
-          );
-          const deltaLogicalX = (snappedLeftPx - initInnerRect.left) / scale;
-          const deltaLogicalY = (snappedTopPx - initInnerRect.top) / scale;
-          applyTextOffsetXY(obj, Math.round(initOffX + deltaLogicalX), Math.round(initOffY + deltaLogicalY));
+          let deltaLogicalX = rawDx / scale;
+          let deltaLogicalY = rawDy / scale;
+          if (!isInFcDrag) {
+            const { snappedLeftPx, snappedTopPx } = computeAndRenderSmartGuides(
+              [obj],
+              initInnerRect.left + rawDx,
+              initInnerRect.top + rawDy,
+              initInnerRect.width,
+              initInnerRect.height,
+              slideEl,
+              lockedAxis
+            );
+            deltaLogicalX = (snappedLeftPx - initInnerRect.left) / scale;
+            deltaLogicalY = (snappedTopPx - initInnerRect.top) / scale;
+          }
+          if (isFcBlock && typeof applyFcInnerBlockOffsetClamped === 'function') {
+            applyFcInnerBlockOffsetClamped(obj, Math.round(initOffX + deltaLogicalX), Math.round(initOffY + deltaLogicalY));
+            positionSelectionOverlay();
+          } else {
+            applyTextOffsetXY(obj, Math.round(initOffX + deltaLogicalX), Math.round(initOffY + deltaLogicalY));
+          }
         };
         const onUpInner = () => {
           clearSmartGuides();
           document.removeEventListener('mousemove', onMoveInner);
           document.removeEventListener('mouseup', onUpInner);
-          saveHistorySnapshot();
+          if (isInFcDrag) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); }
+          else saveHistorySnapshot();
         };
         startManagedDragSession(document, onMoveInner, onUpInner);
         return;

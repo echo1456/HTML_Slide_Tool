@@ -704,11 +704,12 @@ function syncTextPositionUI(el) {
 }
 
 function clampOffsetToParentCard(el, nextDx, nextDy) {
-  const parentCard = el ? el.closest('.slide-card') : null;
+  const parentCard = el ? el.closest('.slide-card, #fcRichBodyEditor') : null;
   if (!parentCard || parentCard === el) {
     return { x: Math.round(nextDx), y: Math.round(nextDy) };
   }
-  const scale = typeof getStageScale === 'function' ? getStageScale() : 1;
+  const isInFc = parentCard.id === 'fcRichBodyEditor';
+  const scale = isInFc ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : (typeof getStageScale === 'function' ? getStageScale() : 1);
   const curX = parseFloat(el.getAttribute('data-offset-x') || '0') || 0;
   const curY = parseFloat(el.getAttribute('data-offset-y') || '0') || 0;
   const cRect = parentCard.getBoundingClientRect();
@@ -732,7 +733,8 @@ function applyTextOffsetXY(el, dx, dy) {
   const clamped = clampOffsetToParentCard(el, dx, dy);
   el.setAttribute('data-offset-x', String(clamped.x));
   el.setAttribute('data-offset-y', String(clamped.y));
-  const slideEl = el.closest('.slide') || slides[currentSlide - 1];
+  const isInFcEl = Boolean(el.closest && el.closest('#fcRichBodyEditor'));
+  const slideEl = isInFcEl ? null : (el.closest('.slide') || slides[currentSlide - 1]);
   if (slideEl) {
     const scale = typeof getStageScale === 'function' ? getStageScale() : 1;
     const sRect = slideEl.getBoundingClientRect();
@@ -1064,7 +1066,7 @@ function positionSelectionOverlay() {
   if (detachBtn) detachBtn.classList.toggle('hidden', Boolean(fcClipBox));
   if (fcClipBox) {
     const clipR = fcClipBox.getBoundingClientRect();
-    const outerScroll = fcClipBox.closest('#fcPreviewResizeBox')?.parentElement;
+    const outerScroll = fcClipBox.closest('#fcPreviewStageViewport') || fcClipBox.closest('#fcPreviewResizeBox')?.parentElement;
     const outerR = outerScroll ? outerScroll.getBoundingClientRect() : clipR;
     const visTop = Math.max(clipR.top, outerR.top);
     const visBottom = Math.min(clipR.bottom, outerR.bottom);

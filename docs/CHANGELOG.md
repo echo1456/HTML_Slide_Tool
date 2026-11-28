@@ -1,5 +1,20 @@
 # Changelog
 
+## [v5.8.6] - 2026-11-28 — 플로팅 팝업 카드 스튜디오 실제 팝업 1:1 비율 WYSIWYG 일치화 & 내부 텍스트 위치·드래그 정밀 보정
+
+### Fixed & Improved
+- **[P0] 플로팅 카드 스튜디오 1:1 실제 비율 스케일 스테이지 도입 (`index.html`, `css/editor.css`, `css/slides.css`, `js/floating-cards.js`)**:
+  - 기존 `#fcPreviewResizeBox`가 `max-width: 100%`로 편집창 폭에 가로만 찌그러지고 카드폭 프리셋(`512`/`672`/`896px`)을 무시하던 구조를 전면 개편.
+  - `#fcPreviewStageViewport` + `#fcPreviewScaleFrame` + `--fc-preview-scale` 자동 비율 축소 엔진(`syncFcPreviewViewportScale()`)을 도입해, 16:9 와이드 카드(`예: 1000×560`)나 프리셋 카드를 실제 팝업과 동일한 논리 픽셀로 렌더링한 뒤 편집창 크기에 맞춰 비율 왜곡 없이 축소 표시 (`자동맞춤 ↔ 100% 원본` 토글 및 실시간 치수·비율 표시바 제공).
+- **[P0] 편집창 ↔ 실제 팝업 간 패딩·기본 폰트·높이 기준 100% 일치화 (`index.html`, `css/editor.css`, `css/slides.css`, `js/floating-cards.js`)**:
+  - 편집창(`24px`, `text-sm` 14px, `min-h-[320px]`)과 실제 팝업(`40px`, 16px, 테두리 포함 `border-box` 높이)의 구조적 차이를 제거해 양쪽 모두 `2.5rem(40px)` 패딩·`16px` 기본 타이포그래피·`box-sizing: border-box` 전체 높이 기준으로 완전 통일 (줄바꿈 및 텍스트 좌표 오차 0에 수렴).
+- **[P0] 플로팅 카드 내부 텍스트·블록 이동/리사이즈 배율 보정 및 슬라이드 이탈 버그 수정 (`js/floating-cards.js`, `js/main.js`, `js/selection.js`, `js/state.js`, `js/charts.js`, `js/studio.js`)**:
+  - `#ovDragHandle`(선택 오버레이 이동 핸들)로 플로팅 카드 내부 텍스트를 드래그할 때 배경 슬라이드로 강제 분리되던 버그를 수정하고, `getFcPreviewScale()` 기준으로 모든 내부 이동·리사이즈·표 열/행 조절·경계 클램핑이 정밀하게 동작하도록 보정.
+  - `syncResponsiveElementOffsets()`가 플로팅 카드 내부 오프셋을 덮어쓰지 않도록 격리.
+- **[Testing] Playwright Chromium E2E `Test 33` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 33개 CI E2E 스위트로 `1000×560` 카드의 편집창 ↔ 실제 라이트박스 간 종횡비·패딩·텍스트 상대 좌표 1:1 일치와 오버레이 드래그 격리를 영구 검증.
+
+---
+
 ## [v5.8.5] - 2026-11-28 — 비교표 셀 붙여넣기 시 포커스/선택 영역 판정 및 리사이저 보존 수정 (CI 32종 전수 통과)
 
 ### Fixed

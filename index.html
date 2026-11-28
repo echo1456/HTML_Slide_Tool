@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="HTML Slide Tool v5.8.5">
+  <meta name="generator" content="HTML Slide Tool v5.8.6">
   <meta name="theme-color" content="#0055FF">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -237,16 +237,24 @@
 
       </div>
       </div>
-      <div class="p-4 overflow-y-auto safe-scroll space-y-3 text-xs flex-1 flex flex-col">
-        <!-- Live Resizable WYSIWYG Floating Card Canvas (Always Visible — Main Studio Unified Editing Target) -->
-        <div id="fcPreviewResizeBox" class="w-full rounded-2xl border-2 border-ink bg-white">
-          <div id="fcEditorBgPreviewLayer"></div>
-          <div id="fcEditorHoverBgPreviewLayer"></div>
-          <div id="fcEditorBgTintLayer"></div>
-          <div id="fcRichBodyEditor" class="min-h-[320px] max-h-[58vh] overflow-y-auto safe-scroll p-6 text-ink text-sm leading-relaxed focus:outline-none"></div>
-          <span class="fc-resizer-e" title="드래그하여 좌우 너비 조절" data-on-mousedown="startFcPreviewResize(event, 'e')"></span>
-          <span class="fc-resizer-s" title="드래그하여 상하 높이 조절" data-on-mousedown="startFcPreviewResize(event, 's')"></span>
-          <span class="fc-resizer-se" title="드래그하여 가로·세로 동시 조절" data-on-mousedown="startFcPreviewResize(event, 'se')"></span>
+      <div id="fcPreviewMetricBar" class="px-4 py-1.5 bg-canvas/90 border-b border-borderline flex items-center justify-between gap-2 text-[10px] font-mono font-bold text-muted shrink-0">
+        <span id="fcPreviewSizeStatus" class="truncate text-ink">실제 팝업 1:1 비율 · 672 × 자동</span>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" id="fcPreviewZoomToggleBtn" class="px-2 py-0.5 rounded bg-white hover:border-gopro border border-borderline text-[10px] font-bold text-gopro cursor-pointer" data-on-click="toggleFcPreviewZoomMode()" aria-label="미리보기 자동 맞춤 / 100% 원본 전환" title="창 크기에 맞춘 전체 비율 보기 ↔ 100% 실제 크기 보기 전환">맞춤 (100%)</button>
+        </div>
+      </div>
+      <div id="fcPreviewStageViewport" class="p-4 overflow-auto safe-scroll flex-1 flex items-start justify-center bg-canvas/60">
+        <!-- Scaled 1:1 True-Proportion WYSIWYG Floating Card Frame (Exact Lightbox Dimensions, Padding & Typography) -->
+        <div id="fcPreviewScaleFrame">
+          <div id="fcPreviewResizeBox" class="rounded-2xl border-2 border-ink bg-white shadow-2xl">
+            <div id="fcEditorBgPreviewLayer"></div>
+            <div id="fcEditorHoverBgPreviewLayer"></div>
+            <div id="fcEditorBgTintLayer"></div>
+            <div id="fcRichBodyEditor" class="overflow-y-auto safe-scroll text-ink focus:outline-none"></div>
+            <span class="fc-resizer-e" title="드래그하여 좌우 너비 조절" data-on-mousedown="startFcPreviewResize(event, 'e')"></span>
+            <span class="fc-resizer-s" title="드래그하여 상하 높이 조절" data-on-mousedown="startFcPreviewResize(event, 's')"></span>
+            <span class="fc-resizer-se" title="드래그하여 가로·세로 동시 조절" data-on-mousedown="startFcPreviewResize(event, 'se')"></span>
+          </div>
         </div>
       </div>
 
@@ -533,7 +541,7 @@
           </div>
           <div class="p-6 md:px-10 md:py-6 flex items-center justify-between bg-canvas">
             <span data-editable="" class="font-mono text-xs text-muted">HTML SLIDE TOOL</span>
-            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.8.5 READY</span>
+            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.8.6 READY</span>
           </div>
         </div>
       </div>

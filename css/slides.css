@@ -1008,6 +1008,12 @@ body.edit-mode .fx-text-span {
 #floatingCardLightboxContent {
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
+  font-size: 16px;
+  line-height: 1.5;
+}
+#floatingCardLightboxStage #floatingCardLightboxContent {
+  padding: 2.5rem !important;
 }
 #floatingCardLightboxContent > .fc-bg-img-layer {
   position: absolute;

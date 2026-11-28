@@ -473,6 +473,9 @@ function startResizablePanelDrag(e, panelId, dir) {
       panel.style.height = nextH + 'px';
       panel.style.maxHeight = fcSafe ? (fcSafe.height + 'px') : 'none';
     }
+    if (panelId === 'fcEditorDialogPanel' && typeof syncFcPreviewViewportScale === 'function') {
+      syncFcPreviewViewportScale();
+    }
     if (fcSafe && typeof positionSelectionOverlay === 'function' && selectedElement && panel.contains(selectedElement)) {
       positionSelectionOverlay();
     }
