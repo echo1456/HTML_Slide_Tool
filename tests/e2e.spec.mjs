@@ -391,9 +391,9 @@ test.describe('HTML Slide Tool — Real Chromium E2E & Strict CSP Suite', () => 
       const z = (id) => parseInt(window.getComputedStyle(document.getElementById(id)).zIndex, 10) || 0;
       return activeEditingContext === 'floating-card' &&
              z('pptStudioPopup') >= 60 &&
-             z('pptStudioPopup') > z('pptContextualTopBar') &&
-             z('pptContextualTopBar') > z('pptSelectionOverlay') &&
-             z('pptSelectionOverlay') > z('floatingCardEditorModal');
+             z('pptStudioPopup') > z('pptSelectionOverlay') &&
+             z('pptSelectionOverlay') > z('floatingCardEditorModal') &&
+             z('floatingCardEditorModal') > z('pptContextualTopBar');
     });
     expect(zOrderOk).toBe(true);
 

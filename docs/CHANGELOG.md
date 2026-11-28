@@ -1,5 +1,12 @@
 # Changelog
 
+## [v5.6.18] - 2026-11-28 — Playwright E2E Test 09 Z-Index 기대값 동기화 (25종 전수 통과 마무리)
+
+### Fixed
+- **[Testing] `tests/e2e.spec.mjs` Test 09 Z-Index 단언 동기화**: `v5.6.13`(Phase 1)에서 플로팅 카드 상단 가림을 해소하기 위해 `#pptContextualTopBar`(`44`) < `#floatingCardEditorModal`(`54`) < `#pptSelectionOverlay`(`56`) < `#pptStudioPopup`(`60`)으로 계층을 바로잡은 뒤에도, 기존 `v5.3.1` 시절 Test 09에 남아 있던 구 계층 단언(`pptContextualTopBar > pptSelectionOverlay`)을 새 계층표에 맞게 현행화.
+
+---
+
 ## [v5.6.17] - 2026-11-28 — 2차 5단계 전수검사 Phase 5 (최종 완료): 내보내기(PPTX/PNG/HTML) 정합성 · Base64 중복 제거 · Safari 다운로드 · 저장 진단 · CI 25종 인증
 
 ### Fixed & Hardened
