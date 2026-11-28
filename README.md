@@ -1,4 +1,4 @@
-# HTML Slide Tool (`v5.8.6`)
+# HTML Slide Tool (`v5.8.7`)
 
 **별도 뷰어나 서버 설치 없이 브라우저 하나로 편집·발표·단독 HTML·PPTX·PDF·PNG 저장까지 완성하는 인터랙티브 HTML 프레젠테이션 툴**
 

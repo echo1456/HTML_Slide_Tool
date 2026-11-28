@@ -519,17 +519,17 @@ body.edit-mode.focus-mode span.kw {
 }
 
 #fcPreviewResizeBox {
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, background-color 0.25s ease;
+  transition: box-shadow 0.25s ease, background-color 0.25s ease;
 }
 #fcPreviewResizeBox[data-fc-has-hover="true"]:hover > #fcEditorBgTintLayer {
   background-color: var(--card-hover-bg, var(--fc-base-tint, transparent)) !important;
 }
 #fcPreviewResizeBox[data-fx="hover-lift"]:hover {
-  transform: translateY(-4px);
+  transform: scale(var(--fc-preview-scale, 1)) translateY(-4px);
   box-shadow: 0 14px 28px -6px var(--fx-shadow-color, rgba(0, 0, 0, 0.16));
 }
 #fcPreviewResizeBox[data-fx="hover-zoom"]:hover {
-  transform: scale(1.02);
+  transform: scale(calc(var(--fc-preview-scale, 1) * 1.02));
   box-shadow: 0 16px 32px -8px var(--fx-shadow-color, rgba(0, 0, 0, 0.18));
 }
 #fcPreviewResizeBox[data-fx="hover-glow"]:hover {

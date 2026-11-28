@@ -1081,6 +1081,7 @@ function syncFcPreviewViewportScale() {
 
   let nextScale = 1;
   if (__fcPreviewZoomMode === 'fit' && viewport) {
+    if (viewport.clientWidth <= 0 || viewport.clientHeight <= 0) return getFcPreviewScale();
     const vpCs = (viewport.ownerDocument.defaultView || window).getComputedStyle(viewport);
     const padX = (parseFloat(vpCs.paddingLeft) || 16) + (parseFloat(vpCs.paddingRight) || 16);
     const padY = (parseFloat(vpCs.paddingTop) || 16) + (parseFloat(vpCs.paddingBottom) || 16);
@@ -1552,7 +1553,8 @@ function openFloatingCardEditor(cardId) {
         const r = previewBox.getBoundingClientRect();
         const px = (me.clientX - r.left) / Math.max(1, r.width) - 0.5;
         const py = (me.clientY - r.top) / Math.max(1, r.height) - 0.5;
-        previewBox.style.transform = `perspective(900px) rotateX(${(-py * 8).toFixed(2)}deg) rotateY(${(px * 8).toFixed(2)}deg) scale(1.02)`;
+        const tiltScale = (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) * 1.02;
+        previewBox.style.transform = `perspective(900px) rotateX(${(-py * 8).toFixed(2)}deg) rotateY(${(px * 8).toFixed(2)}deg) scale(${tiltScale.toFixed(4)})`;
       });
       previewBox.addEventListener('mouseleave', () => {
         if (previewBox.getAttribute('data-fx') === 'hover-tilt') {

@@ -1,5 +1,16 @@
 # Changelog
 
+## [v5.8.7] - 2026-11-28 — 플로팅 카드 스튜디오 스케일 즉시 반영(`transition` 지연 제거) · 숨김 상태 0.25 축소 오염 방지 · 호버 배율 합성 수정 (CI 33종 전수 통과)
+
+### Fixed
+- **[P0] `#fcPreviewResizeBox` `transition: transform 0.25s` 지연으로 인한 1:1 좌표 오차 제거 (`css/editor.css`)**:
+  - 카드 크기 입력·패널 리사이즈·오픈 직후 `--fc-preview-scale` 변경이 250ms 지연 보간되면서 `getBoundingClientRect()` 기반 내부 이동 클램핑과 선택 오버레이가 어긋나던 원인을 `transform` 트랜지션 제거로 해결.
+- **[P0] 모달 숨김 상태(`clientWidth === 0`)의 `--fc-preview-scale: 0.25` 오염 차단 (`js/floating-cards.js`)**:
+  - `syncFcPreviewViewportScale()`에서 뷰포트가 숨겨져 있을 때는 즉시 반환해 잘못된 25% 축소값이 남지 않도록 수정.
+- **[P1] 축소 미리보기 위 `hover-lift` · `hover-zoom` · `hover-tilt` 호버 시 100% 튐 현상 수정 (`css/editor.css`, `js/floating-cards.js`)**: 모든 호버 효과에 `scale(var(--fc-preview-scale, 1))`을 합성해 미리보기 배율을 유지한 채 자연스럽게 호버되도록 교정.
+
+---
+
 ## [v5.8.6] - 2026-11-28 — 플로팅 팝업 카드 스튜디오 실제 팝업 1:1 비율 WYSIWYG 일치화 & 내부 텍스트 위치·드래그 정밀 보정
 
 ### Fixed & Improved
