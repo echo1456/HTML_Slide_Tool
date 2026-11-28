@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="HTML Slide Tool v5.6.18">
+  <meta name="generator" content="HTML Slide Tool v5.8.3">
   <meta name="theme-color" content="#0055FF">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -33,6 +33,7 @@
   <input type="file" id="audioFileUploader" accept="audio/*" class="hidden">
   <input type="file" id="reuseSlidesFileImporter" accept=".json,.html" class="hidden">
   <input type="file" id="pptxFileImporter" accept=".pptx" class="hidden">
+  <input type="file" id="presetLibraryFileImporter" accept=".json" class="hidden">
 
   <!-- Smart Alignment Guides Overlay -->
   <div id="pptSmartGuidesLayer"></div>
@@ -250,7 +251,11 @@
       </div>
 
       <div class="px-5 py-2.5 bg-canvas border-t border-borderline flex items-center justify-between gap-2 shrink-0">
-        <button type="button" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-xs font-bold cursor-pointer" data-on-click="resetFloatingCardEditorStyle()" aria-label="↺ 스타일 초기화" title="↺ 스타일 초기화">↺ 스타일 초기화</button>
+        <div class="flex items-center gap-1.5">
+          <button type="button" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-xs font-bold cursor-pointer" data-on-click="resetFloatingCardEditorStyle()" aria-label="↺ 스타일 초기화" title="↺ 스타일 초기화">↺ 스타일 초기화</button>
+          <button type="button" id="fcSaveAsPresetBtn" class="px-2.5 py-1.5 rounded-lg bg-white hover:border-gopro border border-borderline text-xs font-bold text-gopro cursor-pointer" data-on-click="saveCurrentFloatingCardAsPreset()" aria-label="현재 플로팅 카드를 내 프리셋 라이브러리에 저장" title="현재 플로팅 카드를 프리셋으로 저장">★ 프리셋 저장</button>
+          <button type="button" id="fcOpenPresetLibBtn" class="px-2.5 py-1.5 rounded-lg bg-white hover:border-ink border border-borderline text-xs font-bold text-ink cursor-pointer" data-on-click="openPresetLibraryModal('floating-card')" aria-label="내 프리셋 라이브러리 열기" title="내 프리셋 라이브러리 열기">라이브러리</button>
+        </div>
         <div class="flex items-center gap-2">
           <button type="button" class="px-3 py-1.5 rounded-lg bg-white border border-borderline text-xs font-bold cursor-pointer" data-on-click="closeFloatingCardEditor()" aria-label="취소" title="취소">취소</button>
           <button type="button" class="px-4 py-1.5 rounded-lg bg-gopro hover:bg-goproDark text-white text-xs font-bold cursor-pointer" data-on-click="saveFloatingCardFromEditor()" aria-label="💾 플로팅 카드 저장 및 연결" title="💾 플로팅 카드 저장 및 연결"><svg class="ui-ico" viewbox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path><path d="M7 3v4a1 1 0 0 0 1 1h7"></path></svg>플로팅 카드 저장 및 연결</button>
@@ -528,7 +533,7 @@
           </div>
           <div class="p-6 md:px-10 md:py-6 flex items-center justify-between bg-canvas">
             <span data-editable="" class="font-mono text-xs text-muted">HTML SLIDE TOOL</span>
-            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.6.18 READY</span>
+            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.8.3 READY</span>
           </div>
         </div>
       </div>
@@ -912,10 +917,14 @@
                 <span id="elementOpacityLabel" class="font-mono text-gopro w-7 text-right">100%</span>
               </div>
             </div>
+            <div class="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-borderline text-[10px] font-bold">
+              <button type="button" id="saveSelectedCardPresetBtn" class="py-1.5 px-2 rounded-lg bg-white hover:border-gopro border border-borderline text-gopro cursor-pointer" data-on-click="saveSelectedCardAsPreset()" aria-label="선택한 카드를 내 프리셋 라이브러리에 저장" title="현재 선택한 카드를 프리셋으로 저장">★ 선택 카드 프리셋 저장</button>
+              <button type="button" id="openPresetLibraryBtn" class="py-1.5 px-2 rounded-lg bg-ink text-white cursor-pointer" data-on-click="openPresetLibraryModal('all')" aria-label="내 카드 및 플로팅 카드 프리셋 라이브러리 열기" title="내 프리셋 라이브러리 열기">내 프리셋 라이브러리</button>
+            </div>
           </div></div>
 
           <div class="p-2.5 rounded-xl bg-canvas border border-borderline space-y-2 studio-acc-sec is-collapsed" data-acc-sec="design-media"><div class="studio-acc-head" data-on-click="toggleStudioAccordion(this)"><div class="studio-acc-title-wrap"><svg class="studio-acc-chevron" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg><span class="font-mono text-[10px] font-bold text-gopro uppercase">3. 사진 크롭·보정 · 영상 · 오디오 · 임베드</span>
-              </div><div class="flex items-center gap-1 shrink-0" data-on-click="event.stopPropagation()"><button type="button" class="px-1.5 py-0.5 rounded bg-white border border-borderline text-[9px] font-bold cursor-pointer" data-on-click="resetSelectedImageAdjustments()" aria-label="↺ 초기화" title="↺ 초기화">↺ 초기화</button>
+              </div><div class="flex items-center gap-1 shrink-0" data-on-click="event.stopPropagation()"><button type="button" class="px-1.5 py-0.5 rounded bg-white border border-borderline text-[9px] font-bold cursor-pointer" data-on-click="resetSelectedImageAdjustments()" aria-label="↺ 초기화" title="↺ 초기화">↺ 초기화</button><button type="button" id="openMediaAssetManagerBtn" class="px-1.5 py-0.5 rounded bg-gopro text-white text-[9px] font-bold cursor-pointer" data-on-click="openMediaAssetManagerModal()" aria-label="에셋 매니저 및 WebP 경량화 열기" title="에셋 매니저 및 WebP 경량화">에셋·경량화</button>
             </div></div><div class="studio-acc-body"><div class="grid grid-cols-3 gap-1 text-[10px] font-bold">
               <button class="py-1 rounded bg-emerald-600 text-white cursor-pointer" data-on-click="triggerDirectMediaInsert()" aria-label="🖼 사진·영상" title="🖼 사진·영상"><svg class="ui-ico" viewbox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"></path></svg>사진·영상</button>
               <button type="button" class="py-1 rounded bg-ink text-white cursor-pointer" data-on-click="triggerReplaceMediaPreserveProps()" aria-label="🔄 속성교체" title="🔄 속성교체"><svg class="ui-ico" viewbox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>속성교체</button>
@@ -1228,6 +1237,19 @@
               <button type="button" class="px-1.5 py-0.5 rounded bg-white border border-borderline cursor-pointer" data-on-click="setElementBuildOrder(3)" aria-label="3" title="3">3</button>
               <button type="button" class="ml-auto px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 cursor-pointer" data-on-click="clearSlideBuildOrders()" aria-label="해제" title="해제">해제</button>
             </div>
+            <div id="buildOrderTimelineWrap" class="p-2 rounded-lg bg-white border border-borderline space-y-1.5 text-[10px]">
+              <div class="flex items-center justify-between gap-1">
+                <span class="font-mono font-extrabold text-violet-700 uppercase">⏱ 등장 순서 타임라인</span>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button type="button" id="toggleBuildBadgesBtn" class="px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200 text-violet-800 font-bold text-[9px] cursor-pointer" data-on-click="toggleBuildOrderBadges()" aria-label="캔버스 등장 순서 배지 표시 전환" title="캔버스 위 번호 배지 ON/OFF">배지 ON</button>
+                  <button type="button" id="normalizeBuildOrderBtn" class="px-1.5 py-0.5 rounded bg-canvas border border-borderline text-ink font-bold text-[9px] cursor-pointer" data-on-click="normalizeSlideBuildOrders()" aria-label="등장 순서 번호 1부터 자동 정렬" title="건너뛴 번호를 1, 2, 3...으로 정리">자동정렬</button>
+                  <button type="button" id="previewBuildSeqBtn" class="px-2 py-0.5 rounded bg-ink text-white font-bold text-[9px] cursor-pointer" data-on-click="previewSlideBuildSequence()" aria-label="현재 슬라이드 등장 순서 미리보기 재생" title="등장 순서대로 연속 재생">▶ 순서재생</button>
+                </div>
+              </div>
+              <div id="buildOrderTimelineList" class="max-h-40 overflow-y-auto safe-scroll space-y-1">
+                <div class="text-[10px] text-muted text-center py-2">요소를 선택해 클릭 순서(1, 2, 3...)를 지정하면 이곳에서 드래그로 순서와 딜레이를 재배열할 수 있습니다.</div>
+              </div>
+            </div>
           </div></div>
 
           <div class="p-2.5 rounded-xl bg-canvas border border-borderline space-y-2 studio-acc-sec is-collapsed" data-acc-sec="motion-trigger"><div class="studio-acc-head" data-on-click="toggleStudioAccordion(this)"><div class="studio-acc-title-wrap"><svg class="studio-acc-chevron" viewbox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg><span class="font-mono text-[10px] font-bold text-gopro uppercase">3. 인터랙티브 버튼 &amp; 팝업 카드 연결</span>
@@ -1270,7 +1292,7 @@
               <div class="flex items-center gap-1">
                 <select id="floatingCardSelect" class="flex-1 min-w-0 px-2 py-1 rounded bg-canvas border border-borderline text-[10px] font-semibold cursor-pointer"><option value="">-- 플로팅 카드 선택 --</option></select>
                 <button type="button" class="px-2 py-1 rounded bg-ink text-white text-[10px] font-bold cursor-pointer" data-on-click="addFloatingCardLinkToSelected()" aria-label="+ 연결" title="+ 연결">+ 연결</button>
-                <button type="button" class="px-2 py-1 rounded bg-gopro text-white text-[10px] font-bold cursor-pointer" data-on-click="openFloatingCardEditor(null)" aria-label="+ 새카드" title="+ 새카드">+ 새카드</button>
+                <button type="button" class="px-2 py-1 rounded bg-gopro text-white text-[10px] font-bold cursor-pointer" data-on-click="openFloatingCardEditor(null)" aria-label="+ 새카드" title="+ 새카드">+ 새카드</button><button type="button" id="motionOpenPresetLibBtn" class="px-2 py-1 rounded bg-white hover:border-gopro border border-borderline text-gopro text-[10px] font-bold cursor-pointer" data-on-click="openPresetLibraryModal('floating-card')" aria-label="플로팅 카드 프리셋 라이브러리 열기" title="플로팅 카드 프리셋 불러오기">★ 프리셋</button>
               </div>
               <select id="floatingCardMultiModeSelect" class="w-full bg-canvas border border-borderline rounded px-1.5 py-1 text-[10px] font-bold cursor-pointer" data-on-change="setSelectedFloatingCardDisplayMode(this.value)"><option value="paged">다중 팝업: 페이지 전환(1/N)</option><option value="multi">다중 팝업: 동시에 모두 띄우기</option></select>
               <div id="linkedFloatingCardsList" class="space-y-1 max-h-20 overflow-y-auto safe-scroll"></div>
@@ -1295,6 +1317,30 @@
               <button type="button" data-trans="slide-up" class="trans-preset-btn py-1 rounded bg-white border border-borderline cursor-pointer" data-on-click="setSlideTransition('slide-up')" aria-label="세로슬라이드" title="세로슬라이드">세로슬라이드</button>
               <button type="button" data-trans="zoom" class="trans-preset-btn py-1 rounded bg-white border border-borderline cursor-pointer" data-on-click="setSlideTransition('zoom')" aria-label="줌인" title="줌인">줌인</button>
               <button type="button" data-trans="flip" class="trans-preset-btn py-1 rounded bg-white border border-borderline cursor-pointer" data-on-click="setSlideTransition('flip')" aria-label="3D플립" title="3D플립">3D플립</button>
+              <button type="button" data-trans="morph" class="trans-preset-btn col-span-3 py-1.5 rounded bg-white border border-borderline font-extrabold cursor-pointer" data-on-click="setSlideTransition('morph')" aria-label="✨ 모핑 전환 (Magic Move)" title="이전 슬라이드와 동일한 모핑 ID를 가진 요소의 위치·크기·회전을 부드럽게 연결">✨ 모핑 전환 (Magic Move)</button>
+            </div>
+            <div id="morphControlsBox" class="p-2 rounded-lg bg-white border border-borderline space-y-1.5 text-[10px]">
+              <div class="flex items-center justify-between gap-1">
+                <span class="font-mono font-extrabold text-gopro uppercase">◈ MORPH (MAGIC MOVE)</span>
+                <span id="morphMatchStatusBadge" class="font-mono text-[9px] font-bold text-muted">연결 0개</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <input id="morphIdInput" type="text" placeholder="선택 요소 모핑 ID (예: hero)" class="flex-1 min-w-0 px-2 py-1 rounded bg-canvas border border-borderline font-mono text-[10px] text-ink focus:outline-none focus:border-gopro" data-on-keydown="if(event.key==='Enter'){ event.preventDefault(); applyMorphIdToSelected(this.value); }">
+                <button type="button" id="applyMorphIdBtn" class="px-2 py-1 rounded bg-ink text-white font-bold cursor-pointer shrink-0" data-on-click="applyMorphIdToSelected()" aria-label="선택 요소에 모핑 ID 적용" title="선택 요소에 모핑 ID 적용">적용</button>
+                <button type="button" id="clearMorphIdBtn" class="px-1.5 py-1 rounded bg-canvas border border-borderline font-bold text-muted hover:text-rose-600 cursor-pointer shrink-0" data-on-click="clearMorphIdFromSelected()" aria-label="선택 요소 모핑 ID 해제" title="모핑 ID 해제">해제</button>
+              </div>
+              <div class="flex items-center justify-between gap-1.5">
+                <label class="inline-flex items-center gap-1 font-bold text-muted shrink-0">
+                  <span>속도</span>
+                  <select id="morphDurationSelect" class="px-1.5 py-0.5 rounded bg-canvas border border-borderline text-ink font-mono text-[10px] cursor-pointer" data-on-change="setSlideMorphDuration(this.value)">
+                    <option value="450">0.45s (빠름)</option>
+                    <option value="650" selected>0.65s (표준)</option>
+                    <option value="900">0.90s (부드럽게)</option>
+                    <option value="1200">1.20s (시네마틱)</option>
+                  </select>
+                </label>
+                <button type="button" id="duplicateSlideMorphBtn" class="flex-1 py-1 px-2 rounded bg-gopro hover:bg-goproDark text-white font-extrabold cursor-pointer truncate" data-on-click="duplicateSlideForMorphTransition()" aria-label="현재 슬라이드를 복제해 모핑 전환 다음 장 생성" title="현재 슬라이드 요소에 모핑 ID를 자동 부여하고 다음 장으로 복제">+ 복제해 모핑 연결</button>
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-1">
               <button type="button" class="py-1 rounded bg-white border border-borderline font-bold text-[10px] cursor-pointer" data-on-click="previewCurrentSlideTransition()" aria-label="▶ 효과 미리보기" title="▶ 효과 미리보기">▶ 효과 미리보기</button>
@@ -1695,6 +1741,114 @@
           <div class="flex justify-between py-1 border-b border-borderline"><span>텍스트박스 생성 / 작업 반복</span><span class="font-mono font-bold">T (더블클릭) / F4</span></div>
           <div class="flex justify-between py-1"><span>순차 선택 / 관통 / 화면 이동</span><span class="font-mono font-bold">Tab / Alt+클릭 / Space+드래그</span></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MY CARD & FLOATING CARD PRESET LIBRARY MODAL (v5.7.1) -->
+  <div id="presetLibraryModal" style="z-index: 91;" class="fixed inset-0 bg-ink/60 backdrop-blur-xs hidden items-center justify-center p-4" data-on-click="if(event.target===this) closePresetLibraryModal()" role="dialog" aria-modal="true" aria-label="내 카드 및 플로팅 팝업 카드 프리셋 라이브러리">
+    <div class="bg-white border border-borderline rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-3 max-h-[86vh] flex flex-col">
+      <div class="flex items-center justify-between gap-2 shrink-0">
+        <div>
+          <span class="font-mono text-[10px] font-extrabold text-gopro uppercase">MY PRESET LIBRARY · REUSABLE COMPONENTS</span>
+          <h3 class="text-lg font-extrabold text-ink">내 카드 &amp; 플로팅 카드 프리셋 라이브러리</h3>
+        </div>
+        <button type="button" class="w-7 h-7 rounded-full bg-canvas border border-borderline font-bold text-xs cursor-pointer" data-on-click="closePresetLibraryModal()" aria-label="프리셋 라이브러리 닫기" title="닫기">✕</button>
+      </div>
+
+      <div class="p-3 rounded-xl bg-canvas border border-borderline space-y-2 shrink-0">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-bold">
+          <input id="presetNameInput" type="text" placeholder="프리셋 이름 (비우면 제목 자동 사용)" class="sm:col-span-2 px-2.5 py-1.5 rounded-lg bg-white border border-borderline text-ink focus:outline-none focus:border-gopro">
+          <select id="presetCategorySelect" class="px-2 py-1.5 rounded-lg bg-white border border-borderline cursor-pointer">
+            <option value="일반">카테고리: 일반</option>
+            <option value="커버·타이틀">카테고리: 커버·타이틀</option>
+            <option value="비교·데이터">카테고리: 비교·데이터</option>
+            <option value="미디어·쇼케이스">카테고리: 미디어·쇼케이스</option>
+            <option value="상세 팝업">카테고리: 상세 팝업</option>
+          </select>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" id="presetModalSaveCardBtn" class="px-3 py-1.5 rounded-xl bg-ink text-white text-xs font-extrabold cursor-pointer" data-on-click="saveSelectedCardAsPreset()" aria-label="현재 선택한 슬라이드 카드를 프리셋으로 저장" title="선택한 슬라이드 카드 저장">★ 선택 슬라이드 카드 저장</button>
+          <button type="button" id="presetModalSaveFcBtn" class="px-3 py-1.5 rounded-xl bg-gopro hover:bg-goproDark text-white text-xs font-extrabold cursor-pointer" data-on-click="saveCurrentFloatingCardAsPreset()" aria-label="현재 플로팅 팝업 카드를 프리셋으로 저장" title="현재 플로팅 팝업 카드 저장">🪟 현재 플로팅 카드 저장</button>
+          <span id="presetLibraryCountBadge" class="ml-auto font-mono text-[10px] font-bold text-muted px-2 py-0.5 rounded-full bg-white border border-borderline">0개 저장됨</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-bold shrink-0">
+        <button type="button" id="presetFilterBtn-all" class="px-2.5 py-1 rounded-lg bg-ink text-white cursor-pointer" data-on-click="setPresetLibraryFilter('all')" aria-label="전체 프리셋 보기" title="전체">전체</button>
+        <button type="button" id="presetFilterBtn-slide-card" class="px-2.5 py-1 rounded-lg bg-canvas border border-borderline text-ink cursor-pointer" data-on-click="setPresetLibraryFilter('slide-card')" aria-label="슬라이드 카드 프리셋만 보기" title="슬라이드 카드">슬라이드 카드</button>
+        <button type="button" id="presetFilterBtn-floating-card" class="px-2.5 py-1 rounded-lg bg-canvas border border-borderline text-ink cursor-pointer" data-on-click="setPresetLibraryFilter('floating-card')" aria-label="플로팅 팝업 카드 프리셋만 보기" title="플로팅 팝업 카드">플로팅 팝업 카드</button>
+        <input id="presetLibrarySearchInput" type="text" placeholder="이름·카테고리 검색..." class="ml-auto w-44 px-2.5 py-1 rounded-lg bg-canvas border border-borderline text-xs text-ink focus:outline-none focus:border-gopro" data-on-input="renderPresetLibraryModal()">
+      </div>
+
+      <div id="presetLibraryListContainer" class="flex-1 min-h-[180px] overflow-y-auto safe-scroll space-y-1.5 pr-1 text-xs"></div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-borderline text-[11px] font-bold shrink-0">
+        <div class="flex items-center gap-1.5">
+          <button type="button" id="exportPresetLibBtn" class="px-2.5 py-1.5 rounded-lg bg-canvas hover:border-gopro border border-borderline text-ink cursor-pointer" data-on-click="exportPresetLibraryJson()" aria-label="프리셋 라이브러리 JSON 내보내기" title="PC·스마트패드 공유용 JSON 백업">내보내기 (.json)</button>
+          <button type="button" id="importPresetLibBtn" class="px-2.5 py-1.5 rounded-lg bg-canvas hover:border-gopro border border-borderline text-ink cursor-pointer" data-on-click="triggerImportPresetLibraryJson()" aria-label="프리셋 라이브러리 JSON 불러오기" title="JSON 파일에서 프리셋 가져오기">불러오기 (.json)</button>
+        </div>
+        <button type="button" class="px-3.5 py-1.5 rounded-lg bg-ink text-white text-xs font-bold cursor-pointer" data-on-click="closePresetLibraryModal()" aria-label="닫기" title="닫기">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEDIA ASSET MANAGER & WEBP BATCH OPTIMIZER MODAL (v5.7.0) -->
+  <div id="mediaAssetManagerModal" style="z-index: 91;" class="fixed inset-0 bg-ink/60 backdrop-blur-xs hidden items-center justify-center p-4" data-on-click="if(event.target===this) closeMediaAssetManagerModal()" role="dialog" aria-modal="true" aria-label="미디어 에셋 매니저 및 WebP 일괄 경량화">
+    <div class="bg-white border border-borderline rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-3 max-h-[86vh] flex flex-col">
+      <div class="flex items-center justify-between gap-2 shrink-0">
+        <div>
+          <span class="font-mono text-[10px] font-extrabold text-gopro uppercase">MEDIA ASSET MANAGER · WEBP OPTIMIZER</span>
+          <h3 class="text-lg font-extrabold text-ink">미디어 에셋 매니저 &amp; WebP 일괄 경량화</h3>
+        </div>
+        <button type="button" class="w-7 h-7 rounded-full bg-canvas border border-borderline font-bold text-xs cursor-pointer" data-on-click="closeMediaAssetManagerModal()" aria-label="에셋 매니저 닫기" title="닫기">✕</button>
+      </div>
+
+      <div id="mediaAssetSummaryBar" class="p-3 rounded-xl bg-canvas border border-borderline flex flex-wrap items-center justify-between gap-2 text-xs font-bold shrink-0">
+        <span id="mediaAssetSummaryText" class="text-ink">에셋 스캔 중...</span>
+        <span id="mediaAssetWebpSupportBadge" class="font-mono text-[10px] px-2 py-0.5 rounded-full bg-white border border-borderline text-gopro">WebP 확인중</span>
+      </div>
+
+      <div class="p-3 rounded-xl bg-canvas border border-borderline space-y-2 shrink-0">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-bold">
+          <label class="flex flex-col gap-1">
+            <span class="font-mono text-[10px] text-muted">압축 프리셋 (신규 삽입 기본값 연동)</span>
+            <select id="mediaOptPresetSelect" class="px-2 py-1.5 rounded-lg bg-white border border-borderline cursor-pointer" data-on-change="onMediaOptPresetSelectChange(this.value)">
+              <option value="high">고화질 (1920px · 90%)</option>
+              <option value="standard" selected>표준 WebP (1440px · 82%)</option>
+              <option value="compact">초경량 (1080px · 72%)</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="font-mono text-[10px] text-muted">일괄 리사이즈 최대 폭/높이</span>
+            <select id="mediaOptMaxDimSelect" class="px-2 py-1.5 rounded-lg bg-white border border-borderline cursor-pointer">
+              <option value="1920">1920px (FHD 고화질)</option>
+              <option value="1440" selected>1440px (슬라이드 1:1 권장)</option>
+              <option value="1080">1080px (경량 발표용)</option>
+              <option value="800">800px (최소 용량)</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="font-mono text-[10px] text-muted">출력 포맷 &amp; 품질</span>
+            <select id="mediaOptFormatSelect" class="px-2 py-1.5 rounded-lg bg-white border border-borderline cursor-pointer">
+              <option value="webp" selected>WebP (투명 유지 · 최소 용량)</option>
+              <option value="jpeg">JPEG/PNG 호환 모드</option>
+            </select>
+          </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <button type="button" id="runBatchMediaOptBtn" class="px-3.5 py-2 rounded-xl bg-gopro hover:bg-goproDark text-white text-xs font-extrabold cursor-pointer" data-on-click="runBatchImageOptimization()" aria-label="전체 이미지 일괄 WebP 경량화 실행" title="전체 이미지 일괄 WebP 경량화 실행">⚡ 전체 이미지 일괄 경량화</button>
+          <button type="button" id="cleanupOrphanFcBtn" class="px-3 py-2 rounded-xl bg-white hover:border-rose-500 border border-borderline text-xs font-bold text-ink cursor-pointer" data-on-click="cleanupOrphanFloatingCards()" aria-label="미연결 플로팅 카드 정리" title="어느 슬라이드에도 연결되지 않은 미사용 플로팅 카드 삭제">🧹 미사용 팝업 카드 정리 (<span id="orphanFcCountBadge">0</span>)</button>
+          <button type="button" class="ml-auto px-2.5 py-1.5 rounded-lg bg-white border border-borderline text-[11px] font-bold text-muted hover:text-ink cursor-pointer" data-on-click="renderMediaAssetManagerModal()" aria-label="에셋 목록 새로고침" title="새로고침">↻ 재스캔</button>
+        </div>
+        <div id="mediaAssetOptResultBanner" class="hidden px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800"></div>
+      </div>
+
+      <div id="mediaAssetListContainer" class="flex-1 min-h-[160px] overflow-y-auto safe-scroll space-y-1.5 pr-1 text-xs"></div>
+
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-borderline text-[10px] text-muted shrink-0">
+        <span>* 일괄 최적화 직전 자동 히스토리가 저장되어 Ctrl+Z로 원본 복원이 가능합니다. PPTX 내보내기 시 WebP는 자동 호환 변환됩니다.</span>
+        <button type="button" class="px-3 py-1.5 rounded-lg bg-ink text-white text-xs font-bold cursor-pointer shrink-0" data-on-click="closeMediaAssetManagerModal()" aria-label="닫기" title="닫기">닫기</button>
       </div>
     </div>
   </div>

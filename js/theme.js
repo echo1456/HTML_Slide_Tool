@@ -466,7 +466,7 @@ function initBgUploaderListener() {
     reader.onload = function (ev) {
       const imgObj = new Image();
       imgObj.onload = function () {
-        const maxDim = 1920;
+        const maxDim = Math.max(480, (typeof getPreferredImageCompressionOptions === 'function' ? getPreferredImageCompressionOptions().maxDim : 1440));
         let w = imgObj.width;
         let h = imgObj.height;
         if (w > maxDim || h > maxDim) {
@@ -482,8 +482,9 @@ function initBgUploaderListener() {
         canvas.width = w;
         canvas.height = h;
         canvas.getContext('2d').drawImage(imgObj, 0, 0, w, h);
-        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-        const dataUrl = canvas.toDataURL(mime, 0.88);
+        const dataUrl = (typeof encodeCanvasToOptimizedDataUrl === 'function')
+          ? encodeCanvasToOptimizedDataUrl(canvas, file.type)
+          : canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.88);
 
         if (bgUploadTarget === 'card' && getTargetCardForHierarchy()) {
           const card = getTargetCardForHierarchy();

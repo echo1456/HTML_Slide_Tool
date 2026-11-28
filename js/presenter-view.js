@@ -6,14 +6,17 @@ function updateCurrentSlideSpeakerNotes(val, isLiveInput) {
   syncPresenterWindowState(); if (!isLiveInput) saveHistorySnapshot('발표자 노트 수정');
 }
 function syncSpeakerNotesUI() { const activeSlideEl = slides[currentSlide - 1], ta = $studio('speakerNotesTextarea'); if (ta) ta.value = activeSlideEl ? (activeSlideEl.getAttribute('data-speaker-notes') || '') : ''; }
-function cloneSlideForPresenterPreview(srcSlideEl, targetDoc) {
+function cloneSlideForPresenterPreview(srcSlideEl, targetDoc, isNextPreview) {
   if (!srcSlideEl || !targetDoc) return null;
   const cloned = targetDoc.importNode(srcSlideEl, true);
   cloned.removeAttribute('id');
   cloned.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
   cloned.querySelectorAll('[contenteditable]').forEach(n => n.removeAttribute('contenteditable'));
   cloned.querySelectorAll('.card-edit-controls, .img-edit-overlay, .sub-box-del-btn, .card-media-controls, .table-col-resizer, .table-row-resizer, .embed-widget-drag-bar, .iw-edit-bar, .ppt-persistent-guide, .yt-local-hint-bar, .ppt-slide-comment-badge').forEach(n => n.remove());
-  cloned.querySelectorAll('.ppt-multi-selected, .is-selected').forEach(n => n.classList.remove('ppt-multi-selected', 'is-selected'));
+  cloned.querySelectorAll('.ppt-multi-selected, .is-selected, .anim-preview-playing').forEach(n => n.classList.remove('ppt-multi-selected', 'is-selected', 'anim-preview-playing'));
+  if (isNextPreview) {
+    cloned.querySelectorAll('.build-step-pending, .build-step-revealed').forEach(n => n.classList.remove('build-step-pending', 'build-step-revealed'));
+  }
   // Prevent double audio/video playback & external iframe reload inside Presenter View
   cloned.querySelectorAll('video, audio').forEach(m => {
     m.removeAttribute('autoplay');
@@ -333,7 +336,7 @@ function syncPresenterWindowState() {
   const nextSec = doc.getElementById('pvNextSecTag');
   if (nextSec) nextSec.textContent = nextSlideEl ? `P.${String(nextIdx).padStart(2, '0')} · ${nextSlideEl.getAttribute('data-section') || ''}` : 'END OF DECK';
 
-  const mountVisual = (boxId, srcSlideEl, emptyText) => {
+  const mountVisual = (boxId, srcSlideEl, emptyText, isNextPreview) => {
     const box = doc.getElementById(boxId);
     if (!box) return;
     box.innerHTML = '';
@@ -346,13 +349,13 @@ function syncPresenterWindowState() {
     }
     const holder = doc.createElement('div');
     holder.className = 'pv-slide-holder';
-    const previewSlide = cloneSlideForPresenterPreview(srcSlideEl, doc);
+    const previewSlide = cloneSlideForPresenterPreview(srcSlideEl, doc, Boolean(isNextPreview));
     if (previewSlide) holder.appendChild(previewSlide);
     box.appendChild(holder);
   };
 
-  mountVisual('pvCurrentVisualBox', curSlideEl, '(슬라이드 없음)');
-  mountVisual('pvNextVisualBox', nextSlideEl, '마지막 슬라이드입니다 (END)');
+  mountVisual('pvCurrentVisualBox', curSlideEl, '(슬라이드 없음)', false);
+  mountVisual('pvNextVisualBox', nextSlideEl, '마지막 슬라이드입니다 (END)', true);
   fitPresenterPreviewFrames(doc);
   if (presenterPopupWin && typeof presenterPopupWin.requestAnimationFrame === 'function') {
     presenterPopupWin.requestAnimationFrame(() => fitPresenterPreviewFrames(doc));

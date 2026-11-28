@@ -98,7 +98,7 @@ function detachElementToFreeLayer(el, silentBatch) {
       const v = el.style.getPropertyValue(vName);
       if (v) freeBox.style.setProperty(vName, v);
     });
-    ['data-card-bg-hex', 'data-card-bg-alpha', 'data-hover-bg-hex', 'data-hover-bg-alpha', 'data-fx', 'data-fx-basis', 'data-fx-shadow', 'data-fx-border', 'data-floating-card-id', 'data-floating-card-ids', 'data-floating-card-mode', 'data-goto-slide', 'data-goto-url', 'data-layer-name'].forEach(attr => {
+    ['data-card-bg-hex', 'data-card-bg-alpha', 'data-hover-bg-hex', 'data-hover-bg-alpha', 'data-fx', 'data-fx-basis', 'data-fx-shadow', 'data-fx-border', 'data-floating-card-id', 'data-floating-card-ids', 'data-floating-card-mode', 'data-goto-slide', 'data-goto-url', 'data-layer-name', 'data-morph-id', 'data-build-order', 'data-anim'].forEach(attr => {
       if (el.hasAttribute(attr)) freeBox.setAttribute(attr, el.getAttribute(attr));
     });
 
@@ -1005,6 +1005,7 @@ function selectElementForInspector(el, additive) {
   if (typeof syncElementRadiusUI === 'function') syncElementRadiusUI(selectedElement);
   if (typeof syncImageAdjustmentInspectorUI === 'function') syncImageAdjustmentInspectorUI(selectedElement);
   if (typeof syncBuildOrderUI === 'function') syncBuildOrderUI(selectedElement);
+  if (typeof syncMorphInspectorUI === 'function') syncMorphInspectorUI(selectedElement);
   if (typeof syncToolbarWithTarget === 'function') {
     const textCandidate = selectedElement.hasAttribute('data-editable') ? selectedElement : selectedElement.querySelector('[data-editable]');
     if (textCandidate) syncToolbarWithTarget(textCandidate);
@@ -1084,6 +1085,7 @@ function positionSelectionOverlay() {
 
 function clearSelectionInspector() {
   selectedElement = null;
+  if (typeof syncMorphInspectorUI === 'function') syncMorphInspectorUI(null);
   selectedElements = [];
   syncMultiSelectVisuals();
   const overlay = document.getElementById('pptSelectionOverlay');
@@ -1202,7 +1204,9 @@ function duplicateSelectedElement() {
     clone.classList.remove('ppt-multi-selected', 'is-selected');
     clone.removeAttribute('id');
     clone.removeAttribute('data-layer-locked');
+    clone.removeAttribute('data-morph-id');
     clone.querySelectorAll('[data-layer-locked]').forEach(n => n.removeAttribute('data-layer-locked'));
+    clone.querySelectorAll('[data-morph-id]').forEach(n => n.removeAttribute('data-morph-id'));
     clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
     clone.querySelectorAll('[data-chart-uid]').forEach(c => c.setAttribute('data-chart-uid', 'chart_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)));
     if (clone.hasAttribute('data-chart-uid')) clone.setAttribute('data-chart-uid', 'chart_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
@@ -1264,6 +1268,8 @@ function duplicateSelectedElement() {
   selectedElement = newClones[newClones.length - 1] || null;
   syncMultiSelectVisuals();
   positionSelectionOverlay();
+  if (typeof syncBuildOrderUI === 'function') syncBuildOrderUI(selectedElement);
+  if (typeof syncMorphInspectorUI === 'function') syncMorphInspectorUI(selectedElement);
   saveHistorySnapshot('요소 복제');
   showToast(newClones.length > 1 ? `${newClones.length}개 그룹 요소가 복제되었습니다.` : '선택한 요소가 복제되었습니다.');
 }
@@ -1323,6 +1329,8 @@ function deleteSelectedElement() {
   clearSelectionInspector();
   if (typeof refreshLayerList === 'function') refreshLayerList();
   if (typeof updateSlideConnectors === 'function') updateSlideConnectors();
+  if (typeof syncBuildOrderUI === 'function') syncBuildOrderUI(null);
+  if (typeof syncMorphInspectorUI === 'function') syncMorphInspectorUI(null);
   saveHistorySnapshot('요소 삭제');
   if (unwrappedFx) {
     showToast('텍스트에 적용된 반응형 효과만 해제되었고 텍스트는 보존되었습니다.');
@@ -1715,6 +1723,12 @@ async function pasteCopiedElements(allowSystemClipboardRead) {
     wrapper.innerHTML = safeItemHtml;
     const node = wrapper.firstElementChild;
     if (!node) return;
+    [node, ...Array.from(node.querySelectorAll('[data-morph-id]'))].forEach(mEl => {
+      const mid = mEl.getAttribute && mEl.getAttribute('data-morph-id');
+      if (mid && activeSlideEl.querySelector(`[data-morph-id="${mid.replace(/"/g, '')}"]`)) {
+        mEl.removeAttribute('data-morph-id');
+      }
+    });
     node.classList.remove('ppt-multi-selected', 'is-selected');
     node.removeAttribute('id');
     node.removeAttribute('data-layer-locked');
@@ -1857,6 +1871,8 @@ async function pasteCopiedElements(allowSystemClipboardRead) {
     syncInspectorGeometry(selectedElement);
     if (typeof updateContextualTopBar === 'function') updateContextualTopBar(selectedElement);
     refreshLayerList();
+    if (typeof syncBuildOrderUI === 'function') syncBuildOrderUI(selectedElement);
+    if (typeof syncMorphInspectorUI === 'function') syncMorphInspectorUI(selectedElement);
     saveHistorySnapshot('요소 붙여넣기');
     showToast(`📌 요소 ${pastedNodes.length}개가 붙여넣어졌습니다!`);
   }

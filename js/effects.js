@@ -462,7 +462,8 @@ const TRANSITION_LABELS = {
   'slide-left': '가로 슬라이드',
   'slide-up': '세로 슬라이드',
   'zoom': '줌 인',
-  'flip': '3D 플립'
+  'flip': '3D 플립',
+  'morph': '✨ 모핑(Magic Move)'
 };
 
 function setSlideTransition(effectType) {
@@ -488,11 +489,14 @@ function syncTransitionUI() {
   if (badge) badge.textContent = TRANSITION_LABELS[cur] || '기본';
   const rootDoc = (studioPopupWin && !studioPopupWin.closed) ? studioPopupWin.document : document;
   rootDoc.querySelectorAll('.trans-preset-btn').forEach(btn => {
+    const isMorphBtn = btn.getAttribute('data-trans') === 'morph';
     const isMatch = btn.getAttribute('data-trans') === cur;
+    const spanCls = isMorphBtn ? ' col-span-3' : '';
     btn.className = isMatch
-      ? 'trans-preset-btn py-1.5 px-1 rounded bg-gopro text-white font-bold cursor-pointer'
-      : 'trans-preset-btn py-1.5 px-1 rounded bg-white border border-borderline hover:border-gopro cursor-pointer';
+      ? `trans-preset-btn${spanCls} py-1.5 px-1 rounded bg-gopro text-white font-bold cursor-pointer`
+      : `trans-preset-btn${spanCls} py-1.5 px-1 rounded bg-white border border-borderline hover:border-gopro cursor-pointer`;
   });
+  if (typeof syncMorphInspectorUI === 'function') syncMorphInspectorUI(typeof selectedElement !== 'undefined' ? selectedElement : null);
 }
 
 let __transitionPreviewTimer = null;
@@ -500,8 +504,25 @@ function previewCurrentSlideTransition() {
   const activeSlideEl = slides[currentSlide - 1];
   if (!activeSlideEl) return;
   const targetSlideNum = currentSlide;
-  if (activeSlideEl.getAttribute('data-transition') === 'none') {
+  const transType = activeSlideEl.getAttribute('data-transition') || '';
+  if (transType === 'none') {
     showToast('현재 슬라이드는 "효과 없음" 상태입니다. 다른 전환 효과를 선택한 뒤 미리보기해 주세요.');
+    return;
+  }
+  if (transType === 'morph') {
+    const prevSlideEl = currentSlide > 1 ? slides[currentSlide - 2] : null;
+    if (!prevSlideEl) {
+      showToast('모핑 전환 미리보기는 2번 슬라이드 이상에서 이전 슬라이드와 비교해 재생됩니다.');
+      return;
+    }
+    const snap = captureMorphSnapshots(prevSlideEl);
+    const dur = Math.max(200, Math.min(2500, parseInt(activeSlideEl.getAttribute('data-morph-duration') || '650', 10) || 650));
+    const stats = playMorphTransition(prevSlideEl, activeSlideEl, snap, dur, currentSlide - 1, currentSlide);
+    if (!stats || stats.matchedIds.length === 0) {
+      showToast('이전 슬라이드와 동일한 모핑 ID를 가진 요소가 없습니다. [+ 복제해 모핑 연결]을 사용해 보세요.');
+    } else {
+      showToast(`✨ 모핑 미리보기 재생 (${stats.matchedIds.length}개 요소 연결됨 · ${(dur / 1000).toFixed(2)}s)`);
+    }
     return;
   }
   if (__transitionPreviewTimer) { clearTimeout(__transitionPreviewTimer); __transitionPreviewTimer = null; }
@@ -518,14 +539,295 @@ function previewCurrentSlideTransition() {
   }, 45);
 }
 
+/* ==================== MORPH TRANSITION ENGINE (MAGIC MOVE — v5.8.0) ==================== */
+function sanitizeMorphIdValue(raw) {
+  return String(raw || '').trim().replace(/[^a-zA-Z0-9_가-힣-]/g, '').slice(0, 28);
+}
+
+function parseElementRotateDeg(el) {
+  if (!el) return 0;
+  const attrRot = parseFloat(el.getAttribute('data-rotate') || '');
+  if (Number.isFinite(attrRot)) return attrRot;
+  const t = (el.style && el.style.transform) ? el.style.transform : '';
+  const m = t.match(/rotate\(\s*(-?\d+(?:\.\d+)?)deg\s*\)/i);
+  return m ? (parseFloat(m[1]) || 0) : 0;
+}
+
+function captureMorphSnapshots(slideEl) {
+  const map = new Map();
+  if (!slideEl) return map;
+  const scale = (typeof getStageScale === 'function' && getStageScale() > 0) ? getStageScale() : 1;
+  const wasInactive = !slideEl.classList.contains('active');
+  let prevInlineTransform = '';
+  let hadInstantReset = false;
+  if (wasInactive) {
+    hadInstantReset = slideEl.classList.contains('transition-instant-reset');
+    prevInlineTransform = slideEl.style.transform;
+    slideEl.classList.add('transition-instant-reset');
+    if (document.body.classList.contains('scaled-stage')) {
+      slideEl.style.setProperty('transform', 'translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px))) scale(var(--stage-scale, 1))', 'important');
+    } else {
+      slideEl.style.setProperty('transform', 'none', 'important');
+    }
+    void slideEl.offsetWidth;
+  }
+  try {
+  slideEl.querySelectorAll('[data-morph-id]').forEach(el => {
+    const id = sanitizeMorphIdValue(el.getAttribute('data-morph-id'));
+    if (!id || map.has(id)) return;
+    if (el.getAttribute('data-layer-hidden') === 'true' || el.style.display === 'none' || el.style.visibility === 'hidden') return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const cs = window.getComputedStyle(el);
+    const localW = Math.max(1, el.offsetWidth || (rect.width / scale));
+    const localH = Math.max(1, el.offsetHeight || (rect.height / scale));
+    const op = parseFloat(cs.opacity);
+    map.set(id, {
+      id,
+      cx: rect.left + rect.width / 2,
+      cy: rect.top + rect.height / 2,
+      w: localW,
+      h: localH,
+      opacity: Number.isFinite(op) ? op : 1,
+      borderRadius: cs.borderRadius || el.style.borderRadius || '0px',
+      rot: parseElementRotateDeg(el)
+    });
+  });
+  } finally {
+    if (wasInactive) {
+      if (prevInlineTransform) slideEl.style.transform = prevInlineTransform;
+      else slideEl.style.removeProperty('transform');
+      if (!hadInstantReset) slideEl.classList.remove('transition-instant-reset');
+    }
+  }
+  return map;
+}
+
+function playMorphTransition(prevSlideEl, nextSlideEl, srcMap, durationMs, fromNum, toNum) {
+  const matchedIds = [];
+  const dur = Math.max(200, Math.min(2500, Number(durationMs) || 650));
+  if (!nextSlideEl || !(srcMap instanceof Map) || srcMap.size === 0) {
+    window.__lastMorphTransitionStats = { from: fromNum || 0, to: toNum || 0, matchedIds, duration: dur };
+    return window.__lastMorphTransitionStats;
+  }
+
+  nextSlideEl.style.setProperty('--morph-dur', `${(dur / 1000).toFixed(2)}s`);
+  const scale = (typeof getStageScale === 'function' && getStageScale() > 0) ? getStageScale() : 1;
+  const dstNodes = Array.from(nextSlideEl.querySelectorAll('[data-morph-id]'));
+  const usedIds = new Set();
+
+  dstNodes.forEach(dstEl => {
+    const id = sanitizeMorphIdValue(dstEl.getAttribute('data-morph-id'));
+    if (!id || usedIds.has(id) || !srcMap.has(id)) return;
+    if (dstEl.classList.contains('build-step-pending')) return;
+    if (dstEl.getAttribute('data-layer-hidden') === 'true' || dstEl.style.display === 'none' || dstEl.style.visibility === 'hidden') return;
+    const src = srcMap.get(id);
+    const dstRect = dstEl.getBoundingClientRect();
+    if (dstRect.width <= 0 || dstRect.height <= 0) return;
+    usedIds.add(id);
+
+    if (dstEl.__activeMorphAnim) {
+      try { dstEl.__activeMorphAnim.cancel(); } catch (e) {}
+      dstEl.__activeMorphAnim = null;
+    }
+
+    const dstCx = dstRect.left + dstRect.width / 2;
+    const dstCy = dstRect.top + dstRect.height / 2;
+    const dstW = Math.max(1, dstEl.offsetWidth || (dstRect.width / scale));
+    const dstH = Math.max(1, dstEl.offsetHeight || (dstRect.height / scale));
+
+    const dx = (src.cx - dstCx) / scale;
+    const dy = (src.cy - dstCy) / scale;
+    const sx = Math.max(0.05, Math.min(20, src.w / dstW));
+    const sy = Math.max(0.05, Math.min(20, src.h / dstH));
+    const dstOffX = parseFloat(dstEl.getAttribute('data-offset-x') || '0') || 0;
+    const dstOffY = parseFloat(dstEl.getAttribute('data-offset-y') || '0') || 0;
+    const dstRot = parseElementRotateDeg(dstEl);
+    const dstCs = window.getComputedStyle(dstEl);
+    const dstOp = Number.isFinite(parseFloat(dstCs.opacity)) ? parseFloat(dstCs.opacity) : 1;
+    const dstRadius = dstCs.borderRadius || dstEl.style.borderRadius || '0px';
+
+    const fromTransform = `translate(${(dstOffX + dx).toFixed(2)}px, ${(dstOffY + dy).toFixed(2)}px) rotate(${src.rot}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+    const toTransform = `translate(${dstOffX.toFixed(2)}px, ${dstOffY.toFixed(2)}px) rotate(${dstRot}deg) scale(1, 1)`;
+
+    matchedIds.push(id);
+
+    if (typeof dstEl.animate === 'function') {
+      try {
+        const anim = dstEl.animate(
+          [
+            { transform: fromTransform, opacity: src.opacity, borderRadius: src.borderRadius },
+            { transform: toTransform, opacity: dstOp, borderRadius: dstRadius }
+          ],
+          { duration: dur, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'none' }
+        );
+        dstEl.__activeMorphAnim = anim;
+        const clearRef = () => { if (dstEl.__activeMorphAnim === anim) dstEl.__activeMorphAnim = null; };
+        anim.onfinish = clearRef;
+        anim.oncancel = clearRef;
+      } catch (e) {}
+    } else {
+      const prevTrans = dstEl.style.transition;
+      const prevTransform = dstEl.style.transform;
+      dstEl.style.transition = 'none';
+      dstEl.style.transform = fromTransform;
+      void dstEl.offsetWidth;
+      dstEl.style.transition = `transform ${dur}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+      dstEl.style.transform = prevTransform;
+      setTimeout(() => { dstEl.style.transition = prevTrans; }, dur + 40);
+    }
+  });
+
+  window.__lastMorphTransitionStats = {
+    from: fromNum || 0,
+    to: toNum || 0,
+    matchedIds,
+    duration: dur
+  };
+  return window.__lastMorphTransitionStats;
+}
+
+function getMorphableTargetElement() {
+  if (typeof selectedElement !== 'undefined' && selectedElement && document.body.contains(selectedElement) && !selectedElement.closest('#fcRichBodyEditor') && !selectedElement.classList.contains('slide')) {
+    return selectedElement;
+  }
+  return null;
+}
+
+function applyMorphIdToSelected(explicitRaw) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const el = getMorphableTargetElement();
+  if (!el) {
+    showToast('먼저 모핑 ID를 지정할 카드·도형·이미지·텍스트를 선택해 주세요.');
+    return;
+  }
+  if (el.getAttribute('data-layer-locked') === 'true') {
+    showToast('잠긴 레이어에는 모핑 ID를 변경할 수 없습니다.');
+    return;
+  }
+  const inp = $studio('morphIdInput');
+  const raw = explicitRaw !== undefined ? explicitRaw : (inp ? inp.value : '');
+  const cleanId = sanitizeMorphIdValue(raw) || ('m_' + Date.now().toString(36).slice(-4));
+  el.setAttribute('data-morph-id', cleanId);
+  if (inp) inp.value = cleanId;
+  syncMorphInspectorUI(el);
+  saveHistorySnapshot(`모핑 ID 지정 (${cleanId})`);
+  showToast(`◈ 모핑 ID "${cleanId}"가 지정되었습니다. 이전/다음 슬라이드 요소에 같은 ID를 지정하면 모핑 전환됩니다.`);
+}
+
+function clearMorphIdFromSelected() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const el = getMorphableTargetElement();
+  if (!el) return;
+  if (el.getAttribute('data-layer-locked') === 'true') return;
+  el.removeAttribute('data-morph-id');
+  const inp = $studio('morphIdInput');
+  if (inp) inp.value = '';
+  syncMorphInspectorUI(el);
+  saveHistorySnapshot('모핑 ID 해제');
+  showToast('선택한 요소의 모핑 ID가 해제되었습니다.');
+}
+
+function setSlideMorphDuration(msVal) {
+  const activeSlideEl = slides[currentSlide - 1];
+  if (!activeSlideEl) return;
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const dur = Math.max(200, Math.min(2500, parseInt(msVal, 10) || 650));
+  activeSlideEl.setAttribute('data-morph-duration', String(dur));
+  saveHistorySnapshot(`모핑 속도 변경 (${dur}ms)`);
+}
+
+function countMatchedMorphPairsWithPrevSlide(slideIdx) {
+  if (slideIdx <= 0 || !slides[slideIdx] || !slides[slideIdx - 1]) return 0;
+  const prevIds = new Set();
+  slides[slideIdx - 1].querySelectorAll('[data-morph-id]').forEach(el => {
+    const id = sanitizeMorphIdValue(el.getAttribute('data-morph-id'));
+    if (id) prevIds.add(id);
+  });
+  let count = 0;
+  const seen = new Set();
+  slides[slideIdx].querySelectorAll('[data-morph-id]').forEach(el => {
+    const id = sanitizeMorphIdValue(el.getAttribute('data-morph-id'));
+    if (id && prevIds.has(id) && !seen.has(id)) {
+      seen.add(id);
+      count++;
+    }
+  });
+  return count;
+}
+
+function syncMorphInspectorUI(el) {
+  const inp = $studio('morphIdInput');
+  if (inp) {
+    const target = (el && !el.closest('#fcRichBodyEditor') && !el.classList.contains('slide')) ? el : null;
+    inp.value = target ? (target.getAttribute('data-morph-id') || '') : '';
+  }
+  const activeSlideEl = slides[currentSlide - 1];
+  const durSel = $studio('morphDurationSelect');
+  if (durSel && activeSlideEl) {
+    const dur = activeSlideEl.getAttribute('data-morph-duration') || '650';
+    durSel.value = ['450', '650', '900', '1200'].includes(dur) ? dur : '650';
+  }
+  const badge = $studio('morphMatchStatusBadge');
+  if (badge) {
+    const curIdx = currentSlide - 1;
+    const matched = countMatchedMorphPairsWithPrevSlide(curIdx);
+    const totalHere = activeSlideEl ? activeSlideEl.querySelectorAll('[data-morph-id]').length : 0;
+    badge.textContent = matched > 0 ? `이전 장과 ${matched}개 연결` : (totalHere > 0 ? `ID ${totalHere}개 (대기)` : '연결 0개');
+    badge.className = matched > 0
+      ? 'font-mono text-[9px] font-extrabold text-emerald-700'
+      : 'font-mono text-[9px] font-bold text-muted';
+  }
+}
+
+function duplicateSlideForMorphTransition() {
+  const activeSlideEl = slides[currentSlide - 1];
+  if (!activeSlideEl) return;
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+
+  // Auto-assign deterministic morph IDs to unlocked top-level morphable elements on source slide
+  const morphCandidates = Array.from(activeSlideEl.querySelectorAll('.slide-header-bar, .slide-card, .ppt-free-obj'));
+  const existingIds = new Set();
+  activeSlideEl.querySelectorAll('[data-morph-id]').forEach(el => {
+    const id = sanitizeMorphIdValue(el.getAttribute('data-morph-id'));
+    if (id) existingIds.add(id);
+  });
+  let seq = 1;
+  morphCandidates.forEach(el => {
+    if (el.getAttribute('data-morph-id')) return;
+    if (el.getAttribute('data-layer-hidden') === 'true' || el.getAttribute('data-layer-locked') === 'true') return;
+    while (existingIds.has(`m${seq}`)) seq++;
+    const assigned = `m${seq++}`;
+    existingIds.add(assigned);
+    el.setAttribute('data-morph-id', assigned);
+  });
+
+  if (typeof duplicateCurrentSlide === 'function') {
+    duplicateCurrentSlide();
+    const newSlideEl = slides[currentSlide - 1];
+    if (newSlideEl) {
+      newSlideEl.setAttribute('data-transition', 'morph');
+      if (!newSlideEl.getAttribute('data-morph-duration')) {
+        newSlideEl.setAttribute('data-morph-duration', '650');
+      }
+      syncTransitionUI();
+      saveHistorySnapshot('모핑 전환용 슬라이드 복제 연결');
+      showToast('✨ 슬라이드가 복제되어 모핑 전환이 연결되었습니다! 요소 위치·크기·색상을 바꿔 보세요.');
+    }
+  }
+}
+
 function applyTransitionToAllSlides() {
   const activeSlideEl = slides[currentSlide - 1];
   if (!activeSlideEl) return;
   const cur = activeSlideEl.getAttribute('data-transition');
+  const curMorphDur = activeSlideEl.getAttribute('data-morph-duration') || '650';
   slides.forEach(s => {
     if (s.getAttribute('data-slide-locked') === 'true') return;
     if (cur) s.setAttribute('data-transition', cur);
     else s.removeAttribute('data-transition');
+    if (cur === 'morph') s.setAttribute('data-morph-duration', curMorphDur);
+    else s.removeAttribute('data-morph-duration');
   });
   saveHistorySnapshot();
   showToast(`모든 슬라이드에 "${TRANSITION_LABELS[cur || ''] || '기본'}" 트랜지션이 적용되었습니다.`);
@@ -593,7 +895,7 @@ function setElementBuildOrder(rawStep) {
   const activeSlideEl = slides[currentSlide - 1];
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const rawTargets = (selectedElements && selectedElements.length > 0) ? selectedElements : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []);
-  const targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true');
+  const targets = rawTargets.filter(el => el && !(el.closest && el.closest('#fcRichBodyEditor')) && el.getAttribute('data-layer-locked') !== 'true');
   if (targets.length === 0) return;
   const stepNum = Math.max(0, Math.min(30, parseInt(rawStep, 10) || 0));
   targets.forEach(t => { if (stepNum <= 0) t.removeAttribute('data-build-order'); else t.setAttribute('data-build-order', String(stepNum)); });
@@ -605,19 +907,307 @@ function clearSlideBuildOrders() {
   activeSlideEl.querySelectorAll('[data-build-order]').forEach(el => { el.removeAttribute('data-build-order'); el.classList.remove('build-step-pending', 'build-step-revealed'); cleared++; });
   syncBuildOrderUI(selectedElement); if (cleared > 0) saveHistorySnapshot('슬라이드 등장 순서 일괄 해제');
 }
+let __dragBuildTimelineIdx = -1;
+let __buildSeqPreviewTimers = [];
+
+function getOrderedBuildElementsForSlide(slideEl) {
+  if (!slideEl) return [];
+  return Array.from(slideEl.querySelectorAll('[data-build-order]'))
+    .map((el, domIdx) => ({
+      el,
+      domIdx,
+      step: Math.max(1, Math.min(30, parseInt(el.getAttribute('data-build-order') || '1', 10) || 1)),
+      delay: Math.max(0, Math.min(5, parseFloat((el.style.getPropertyValue('--anim-delay') || '0').replace('s', '')) || 0)),
+      anim: el.getAttribute('data-anim') || ''
+    }))
+    .sort((a, b) => (a.step - b.step) || (a.domIdx - b.domIdx));
+}
+
+function getBuildElementDisplayLabel(el, fallbackIdx) {
+  if (!el) return `요소 ${fallbackIdx + 1}`;
+  const customName = (el.getAttribute('data-layer-name') || '').trim();
+  if (customName) return customName.slice(0, 22);
+  if (el.classList.contains('ppt-interactive-widget') && typeof getInteractiveWidgetDisplayName === 'function') {
+    return getInteractiveWidgetDisplayName(el).slice(0, 22);
+  }
+  if (el.classList.contains('ppt-chart-widget')) {
+    const h = el.querySelector('h4');
+    return (h && h.textContent.trim() ? h.textContent.trim() : '차트·표').slice(0, 22);
+  }
+  const h = el.querySelector && el.querySelector('h1, h2, h3, h4, p, .shape-inner-text');
+  const txt = ((h ? h.textContent : el.textContent) || '').replace(/\s+/g, ' ').trim();
+  if (txt) return txt.slice(0, 22);
+  if (el.classList.contains('slide-header-bar')) return '상단 타이틀 바';
+  if (el.classList.contains('slide-card')) return `슬라이드 카드 ${fallbackIdx + 1}`;
+  const st = el.getAttribute('data-shape-type');
+  return st ? `도형 (${st})` : `요소 ${fallbackIdx + 1}`;
+}
+
+function renderBuildOrderTimeline() {
+  const listEl = $studio('buildOrderTimelineList');
+  if (!listEl) return;
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+
+  const badgeToggleBtn = $studio('toggleBuildBadgesBtn');
+  if (badgeToggleBtn) {
+    const hidden = document.body.classList.contains('hide-build-badges');
+    badgeToggleBtn.textContent = hidden ? '배지 OFF' : '배지 ON';
+    badgeToggleBtn.className = hidden
+      ? 'px-1.5 py-0.5 rounded bg-canvas border border-borderline text-muted font-bold text-[9px] cursor-pointer'
+      : 'px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200 text-violet-800 font-bold text-[9px] cursor-pointer';
+  }
+
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="text-[10px] text-muted text-center py-2">요소를 선택해 클릭 순서(1, 2, 3...)를 지정하면 이곳에서 드래그로 순서와 딜레이를 재배열할 수 있습니다.</div>';
+    return;
+  }
+
+  listEl.innerHTML = items.map((item, idx) => {
+    const isSel = typeof selectedElement !== 'undefined' && selectedElement === item.el;
+    const lbl = getBuildElementDisplayLabel(item.el, idx);
+    const animLbl = item.anim ? (GENERAL_ANIM_LABELS[item.anim] || item.anim) : '기본 페이드';
+    return `<div draggable="true" data-build-row-idx="${idx}" data-on-dragstart="onBuildTimelineDragStart(event, ${idx})" data-on-dragover="event.preventDefault()" data-on-drop="onBuildTimelineDrop(event, ${idx})" data-on-click="selectBuildTimelineItem(${idx})" class="px-1.5 py-1 rounded-lg border ${isSel ? 'border-gopro bg-gopro/5' : 'border-borderline bg-canvas/70 hover:border-violet-400'} flex items-center gap-1 cursor-pointer select-none">
+      <span class="text-muted cursor-grab font-mono text-[10px] px-0.5" title="드래그하여 등장 순서 재배열">⋮⋮</span>
+      <input type="number" min="1" max="30" value="${item.step}" class="w-8 px-1 py-0.5 rounded bg-violet-600 text-white font-mono text-[10px] font-black text-center shrink-0" title="클릭 단계 번호 (같은 번호=동시 등장)" data-on-click="event.stopPropagation()" data-on-change="updateBuildTimelineItemStep(${idx}, this.value)">
+      <div class="min-w-0 flex-1">
+        <div class="text-[10px] font-bold text-ink truncate">${escapeAttr(lbl)}</div>
+        <div class="font-mono text-[8px] text-muted truncate">${escapeAttr(animLbl)}</div>
+      </div>
+      <label class="inline-flex items-center gap-0.5 font-mono text-[9px] text-muted shrink-0" title="등장 지연(초)" data-on-click="event.stopPropagation()">
+        <input type="number" min="0" max="5" step="0.1" value="${item.delay}" class="w-10 px-1 py-0.5 rounded bg-white border border-borderline text-ink text-right text-[9px]" data-on-change="updateBuildTimelineItemDelay(${idx}, this.value)"><span>s</span>
+      </label>
+      <button type="button" class="px-1 py-0.5 rounded bg-white border border-borderline text-[9px] font-bold text-ink cursor-pointer shrink-0" data-on-click="event.stopPropagation(); moveBuildTimelineItem(${idx}, -1)" aria-label="순서 위로" title="앞 단계로 이동">▲</button>
+      <button type="button" class="px-1 py-0.5 rounded bg-white border border-borderline text-[9px] font-bold text-ink cursor-pointer shrink-0" data-on-click="event.stopPropagation(); moveBuildTimelineItem(${idx}, 1)" aria-label="순서 아래로" title="뒷 단계로 이동">▼</button>
+      <button type="button" class="px-1 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 text-[9px] font-bold cursor-pointer shrink-0" data-on-click="event.stopPropagation(); removeBuildTimelineItem(${idx})" aria-label="등장 순서에서 제거" title="순서 해제">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function onBuildTimelineDragStart(e, idx) {
+  __dragBuildTimelineIdx = idx;
+  if (e && e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', String(idx)); } catch (err) {}
+  }
+}
+
+function onBuildTimelineDrop(e, targetIdx) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  const fromIdx = __dragBuildTimelineIdx;
+  __dragBuildTimelineIdx = -1;
+  if (fromIdx < 0 || fromIdx === targetIdx) return;
+  reorderBuildTimelineItems(fromIdx, targetIdx);
+}
+
+function reorderBuildTimelineItems(fromIdx, toIdx) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return false;
+  const activeSlideEl = slides[currentSlide - 1];
+  if (!activeSlideEl) return false;
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  if (fromIdx < 0 || fromIdx >= items.length || toIdx < 0 || toIdx >= items.length || fromIdx === toIdx) return false;
+  if (items[fromIdx].el.getAttribute('data-layer-locked') === 'true') {
+    showToast('잠긴 레이어는 등장 순서를 이동할 수 없습니다.');
+    renderBuildOrderTimeline();
+    return false;
+  }
+  const lo = Math.min(fromIdx, toIdx), hi = Math.max(fromIdx, toIdx);
+  for (let i = lo; i <= hi; i++) {
+    if (i !== fromIdx && items[i].el.getAttribute('data-layer-locked') === 'true') {
+      showToast('이동 구간에 잠긴 레이어가 있어 순서를 변경할 수 없습니다. 잠금을 해제한 뒤 이동해 주세요.');
+      renderBuildOrderTimeline();
+      return false;
+    }
+  }
+  const moved = items.splice(fromIdx, 1)[0];
+  items.splice(toIdx, 0, moved);
+  items.forEach((it, idx) => {
+    if (it.el.getAttribute('data-layer-locked') === 'true') return;
+    it.el.setAttribute('data-build-order', String(idx + 1));
+  });
+  syncBuildOrderUI(moved.el);
+  saveHistorySnapshot('등장 순서 타임라인 재배열');
+  showToast(`등장 순서가 ${toIdx + 1}단계로 재배열되었습니다.`);
+  return true;
+}
+
+function moveBuildTimelineItem(idx, delta) {
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  const nextIdx = idx + delta;
+  if (nextIdx < 0 || nextIdx >= items.length) return false;
+  return reorderBuildTimelineItems(idx, nextIdx);
+}
+
+function selectBuildTimelineItem(idx) {
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  if (!items[idx] || !items[idx].el) return;
+  if (typeof selectElementForInspector === 'function') {
+    selectElementForInspector(items[idx].el, false);
+  }
+}
+
+function updateBuildTimelineItemStep(idx, rawVal) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  if (!items[idx] || !items[idx].el) return;
+  if (items[idx].el.getAttribute('data-layer-locked') === 'true') {
+    showToast('잠긴 레이어의 등장 순서는 변경할 수 없습니다.');
+    renderBuildOrderTimeline();
+    return;
+  }
+  const stepNum = Math.max(1, Math.min(30, parseInt(rawVal, 10) || 1));
+  items[idx].el.setAttribute('data-build-order', String(stepNum));
+  syncBuildOrderUI(items[idx].el);
+  saveHistorySnapshot(`등장 단계 변경 (${stepNum}단계)`);
+}
+
+function updateBuildTimelineItemDelay(idx, rawSec) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  if (!items[idx] || !items[idx].el) return;
+  if (items[idx].el.getAttribute('data-layer-locked') === 'true') {
+    showToast('잠긴 레이어의 지연 시간은 변경할 수 없습니다.');
+    renderBuildOrderTimeline();
+    return;
+  }
+  const sec = Math.max(0, Math.min(5, Math.round((Number(rawSec) || 0) * 10) / 10));
+  items[idx].el.style.setProperty('--anim-delay', `${sec}s`);
+  if (selectedElement === items[idx].el && $studio('generalAnimDelayInput')) {
+    $studio('generalAnimDelayInput').value = String(sec);
+  }
+  renderBuildOrderTimeline();
+  saveHistorySnapshot(`등장 지연 변경 (${sec}s)`);
+}
+
+function removeBuildTimelineItem(idx) {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  if (!items[idx] || !items[idx].el) return;
+  const el = items[idx].el;
+  el.removeAttribute('data-build-order');
+  el.classList.remove('build-step-pending', 'build-step-revealed');
+  syncBuildOrderUI(selectedElement);
+  saveHistorySnapshot('클릭 등장 순서 개별 해제');
+}
+
+function normalizeSlideBuildOrders() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return 0;
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  if (items.length === 0) {
+    showToast('정렬할 클릭 등장 요소가 없습니다.');
+    return 0;
+  }
+  // Preserve simultaneous step groupings while compacting sparse gaps (e.g. 1, 5, 5, 9 -> 1, 2, 2, 3)
+  const uniqueSteps = Array.from(new Set(items.map(it => it.step))).sort((a, b) => a - b);
+  const stepMap = new Map();
+  uniqueSteps.forEach((s, i) => stepMap.set(s, i + 1));
+  items.forEach(it => {
+    it.el.setAttribute('data-build-order', String(stepMap.get(it.step)));
+  });
+  syncBuildOrderUI(selectedElement);
+  saveHistorySnapshot('등장 순서 자동 정렬');
+  showToast(`등장 순서 ${items.length}개 요소가 1~${uniqueSteps.length}단계로 깔끔하게 정리되었습니다.`);
+  return uniqueSteps.length;
+}
+
+function toggleBuildOrderBadges(forceHide) {
+  const nextHidden = typeof forceHide === 'boolean' ? forceHide : !document.body.classList.contains('hide-build-badges');
+  document.body.classList.toggle('hide-build-badges', nextHidden);
+  renderBuildOrderTimeline();
+  showToast(nextHidden ? '캔버스 등장 순서 번호 배지를 숨겼습니다.' : '캔버스 등장 순서 번호 배지를 표시합니다.');
+}
+
+function cancelBuildSequencePreview() {
+  __buildSeqPreviewTimers.forEach(t => clearTimeout(t));
+  __buildSeqPreviewTimers = [];
+  document.body.classList.remove('build-seq-previewing');
+  const activeSlideEl = slides[currentSlide - 1];
+  if (activeSlideEl && (typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode)) {
+    activeSlideEl.querySelectorAll('[data-build-order]').forEach(el => {
+      el.classList.remove('build-step-pending', 'build-step-revealed');
+    });
+  }
+}
+
+function previewSlideBuildSequence() {
+  cancelBuildSequencePreview();
+  const activeSlideEl = slides[currentSlide - 1];
+  const items = getOrderedBuildElementsForSlide(activeSlideEl);
+  if (items.length === 0) {
+    showToast('먼저 슬라이드 요소에 클릭 등장 순서(1, 2, 3...)를 지정해 주세요.');
+    return false;
+  }
+  const uniqueSteps = Array.from(new Set(items.map(it => it.step))).sort((a, b) => a - b);
+  document.body.classList.add('build-seq-previewing');
+  items.forEach(it => {
+    it.el.classList.remove('build-step-revealed');
+    it.el.classList.add('build-step-pending');
+  });
+  uniqueSteps.forEach((stepNum, sIdx) => {
+    const tId = setTimeout(() => {
+      items.filter(it => it.step === stepNum).forEach(it => {
+        const delayMs = Math.round(it.delay * 1000);
+        const reveal = () => {
+          it.el.classList.remove('build-step-pending');
+          it.el.classList.add('build-step-revealed');
+          if (typeof previewGeneralAnimationOnElement === 'function') previewGeneralAnimationOnElement(it.el);
+        };
+        if (delayMs > 0) __buildSeqPreviewTimers.push(setTimeout(reveal, delayMs));
+        else reveal();
+      });
+    }, 240 + sIdx * 620);
+    __buildSeqPreviewTimers.push(tId);
+  });
+  const maxItemDelayMs = items.reduce((mx, it) => Math.max(mx, Math.round((it.delay || 0) * 1000)), 0);
+  const endId = setTimeout(() => {
+    cancelBuildSequencePreview();
+  }, 240 + uniqueSteps.length * 620 + maxItemDelayMs + 950);
+  __buildSeqPreviewTimers.push(endId);
+  showToast(`▶ 등장 순서 미리보기 재생 (${uniqueSteps.length}단계 · ${items.length}개 요소)`);
+  return true;
+}
+
 function syncBuildOrderUI(el) {
   const stepVal = el ? (parseInt(el.getAttribute('data-build-order') || '0', 10) || 0) : 0;
   if ($studio('elementBuildOrderInput')) $studio('elementBuildOrderInput').value = String(stepVal);
   const badge = $studio('slideBuildCountBadge'), activeSlideEl = slides[currentSlide - 1];
   if (badge && activeSlideEl) { const c = activeSlideEl.querySelectorAll('[data-build-order]').length; badge.textContent = c > 0 ? `단계 ${c}개 설정됨` : '단계 없음'; }
+  renderBuildOrderTimeline();
 }
-function initSlideBuildSteps(slideEl) { if (!slideEl) return; const activeEdit = typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode; Array.from(slideEl.querySelectorAll('[data-build-order]')).forEach(el => { el.classList.remove('build-step-revealed'); if (!activeEdit) el.classList.add('build-step-pending'); else el.classList.remove('build-step-pending'); }); }
+function initSlideBuildSteps(slideEl) {
+  cancelBuildSequencePreview();
+  if (!slideEl) return;
+  const activeEdit = typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode;
+  Array.from(slideEl.querySelectorAll('[data-build-order]')).forEach(el => {
+    el.classList.remove('build-step-revealed');
+    if (!activeEdit) el.classList.add('build-step-pending');
+    else el.classList.remove('build-step-pending');
+  });
+}
 function advanceSlideBuildStep(slideEl) {
   const activeEdit = typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode;
   if (!slideEl || activeEdit) return false;
   const pending = Array.from(slideEl.querySelectorAll('[data-build-order].build-step-pending')); if (pending.length === 0) return false;
   let minStep = Infinity; pending.forEach(el => { const s = parseInt(el.getAttribute('data-build-order') || '1', 10) || 1; if (s < minStep) minStep = s; });
-  pending.forEach(el => { const s = parseInt(el.getAttribute('data-build-order') || '1', 10) || 1; if (s === minStep) { el.classList.remove('build-step-pending'); el.classList.add('build-step-revealed'); if (typeof previewGeneralAnimationOnElement === 'function') previewGeneralAnimationOnElement(el); } });
+  pending.forEach(el => {
+    const s = parseInt(el.getAttribute('data-build-order') || '1', 10) || 1;
+    if (s === minStep) {
+      const delaySec = Math.max(0, Math.min(5, parseFloat((el.style.getPropertyValue('--anim-delay') || '0').replace('s', '')) || 0));
+      el.classList.remove('build-step-pending');
+      el.classList.add('build-step-revealed');
+      if (delaySec > 0) {
+        el.style.transitionDelay = `${delaySec}s`;
+        setTimeout(() => { el.style.transitionDelay = ''; }, Math.round(delaySec * 1000) + 500);
+      }
+      if (typeof previewGeneralAnimationOnElement === 'function') previewGeneralAnimationOnElement(el);
+    }
+  });
   return true;
 }
 function rewindSlideBuildStep(slideEl) {
@@ -651,6 +1241,7 @@ function applyGeneralAnimationToSelected(animType) {
     }
   });
   syncGeneralAnimUI(targets[targets.length - 1]);
+  renderBuildOrderTimeline();
   saveHistorySnapshot();
   showToast(`일반 애니메이션 [${GENERAL_ANIM_LABELS[animType] || animType}]이 적용되었습니다.`);
 }
@@ -665,15 +1256,21 @@ function setGeneralAnimationDelay(secVal) {
     target.style.setProperty('--anim-delay', `${sec}s`);
     previewGeneralAnimationOnElement(target);
   });
+  renderBuildOrderTimeline();
   saveHistorySnapshot();
 }
 
 function previewGeneralAnimationOnElement(el) {
   if (!el || !el.getAttribute('data-anim')) return;
+  if (el.__animPreviewTimer) { clearTimeout(el.__animPreviewTimer); el.__animPreviewTimer = null; }
+  const delaySec = Math.max(0, Math.min(5, parseFloat((el.style.getPropertyValue('--anim-delay') || '0').replace('s', '')) || 0));
   el.classList.remove('anim-preview-playing');
   void el.offsetWidth;
   el.classList.add('anim-preview-playing');
-  setTimeout(() => el.classList.remove('anim-preview-playing'), 1400);
+  el.__animPreviewTimer = setTimeout(() => {
+    el.__animPreviewTimer = null;
+    el.classList.remove('anim-preview-playing');
+  }, 1400 + Math.round(delaySec * 1000));
 }
 
 function syncGeneralAnimUI(el) {

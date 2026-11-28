@@ -9,7 +9,8 @@ function compressImageFileToDataUrl(file, maxDim, onDone) {
   reader.onload = (ev) => {
     const probe = new Image();
     probe.onload = () => {
-      const limit = Math.max(320, Number(maxDim) || 1400);
+      const prefDim = (typeof getPreferredImageCompressionOptions === 'function') ? getPreferredImageCompressionOptions().maxDim : 1440;
+      const limit = Math.max(320, Math.min(Number(maxDim) || prefDim, prefDim));
       let w = probe.width, h = probe.height;
       if (w > limit || h > limit) {
         if (w > h) { h = Math.round((h * limit) / w); w = limit; }
@@ -20,10 +21,10 @@ function compressImageFileToDataUrl(file, maxDim, onDone) {
       c.height = h;
       const ctx = c.getContext('2d');
       ctx.drawImage(probe, 0, 0, w, h);
-      const lowType = (file.type || '').toLowerCase();
-      const preserveAlpha = lowType === 'image/png' || lowType === 'image/webp' || lowType === 'image/gif';
-      const outMime = preserveAlpha ? 'image/png' : 'image/jpeg';
-      onDone(c.toDataURL(outMime, 0.88), w, h);
+      const outUrl = (typeof encodeCanvasToOptimizedDataUrl === 'function')
+        ? encodeCanvasToOptimizedDataUrl(c, file.type)
+        : c.toDataURL(/^(?:image\/png|image\/webp|image\/gif)$/i.test(file.type || '') ? 'image/png' : 'image/jpeg', 0.88);
+      onDone(outUrl, w, h);
     };
     probe.src = ev.target.result;
   };

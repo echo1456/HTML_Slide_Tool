@@ -57,6 +57,13 @@
 .slide[data-transition="flip"].active {
   transform: perspective(1200px) rotateY(0deg) scale(1);
 }
+.slide[data-transition="morph"] {
+  transform: none !important;
+  transition: opacity var(--morph-dur, 0.65s) cubic-bezier(0.22, 1, 0.36, 1), visibility var(--morph-dur, 0.65s) !important;
+}
+.slide[data-transition="morph"].active {
+  transform: none !important;
+}
 
 /* Unified 16:9 Logical Stage (1440x810): Identical Layout & Proportions Across Windowed, Fullscreen, Tablet & Mobile */
 body.scaled-stage #slideStage {
@@ -142,6 +149,9 @@ body.scaled-stage .slide[data-transition="zoom"]:not(.active) {
 }
 body.scaled-stage .slide[data-transition="flip"]:not(.active) {
   transform: translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px))) perspective(1400px) rotateY(-18deg) scale(calc(var(--stage-scale, 1) * 0.94)) !important;
+}
+body.scaled-stage .slide[data-transition="morph"]:not(.active) {
+  transform: translate(calc(-50% + var(--stage-pan-x, 0px)), calc(-50% + var(--stage-pan-y, 0px))) scale(var(--stage-scale, 1)) !important;
 }
 body.scaled-stage .slide.transition-instant-reset {
   transition: none !important;
@@ -1264,13 +1274,23 @@ body:not(.edit-mode) .slide.active [data-anim="shake-attention"] { animation: an
 
 body:not(.edit-mode) [data-build-order].build-step-pending { opacity: 0 !important; transform: translateY(14px) scale(0.98) !important; pointer-events: none !important; }
 body:not(.edit-mode) [data-build-order].build-step-revealed { opacity: 1; transform: translateY(0) scale(1); transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1); }
-body.edit-mode [data-build-order] { position: relative; }
-body.edit-mode [data-build-order]::before {
-  content: 'STEP ' attr(data-build-order);
-  position: absolute; top: 4px; left: 6px; padding: 1px 6px; border-radius: 9999px;
-  background: #7C3AED; color: #FFFFFF; font-family: 'JetBrains Mono', monospace;
-  font-size: 9px; font-weight: 800; z-index: 28; pointer-events: none;
+body.edit-mode:not(.interactive-test-mode) [data-build-order] { position: relative; }
+body.edit-mode:not(.interactive-test-mode):not(.hide-build-badges) [data-build-order]::before {
+  content: attr(data-build-order);
+  position: absolute; top: 6px; right: 6px; min-width: 22px; height: 22px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  border-radius: 9999px; background: #7C3AED; color: #FFFFFF; border: 2px solid #FFFFFF;
+  font-family: 'JetBrains Mono', 'Pretendard', monospace; font-size: 10px; font-weight: 900;
+  line-height: 1; z-index: 34; pointer-events: none;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.38);
 }
+body.edit-mode:not(.interactive-test-mode):not(.hide-build-badges) [data-build-order].is-selected::before,
+body.edit-mode:not(.interactive-test-mode):not(.hide-build-badges) [data-build-order].ppt-multi-selected::before {
+  background: var(--accent-color, #0055FF);
+  box-shadow: 0 2px 10px rgba(0, 85, 255, 0.45);
+}
+body.build-seq-previewing [data-build-order].build-step-pending { opacity: 0.14 !important; transform: translateY(10px) scale(0.98) !important; transition: opacity 0.2s ease, transform 0.2s ease; }
+body.build-seq-previewing [data-build-order].build-step-revealed { opacity: 1 !important; transform: translateY(0) scale(1); transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1); }
 
 .ppt-slide-master-layer { position: absolute; inset: 0; pointer-events: none; z-index: 16; }
 body.edit-mode .slide[data-slide-hidden="true"] { opacity: 0.58 !important; }

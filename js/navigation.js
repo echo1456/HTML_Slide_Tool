@@ -476,13 +476,33 @@ function goToSlide(num) {
   if (num < 1) num = 1;
   if (num > totalSlides) num = totalSlides;
   const prevNum = currentSlide;
+  const prevSlideEl = slides[prevNum - 1] || null;
+  const targetSlideEl = slides[num - 1] || null;
+  const isPresOrTest = !isEditMode || (typeof isInteractiveTestMode !== 'undefined' && isInteractiveTestMode);
+  const isForwardMorph = Boolean(targetSlideEl && targetSlideEl.getAttribute('data-transition') === 'morph');
+  const isReverseMorph = Boolean(prevNum > num && prevSlideEl && prevSlideEl.getAttribute('data-transition') === 'morph');
+  const shouldMorph = Boolean(
+    isPresOrTest &&
+    prevNum !== num &&
+    prevSlideEl &&
+    targetSlideEl &&
+    (isForwardMorph || isReverseMorph) &&
+    typeof captureMorphSnapshots === 'function' &&
+    typeof playMorphTransition === 'function'
+  );
+  const morphSnap = shouldMorph ? captureMorphSnapshots(prevSlideEl) : null;
+  const morphDurSrc = isForwardMorph ? targetSlideEl : prevSlideEl;
+  const morphDur = morphDurSrc ? (parseInt(morphDurSrc.getAttribute('data-morph-duration') || '650', 10) || 650) : 650;
+
   currentSlide = num;
   handleSlideAudioTransition(prevNum, currentSlide);
   clearSelectionInspector();
   if (typeof clearScreenDrawing === 'function') clearScreenDrawing(true);
-  const targetSlideEl = slides[currentSlide - 1];
   if (targetSlideEl && typeof initSlideBuildSteps === 'function') initSlideBuildSteps(targetSlideEl);
   updateSlideUI();
+  if (shouldMorph && morphSnap && morphSnap.size > 0) {
+    playMorphTransition(prevSlideEl, targetSlideEl, morphSnap, morphDur, prevNum, currentSlide);
+  }
   if (targetSlideEl && (!isEditMode || isInteractiveTestMode) && typeof animateSlideKpisAndCharts === 'function') {
     requestAnimationFrame(() => animateSlideKpisAndCharts(targetSlideEl));
   }

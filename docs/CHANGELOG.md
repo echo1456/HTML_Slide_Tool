@@ -1,5 +1,107 @@
 # Changelog
 
+## [v5.8.3] - 2026-11-28 — 심층 2차 전수검사 완료: PDF 인쇄·PPTX/PNG 내보내기·발표자 뷰·잠금 가드·프리셋 정합성 7건 해결
+
+### Fixed & Hardened
+- **[P0] PDF 인쇄(`@media print`) 3대 누출·투명화 결함 해결 (`css/print.css`)**:
+  - 인쇄 시 열려 있던 `#floatingCardEditorModal`이 슬라이드 위에 겹쳐 출력되던 문제 차단.
+  - 발표 모드에서 아직 클릭하지 않은 `[data-build-order].build-step-pending` 요소가 PDF에서 투명(`opacity: 0`)으로 사라지던 결함을 `opacity: 1 !important; transform: none !important` 강제 복원으로 해결.
+  - 편집 모드 중 인쇄 시 캔버스 번호 배지(`[data-build-order]::before`), 모핑 ID 배지(`[data-morph-id]::after`), 숨김/잠금 배너가 PDF에 찍혀 나오지 않도록 차단.
+- **[P0] PPTX & PNG/JPG 내보내기 시 클릭 등장 대기 요소(`.build-step-pending`) 좌표 틀어짐·고스트 투명화 수정 (`js/export.js`)**:
+  - `exportDeckAsPPTX()`와 `exportSlideOrElementAsImage()` 실행 중 `.build-step-pending`을 임시 해제하고 완료(`finally`) 시 원복해, 발표 모드에서 내보내도 모든 요소가 정위치·100% 선명도로 출력되도록 교정.
+- **[P0] 발표자 뷰 다음 슬라이드 미리보기 빈 화면 현상 수정 (`js/presenter-view.js`)**:
+  - `cloneSlideForPresenterPreview()`에 `isNextPreview` 분기를 추가해 다음 슬라이드 미리보기에서는 `.build-step-pending`/`.build-step-revealed`를 제거하고, 모든 미리보기에서 `.anim-preview-playing`을 정화.
+- **[P0] 모핑 복제·일괄 적용 및 편집 모드 전환 정합화 (`js/effects.js`, `js/studio.js`)**:
+  - `duplicateSlideForMorphTransition()`에 잠긴 슬라이드·잠긴 레이어 보호 가드 추가.
+  - `applyTransitionToAllSlides()`에서 `morph` 일괄 적용 시 `data-morph-duration`까지 함께 동기화.
+  - `toggleEditMode()`·`toggleInteractiveTestMode()` 전환 시 `cancelBuildSequencePreview()` 호출로 미리보기 잔류 차단.
+- **[P1] 단일 이미지 최적화 잠금 보호 & 열린 플로팅 카드 실시간 동기화 (`js/media.js`)**: `optimizeSingleMediaAsset()`에도 잠긴 슬라이드 가드와 `#fcRichBodyEditor` 실시간 동기화 적용.
+- **[P1] 프리셋 라이브러리 모핑 ID 중복 방지·UI 동기화·빈 카드 임포트 차단 (`js/storage.js`)**.
+- **[Testing] Playwright Chromium E2E `Test 31` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 31개 CI E2E 스위트로 전체 DOM `data-on-*` AST 전수 파싱, `@media print` 검증, 발표자 뷰·잠금·프리셋 회귀를 영구 검증.
+
+---
+
+## [v5.8.2] - 2026-11-28 — `v5.7.0` ~ `v5.8.1` 신규 마일스톤 전수검사: 모핑·타임라인·프리셋·미디어 실사용 결함 9건 일괄 수정
+
+### Fixed & Hardened
+- **[P0] 모핑 전환 미리보기 시 비활성 이전 슬라이드 트랜지션 왜곡 수정 및 페이드 속도 연동 (`js/effects.js`, `css/slides.css`)**:
+  - 이전 슬라이드에 `zoom`·`slide-left`·`slide-up`·`flip` 전환이 걸려 있을 때 비활성 상태의 `transform` 때문에 `captureMorphSnapshots()`가 왜곡된 좌표를 수집하던 결함을 측정 시 임시 중립화로 해결.
+  - `.slide[data-transition="morph"]` 페이드 시간을 하드코딩 `0.55s`에서 `data-morph-duration`(`--morph-dur`)과 1:1 동기화.
+- **[P0] 모핑 전환 + 클릭 등장(`.build-step-pending`) 충돌 해소 (`js/effects.js`)**: 아직 클릭 전 숨겨진 `.build-step-pending` 요소는 `playMorphTransition()`에서 제외해 좌표 틀어짐 및 조기 노출 차단.
+- **[P0] 동일 슬라이드 내 요소 복제·붙여넣기 시 중복 `data-morph-id` 자동 제거 (`js/selection.js`)**: 같은 슬라이드로 복제/붙여넣기할 때 중복 모핑 ID를 제거하되, 다른 슬라이드로 복사-붙여넣기할 때는 모핑 ID를 보존해 교차 슬라이드 모핑 연결 지원.
+- **[P0] `.slide-header-bar` 프리셋 삽입 위치 오류 및 끊긴 팝업 링크 정화 (`js/storage.js`)**:
+  - 상단 타이틀 바(`.slide-header-bar`) 프리셋을 불러올 때 `.slide-grid-body` 안이 아닌 슬라이드 최상단 헤더 슬롯에 정확히 배치·교체되도록 수정.
+  - 새 덱에 존재하지 않는 끊긴 `data-floating-card-id`/`ids` 참조를 자동 정화하고, 외부 플로팅 카드 창에서 라이브러리 열기 시 메인 창 포커스 전환 추가.
+- **[P0] 신규 이미지 삽입 7개 경로에 압축 프리셋 `maxDim` 실연동 (`js/media.js`, `js/widgets.js`, `js/theme.js`)**: 하드코딩되어 있던 `1600px`/`1920px` 상한을 `getPreferredImageCompressionOptions().maxDim`으로 통합해 `초경량(1080px)` 등 사용자 프리셋이 신규 업로드에 실제 반영되도록 교정.
+- **[P1] 클릭 등장 순서 타임라인·애니메이션 5건 보강 (`js/effects.js`, `js/selection.js`)**:
+  - 플로팅 카드 내부 요소(`#fcRichBodyEditor`)에 슬라이드 클릭 순서 부여 차단, 타임라인 드래그 재배열 시 잠긴 레이어 보호, 요소 복제·삭제·붙여넣기 직후 타임라인·모핑 UI 실시간 동기화.
+  - `previewSlideBuildSequence()` 및 `previewGeneralAnimationOnElement()`의 종료 타이머에 `--anim-delay` 반영(지연 시간이 긴 애니메이션 조기 절단 방지).
+- **[P1] 미디어 일괄 경량화 잠긴 슬라이드 보호 및 열린 플로팅 카드 편집창 실시간 동기화 (`js/media.js`)**.
+- **[Testing] Playwright Chromium E2E `Test 30` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 30개 CI E2E 스위트로 영구 회귀 검증.
+
+---
+
+## [v5.8.1] - 2026-11-28 — Milestone 2-B: 클릭 등장 순서 캔버스 번호 배지 & 스튜디오 타임라인 드래그 재배열
+
+### Added & Improved
+- **캔버스 원형 등장 순서 배지 고도화 (`css/slides.css`)**:
+  - 기존 좌상단 `STEP N` 배지가 모핑 ID 배지(`◈ ID`)와 겹치던 배치를 우상단 원형 번호 배지(`22px` 원형 · 흰색 테두리 · 선택 시 포인트 컬러 강조)로 재설계하고, `body.hide-build-badges` 토글로 편집 중 배지 숨김 지원.
+- **스튜디오 클릭 등장 타임라인 신설 (`#buildOrderTimelineWrap` — `index.html`, `js/effects.js`)**:
+  - `모션·연동 > 2. 등장 모션 & 클릭 순서` 내부에 현재 슬라이드의 모든 `[data-build-order]` 요소를 단계순으로 시각화하는 라이브 타임라인 패널 추가.
+  - **드래그 앤 드롭(`onBuildTimelineDragStart`/`Drop`) 및 ▲/▼ 버튼 재배열**: 항목을 끌어 원하는 위치에 놓으면 `data-build-order`가 1부터 자동 재부여.
+  - **인라인 단계·딜레이(`--anim-delay`) 편집 & 자동 정렬(`normalizeSlideBuildOrders()`)**: 동시 등장 단계를 유지하면서 건너뛴 단계(`1, 5, 9 → 1, 2, 3`)를 1클릭 압축 정리.
+  - **편집 모드 순서 재생(`previewSlideBuildSequence()`)**: 슬라이드를 발표 모드로 나가지 않고도 현재 슬라이드의 클릭 등장 순서를 연속 미리보기 재생.
+  - `advanceSlideBuildStep()`에서 같은 단계로 묶인 동시 등장 요소의 개별 `--anim-delay` 시차 적용 보강 및 카드 자유 분리 시 `data-build-order`/`data-anim` 승계(`js/selection.js`).
+- **[Testing] Playwright Chromium E2E `Test 29` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 29개 CI E2E 스위트로 타임라인 정렬·자동정렬·드래그 재배열·딜레이 편집·배지 토글·발표 모드 순차/역순 등장을 영구 검증.
+
+---
+
+## [v5.8.0] - 2026-11-28 — Milestone 2-A: 모핑 전환 (Magic Move / Morph Transition) FLIP 보간 엔진 및 원클릭 복제 연결 마법사
+
+### Added
+- **모핑 전환 (`data-transition="morph"`) FLIP 보간 엔진 (`js/effects.js`, `js/navigation.js`, `css/slides.css`)**:
+  - 연속 슬라이드 간 동일한 `data-morph-id`를 가진 요소(카드·자유좌표 도형·이미지·텍스트·타이틀 바·차트·위젯)의 중심 좌표, 크기(`offsetWidth`/`offsetHeight`), 회전(`rotate`), 투명도, 둥글기를 `--stage-scale` 논리 좌표계 기준으로 정확히 계산해 Web Animations API(`cubic-bezier(0.22, 1, 0.36, 1)`)로 부드럽게 보간.
+  - 발표 모드 및 즉시 테스트 모드에서 정방향(`nextSlide`/점프)뿐 아니라 역방향(`prevSlide`) 복귀 시에도 자연스럽게 역모핑 재생.
+  - 전환 속도 4단계(`0.45s` / `0.65s` / `0.90s` / `1.20s`) 슬라이드별 지정 및 편집 모드 내 즉시 미리보기(`previewCurrentSlideTransition()`) 지원.
+- **모핑 저작 UI & 원클릭 복제 연결 (`index.html`, `css/editor.css`, `js/selection.js`, `js/storage.js`)**:
+  - `모션·연동 > 4. 페이지 전환 트랜지션`에 `✨ 모핑 전환 (Magic Move)` 버튼과 `#morphControlsBox`(모핑 ID 지정/해제, 속도 선택, 이전 장 연결 개수 실시간 배지, `+ 복제해 모핑 연결`) 추가.
+  - `duplicateSlideForMorphTransition()`: 현재 슬라이드의 주요 요소에 매칭 ID(`m1`, `m2`, ...)를 자동 부여하고 다음 슬라이드로 복제한 뒤 `data-transition="morph"`를 즉시 연결.
+  - 편집 모드 캔버스 모핑 배지(`◈ ID`), 카드 자유 분리 시 `data-morph-id` 승계, `sanitizeImportedStageHtml()`의 한글/영문 모핑 ID 및 속도 검증 추가.
+- **[Testing] Playwright Chromium E2E `Test 28` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 28개 CI E2E 스위트로 모핑 복제 연결, 수동 ID, 미리보기, 정방향/역방향 FLIP 전환 및 Sanitizer 정합성을 영구 검증.
+
+---
+
+## [v5.7.1] - 2026-11-28 — Milestone 1-B: 내 카드 & 플로팅 팝업 카드 프리셋 라이브러리 (`PPTStudioPresetLibraryDB_v1`)
+
+### Added
+- **독립 프리셋 라이브러리 저장소 신설 (`PPTStudioPresetLibraryDB_v1` — `js/storage.js`)**:
+  - 기존 프로젝트 작업함(`PPTStudioWorkspaceDB_v1`)과 완전히 분리된 IndexedDB(`presets` 스토어) + `localStorage`/인메모리 폴백 구조를 구축해 오프라인 및 로컬 `file:///` 환경에서도 안전하게 동작.
+  - **슬라이드 카드 프리셋 (`slide-card`)**: 선택한 `.slide-card` 또는 자유좌표 `freeCard`의 배경색·다크 대비·그라데이션·내부 차트/위젯/텍스트 구조를 정화 저장하고, 다른 슬라이드·새 프로젝트에서 1클릭 삽입 시 2D 벤토 빈 슬롯 자동 배치 및 내부 ID(`data-chart-uid`, `data-conn-node-id`, `data-trigger-node-id`, `data-group-id`) 충돌 방지 재생성 지원.
+  - **플로팅 팝업 카드 프리셋 (`floating-card`)**: 편집창 실시간 상태 또는 보관함의 `data-fc-*` 30개 속성과 내부 비교표/위젯 HTML을 저장하고, 불러오기 시 고유 `data-fc-id` 자동 생성 · 선택 요소 자동 링크 · 즉시 편집 모드(`추가·편집`) 지원.
+- **프리셋 라이브러리 모달 & 진입 UI (`#presetLibraryModal` — `index.html`, `js/main.js`, `css/print.css`, `js/export.js`)**:
+  - 스튜디오 `2. 카드 · 도형 · 아이콘 & 외형`, `모션·연동` 플로팅 카드 영역, 플로팅 카드 편집창 하단에 저장·열기 버튼 배치.
+  - 종류 필터(전체 / 슬라이드 카드 / 플로팅 팝업 카드), 이름·카테고리 실시간 검색, PC↔스마트패드 공유용 **프리셋 JSON 내보내기/불러오기**(XSS `<script>`/`on*=` 자동 정화 포함) 제공.
+- **[Testing] Playwright Chromium E2E `Test 27` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 27개 CI E2E 스위트로 카드·플로팅 카드 프리셋 저장 → 백지 덱 초기화 → 1클릭 복원(고유 ID 재생성·자동 링크) → JSON 내보내기/XSS 정화 가져오기를 영구 검증.
+
+---
+
+## [v5.7.0] - 2026-11-28 — Milestone 1-A: 미디어 에셋 매니저 & WebP 일괄 경량화 엔진 + PPTX WebP 자동 호환 변환
+
+### Added & Improved
+- **전역 WebP 우선 스마트 이미지 인코더 통합 (`js/media.js`, `js/widgets.js`, `js/theme.js`)**:
+  - `supportsCanvasWebpEncoding()`, `encodeCanvasToOptimizedDataUrl()`, `getPreferredImageCompressionOptions()`, `setImageCompressionPreset()`을 신설하고, 앱 전체 8개 이미지 삽입/교체 경로를 단일 인코더로 통합.
+  - 브라우저가 WebP 인코딩을 지원할 때 투명 배경을 유지하면서도 용량이 적은 WebP를 우선 적용하며, 결과물이 기존 PNG/JPEG보다 클 경우에는 자동으로 더 작은 포맷을 선택.
+  - 3단계 압축 프리셋(`고화질 1920px·90%` / `표준 WebP 1440px·82%` / `초경량 1080px·72%`)을 `localStorage`에 영속 저장.
+- **미디어 에셋 매니저 모달 신설 (`#mediaAssetManagerModal` — `index.html`, `js/media.js`, `css/print.css`, `js/main.js`, `js/export.js`)**:
+  - 슬라이드 `<img>`, 동영상 `poster`, 슬라이드·카드·호버 배경, `#pptFloatingCardsStore` 내부 이미지·배경까지 덱 전체 Base64 에셋을 자동 스캔해 용량순 목록·해상도·포맷·바로 이동·개별 최적화 제공.
+  - **1클릭 전체 이미지 일괄 경량화(`runBatchImageOptimization()`)**: 동일 이미지 중복 제거 인코딩, 용량이 줄어드는 항목만 안전 치환, 작업 전/후 자동 히스토리 스냅샷(`Ctrl+Z` 원복 지원), 절감 용량/비율 리포트 표시.
+  - **미사용 플로팅 팝업 카드 정리(`findOrphanFloatingCardIds()`, `cleanupOrphanFloatingCards()`)**: 어느 슬라이드에도 연결되지 않은 고아 플로팅 카드를 탐지해 일괄 정리.
+- **PPTX 내보내기 WebP → PNG/JPEG 자동 호환 변환 (`js/export.js`)**:
+  - `normalizeDataUrlForPptx()`를 추가해 웹·단독 HTML은 경량 WebP를 유지하되, `.pptx` 내보내기 시에는 구버전 PowerPoint 호환성을 위해 `data:image/webp`만 알파 채널 유무에 따라 `.png` 또는 `.jpg`로 자동 변환해 임베드.
+- **[Testing] Playwright Chromium E2E `Test 26` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 26개 CI E2E 스위트로 에셋 스캔, WebP 일괄 경량화 + Undo/Redo 원복, 고아 팝업 카드 정리, PPTX 무-WebP 호환 변환을 영구 검증.
+
+---
+
 ## [v5.6.18] - 2026-11-28 — Playwright E2E Test 09 Z-Index 기대값 동기화 (25종 전수 통과 마무리)
 
 ### Fixed

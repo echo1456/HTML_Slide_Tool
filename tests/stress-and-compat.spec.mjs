@@ -1215,4 +1215,575 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(bloatAndCanvasOk.canvasChartOk).toBe(true);
     expect(bloatAndCanvasOk.sanOk).toBe(true);
   });
+
+  test('26. v5.7.0 Milestone 1-A (Media Asset Manager Scan, Batch WebP Optimization + Undo Restore, Orphan Floating Card Cleanup & PPTX WebP->PNG/JPG Auto-Transcoding)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    // 1) Inject a large 1600x900 uncompressed PNG across Slide <img>, Card .card-bg-layer & a Linked Floating Card + 1 Orphan Floating Card
+    const setupInfo = await page.evaluate(() => {
+      const c = document.createElement('canvas');
+      c.width = 1600; c.height = 900;
+      const ctx = c.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, 1600, 900);
+      g.addColorStop(0, '#0F172A'); g.addColorStop(0.5, '#0055FF'); g.addColorStop(1, '#38BDF8');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 1600, 900);
+      for (let i = 0; i < 40; i++) {
+        ctx.fillStyle = `rgba(${(i * 37) % 255}, ${(i * 73) % 255}, 220, 0.45)`;
+        ctx.beginPath(); ctx.arc((i * 97) % 1600, (i * 53) % 900, 36 + (i % 45), 0, Math.PI * 2); ctx.fill();
+      }
+      const bigPng = c.toDataURL('image/png');
+      const origBytes = estimateBase64DataUrlBytes(bigPng);
+
+      goToSlide(3);
+      const s3 = slides[2];
+      const card0 = s3.querySelector('.slide-card');
+      const img = document.createElement('img');
+      img.className = 'inline-media-el w-full';
+      img.setAttribute('src', bigPng);
+      img.setAttribute('data-img-nat-w', '1600');
+      img.setAttribute('data-img-nat-h', '900');
+      card0.appendChild(img);
+
+      const bgLy = ensureCardBgLayer(card0);
+      bgLy.style.backgroundImage = `url("${bigPng}")`;
+
+      // Linked Floating Card with bigPng background
+      const store = ensureFloatingCardsStore();
+      const linkedRec = document.createElement('div');
+      linkedRec.setAttribute('data-fc-id', 'fc_m1a_linked');
+      linkedRec.setAttribute('data-fc-title', 'LINKED_FC');
+      linkedRec.setAttribute('data-fc-bg-img', `url("${bigPng}")`);
+      linkedRec.innerHTML = '<p>Linked</p>';
+      store.appendChild(linkedRec);
+      card0.setAttribute('data-floating-card-id', 'fc_m1a_linked');
+
+      // Orphan Floating Card (unreferenced by any slide)
+      const orphanRec = document.createElement('div');
+      orphanRec.setAttribute('data-fc-id', 'fc_m1a_orphan');
+      orphanRec.setAttribute('data-fc-title', 'ORPHAN_FC');
+      orphanRec.innerHTML = '<p>Orphan</p>';
+      store.appendChild(orphanRec);
+
+      openMediaAssetManagerModal();
+      const assetsBefore = collectDeckImageAssets();
+      const orphansBefore = findOrphanFloatingCardIds();
+      return { origBytes, assetCount: assetsBefore.length, orphanHasTarget: orphansBefore.includes('fc_m1a_orphan'), webpSupported: supportsCanvasWebpEncoding() };
+    });
+
+    expect(setupInfo.assetCount).toBeGreaterThanOrEqual(3);
+    expect(setupInfo.orphanHasTarget).toBe(true);
+    expect(setupInfo.webpSupported).toBe(true);
+
+    // 2) Run Batch WebP Optimization (1080px, 0.72, WebP) -> verify significant byte savings & WebP format
+    const optRes = await page.evaluate(async () => {
+      const r = await runBatchImageOptimization({ maxDim: 1080, quality: 0.72, preferWebp: true });
+      const s3 = slides[2];
+      const imgNow = s3.querySelector('img.inline-media-el')?.getAttribute('src') || '';
+      const bgNow = s3.querySelector('.slide-card > .card-bg-layer')?.style.backgroundImage || '';
+      const fcBgNow = document.querySelector('#pptFloatingCardsStore [data-fc-id="fc_m1a_linked"]')?.getAttribute('data-fc-bg-img') || '';
+      return {
+        ...r,
+        imgIsWebp: imgNow.startsWith('data:image/webp'),
+        bgIsWebp: bgNow.includes('data:image/webp'),
+        fcIsWebp: fcBgNow.includes('data:image/webp'),
+      };
+    });
+
+    expect(optRes.optimizedCount).toBeGreaterThanOrEqual(3);
+    expect(optRes.totalAfter).toBeLessThan(optRes.totalBefore);
+    expect(optRes.imgIsWebp).toBe(true);
+    expect(optRes.bgIsWebp).toBe(true);
+    expect(optRes.fcIsWebp).toBe(true);
+
+    // 3) Verify Undo restores original PNG cleanly, then Redo restores WebP!
+    const undoRedoOk = await page.evaluate(() => {
+      undoAction();
+      const restoredPng = (slides[2].querySelector('img.inline-media-el')?.getAttribute('src') || '').startsWith('data:image/png');
+      redoAction();
+      const redoneWebp = (slides[2].querySelector('img.inline-media-el')?.getAttribute('src') || '').startsWith('data:image/webp');
+      return { restoredPng, redoneWebp };
+    });
+    expect(undoRedoOk.restoredPng).toBe(true);
+    expect(undoRedoOk.redoneWebp).toBe(true);
+
+    // 4) Cleanup Orphan Floating Cards -> removes fc_m1a_orphan while keeping fc_m1a_linked!
+    const orphanCleanOk = await page.evaluate(() => {
+      const removed = cleanupOrphanFloatingCards();
+      const store = document.getElementById('pptFloatingCardsStore');
+      const orphanGone = !store.querySelector('[data-fc-id="fc_m1a_orphan"]');
+      const linkedKept = Boolean(store.querySelector('[data-fc-id="fc_m1a_linked"]'));
+      closeMediaAssetManagerModal();
+      return removed >= 1 && orphanGone && linkedKept;
+    });
+    expect(orphanCleanOk).toBe(true);
+
+    // 5) Export PPTX with WebP images -> verify ZERO .webp inside ppt/media/ and valid .jpg/.png transcoded instead!
+    const pptxDlPromise = page.waitForEvent('download');
+    await page.evaluate(() => exportDeckAsPPTX());
+    const pptxDl = await pptxDlPromise;
+    const pptxEntries = parseZipEntries(await fs.readFile(await pptxDl.path()));
+    const mediaKeys = Array.from(pptxEntries.keys()).filter(k => k.startsWith('ppt/media/'));
+    expect(mediaKeys.length).toBeGreaterThan(0);
+    expect(mediaKeys.some(k => k.toLowerCase().endsWith('.webp'))).toBe(false);
+    expect(mediaKeys.some(k => /\.(?:png|jpg)$/i.test(k))).toBe(true);
+  });
+
+  test('27. v5.7.1 Milestone 1-B (My Card & Floating Card Preset Library — Save, Blank Deck 1-Click Insert with Unique ID Regeneration, Filter/Search & Sanitized JSON Round-Trip)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    // 1) Customize a dark Slide Card with an internal chart & save it to Preset Library
+    const savedPresets = await page.evaluate(async () => {
+      goToSlide(3);
+      const card0 = slides[2].querySelector('.slide-card');
+      selectElementForInspector(card0, false);
+      applySelectedCardBgColor('#0F172A', false);
+      insertChartOrTable('bar-v');
+      const origChartUid = card0.querySelector('.ppt-chart-widget')?.getAttribute('data-chart-uid') || '';
+      selectElementForInspector(card0, false);
+      const cardPreset = await saveSelectedCardAsPreset('다크 지표 카드 프리셋', '비교·데이터');
+
+      // 2) Create a custom 640x420 Floating Card with comparison table & save as Floating Card Preset
+      openFloatingCardEditor(null);
+      document.getElementById('fcTitleInput').value = '커스텀 비교 팝업';
+      const presetToggle = document.getElementById('fcUseWidthPresetToggle');
+      if (presetToggle) { presetToggle.checked = false; onFcWidthPresetToggle(false); }
+      document.getElementById('fcCustomWidthInput').value = '640';
+      document.getElementById('fcCustomHeightInput').value = '420';
+      document.getElementById('fcBgColorInput').value = '#111827';
+      document.getElementById('fcTextColorInput').value = '#FFFFFF';
+      insertChartOrTable('table');
+      const fcPreset = await saveCurrentFloatingCardAsPreset('다크 비교표 팝업 프리셋', '상세 팝업');
+      closeFloatingCardEditor();
+
+      return { cardPresetId: cardPreset?.id, fcPresetId: fcPreset?.id, origChartUid };
+    });
+
+    expect(savedPresets.cardPresetId).toBeTruthy();
+    expect(savedPresets.fcPresetId).toBeTruthy();
+
+    // 3) Wipe deck to blank 2-slide starter deck -> insert BOTH presets via Library & verify styles + unique IDs!
+    const roundTripOk = await page.evaluate(async ({ cardPresetId, fcPresetId, origChartUid }) => {
+      startBlankUniversalDeck();
+      goToSlide(2);
+
+      // Test modal open, filter & search
+      openPresetLibraryModal('slide-card');
+      const filteredCardsOnly = document.getElementById('presetLibraryListContainer').textContent.includes('다크 지표 카드 프리셋') &&
+                                !document.getElementById('presetLibraryListContainer').textContent.includes('다크 비교표 팝업 프리셋');
+      setPresetLibraryFilter('all');
+
+      // Insert Slide Card Preset into blank slide 2
+      const insertedCard = insertPresetFromLibrary(cardPresetId, false);
+      const newChartUid = insertedCard ? (insertedCard.querySelector('.ppt-chart-widget')?.getAttribute('data-chart-uid') || '') : '';
+      const slideCardRestoredOk = Boolean(
+        insertedCard &&
+        insertedCard.classList.contains('card-theme-dark') &&
+        insertedCard.getAttribute('data-card-bg-hex') === '#0F172A' &&
+        newChartUid && newChartUid !== origChartUid
+      );
+
+      // Select inserted card as trigger & insert Floating Card Preset -> auto-links + creates new store record!
+      selectElementForInspector(insertedCard, false);
+      const newFcId = insertPresetFromLibrary(fcPresetId, false);
+      const fcRec = document.querySelector(`#pptFloatingCardsStore [data-fc-id="${newFcId}"]`);
+      const fcRestoredOk = Boolean(
+        fcRec &&
+        fcRec.getAttribute('data-fc-custom-w') === '640' &&
+        fcRec.getAttribute('data-fc-custom-h') === '420' &&
+        fcRec.getAttribute('data-fc-bg') === '#111827' &&
+        fcRec.querySelector('.ppt-chart-widget') &&
+        getLinkedFloatingCardIds(insertedCard).includes(newFcId)
+      );
+
+      // 4) Export JSON payload + test sanitized import (XSS payload stripped!)
+      const exported = buildPresetLibraryExportPayload();
+      const exportedOk = exported.format === 'HTML_SLIDE_TOOL_PRESET_LIBRARY_V1' && exported.presets.length >= 2;
+      const importedCount = await importPresetLibraryPayload({
+        presets: [{
+          id: 'preset_xss_test_1',
+          kind: 'slide-card',
+          title: 'XSS_SANITIZE_TEST',
+          category: '일반',
+          bgHex: '#FFFFFF',
+          html: '<div class="slide-card" onclick="alert(1)"><script>window.__xssFired=1;</script><p data-editable>안전한 본문</p></div>'
+        }]
+      });
+      const impRec = getPresetLibraryMap()['preset_xss_test_1'];
+      const xssSanitizedOk = importedCount === 1 && impRec &&
+                             !impRec.html.includes('<script') &&
+                             !impRec.html.includes('onclick=') &&
+                             impRec.html.includes('안전한 본문');
+
+      await deletePresetFromLibrary('preset_xss_test_1');
+      await deletePresetFromLibrary(cardPresetId);
+      await deletePresetFromLibrary(fcPresetId);
+      closePresetLibraryModal();
+
+      return { filteredCardsOnly, slideCardRestoredOk, fcRestoredOk, exportedOk, xssSanitizedOk };
+    }, savedPresets);
+
+    expect(roundTripOk.filteredCardsOnly).toBe(true);
+    expect(roundTripOk.slideCardRestoredOk).toBe(true);
+    expect(roundTripOk.fcRestoredOk).toBe(true);
+    expect(roundTripOk.exportedOk).toBe(true);
+    expect(roundTripOk.xssSanitizedOk).toBe(true);
+  });
+
+  test('28. v5.8.0 Milestone 2-A (Magic Move / Morph Transition — Auto Duplicate Pair Link, Manual Morph ID, Forward/Reverse FLIP Execution, Preview & Sanitizer Parity)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const morphOk = await page.evaluate(() => {
+      goToSlide(3);
+      const srcSlide = slides[2];
+      // Add a freeform object with custom manual Morph ID 'hero_cam'
+      insertFreeShape('roundRect');
+      const heroObj = selectedElement;
+      heroObj.style.left = '10%';
+      heroObj.style.top = '18%';
+      heroObj.style.width = '24%';
+      heroObj.style.height = '24%';
+      applyMorphIdToSelected('hero_cam');
+
+      // Use 1-click "복제해 모핑 연결" wizard
+      duplicateSlideForMorphTransition();
+      const dstSlide = slides[currentSlide - 1];
+      const dstHero = dstSlide.querySelector('[data-morph-id="hero_cam"]');
+      const hasAutoIds = dstSlide.querySelectorAll('[data-morph-id]').length >= 2;
+      const isMorphTrans = dstSlide.getAttribute('data-transition') === 'morph';
+
+      // Move & scale hero_cam on the destination slide
+      dstHero.style.left = '54%';
+      dstHero.style.top = '26%';
+      dstHero.style.width = '36%';
+      dstHero.style.height = '42%';
+      setSlideMorphDuration('450');
+
+      const matchedPairCount = countMatchedMorphPairsWithPrevSlide(currentSlide - 1);
+
+      // Test Preview in Edit Mode
+      previewCurrentSlideTransition();
+      const previewMatched = window.__lastMorphTransitionStats &&
+                             window.__lastMorphTransitionStats.matchedIds.includes('hero_cam') &&
+                             window.__lastMorphTransitionStats.duration === 450;
+
+      // Switch to Presentation Mode -> Forward Morph (3 -> 4) and Reverse Morph (4 -> 3)!
+      toggleEditMode(false);
+      goToSlide(3);
+      window.__lastMorphTransitionStats = null;
+      goToSlide(4);
+      const forwardMatched = window.__lastMorphTransitionStats &&
+                             window.__lastMorphTransitionStats.from === 3 &&
+                             window.__lastMorphTransitionStats.to === 4 &&
+                             window.__lastMorphTransitionStats.matchedIds.includes('hero_cam');
+
+      window.__lastMorphTransitionStats = null;
+      goToSlide(3);
+      const reverseMatched = window.__lastMorphTransitionStats &&
+                             window.__lastMorphTransitionStats.from === 4 &&
+                             window.__lastMorphTransitionStats.to === 3 &&
+                             window.__lastMorphTransitionStats.matchedIds.includes('hero_cam');
+
+      // Sanitizer preserves valid Korean/ASCII data-morph-id & strips unsafe chars
+      const san = sanitizeImportedStageHtml('<div class="slide" data-transition="morph" data-morph-duration="650"><div class="slide-card" data-morph-id="히어로_1"></div><div class="slide-card" data-morph-id="bad id!!"></div></div>');
+      const sanOk = san.includes('data-transition="morph"') &&
+                    san.includes('data-morph-duration="650"') &&
+                    san.includes('data-morph-id="히어로_1"') &&
+                    !san.includes('bad id!!');
+
+      return { hasAutoIds, isMorphTrans, matchedPairCount, previewMatched, forwardMatched, reverseMatched, sanOk };
+    });
+
+    expect(morphOk.hasAutoIds).toBe(true);
+    expect(morphOk.isMorphTrans).toBe(true);
+    expect(morphOk.matchedPairCount).toBeGreaterThanOrEqual(2);
+    expect(morphOk.previewMatched).toBe(true);
+    expect(morphOk.forwardMatched).toBe(true);
+    expect(morphOk.reverseMatched).toBe(true);
+    expect(morphOk.sanOk).toBe(true);
+  });
+
+  test('29. v5.8.1 Milestone 2-B (Build Order Canvas Badges, Interactive Timeline Drag Reorder, Delay Edit, Auto-Normalize & Step-by-Step Reveal Verification)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const buildTimelineOk = await page.evaluate(() => {
+      goToSlide(3);
+      const s3 = slides[2];
+      clearSlideBuildOrders();
+
+      // Create 3 distinct freeform boxes with sparse build steps (5, 1, 9)
+      insertFreeShape('roundRect');
+      const elA = selectedElement;
+      elA.setAttribute('data-layer-name', 'STEP_BOX_A');
+      setElementBuildOrder(5);
+
+      insertFreeShape('roundRect');
+      const elB = selectedElement;
+      elB.setAttribute('data-layer-name', 'STEP_BOX_B');
+      setElementBuildOrder(1);
+
+      insertFreeShape('roundRect');
+      const elC = selectedElement;
+      elC.setAttribute('data-layer-name', 'STEP_BOX_C');
+      setElementBuildOrder(9);
+
+      // 1) Verify timeline renders sorted ascending: [B(1), A(5), C(9)]
+      const initialOrdered = getOrderedBuildElementsForSlide(s3).map(it => it.el.getAttribute('data-layer-name'));
+      const listRows = document.querySelectorAll('#buildOrderTimelineList [data-build-row-idx]');
+      const sortedInitOk = initialOrdered.join(',') === 'STEP_BOX_B,STEP_BOX_A,STEP_BOX_C' && listRows.length === 3;
+
+      // 2) Auto-normalize compacts sparse (1, 5, 9) -> (1, 2, 3)
+      const normSteps = normalizeSlideBuildOrders();
+      const normOk = normSteps === 3 &&
+                     elB.getAttribute('data-build-order') === '1' &&
+                     elA.getAttribute('data-build-order') === '2' &&
+                     elC.getAttribute('data-build-order') === '3';
+
+      // 3) Drag-reorder row 2 (C) to index 0 -> new order must be [C(1), B(2), A(3)]!
+      reorderBuildTimelineItems(2, 0);
+      const reorderedNames = getOrderedBuildElementsForSlide(s3).map(it => it.el.getAttribute('data-layer-name'));
+      const reorderOk = reorderedNames.join(',') === 'STEP_BOX_C,STEP_BOX_B,STEP_BOX_A' &&
+                        elC.getAttribute('data-build-order') === '1' &&
+                        elB.getAttribute('data-build-order') === '2' &&
+                        elA.getAttribute('data-build-order') === '3';
+
+      // 4) Inline delay edit updates --anim-delay on element
+      updateBuildTimelineItemDelay(1, '0.4');
+      const delayOk = elB.style.getPropertyValue('--anim-delay').trim() === '0.4s';
+
+      // 5) Canvas badge toggle works cleanly
+      toggleBuildOrderBadges(true);
+      const badgeHid = document.body.classList.contains('hide-build-badges');
+      toggleBuildOrderBadges(false);
+      const badgeShown = !document.body.classList.contains('hide-build-badges');
+
+      // 6) Presentation step-by-step advance & rewind follows the reordered sequence [C -> B -> A]!
+      toggleEditMode(false);
+      initSlideBuildSteps(s3);
+      const allPending = elC.classList.contains('build-step-pending') &&
+                         elB.classList.contains('build-step-pending') &&
+                         elA.classList.contains('build-step-pending');
+      advanceSlideBuildStep(s3);
+      const step1C = elC.classList.contains('build-step-revealed') && elB.classList.contains('build-step-pending');
+      advanceSlideBuildStep(s3);
+      const step2B = elB.classList.contains('build-step-revealed') && elA.classList.contains('build-step-pending');
+      advanceSlideBuildStep(s3);
+      const step3A = elA.classList.contains('build-step-revealed');
+      rewindSlideBuildStep(s3);
+      const rewoundA = elA.classList.contains('build-step-pending') && elB.classList.contains('build-step-revealed');
+
+      return { sortedInitOk, normOk, reorderOk, delayOk, badgeToggleOk: badgeHid && badgeShown, presSeqOk: allPending && step1C && step2B && step3A && rewoundA };
+    });
+
+    expect(buildTimelineOk.sortedInitOk).toBe(true);
+    expect(buildTimelineOk.normOk).toBe(true);
+    expect(buildTimelineOk.reorderOk).toBe(true);
+    expect(buildTimelineOk.delayOk).toBe(true);
+    expect(buildTimelineOk.badgeToggleOk).toBe(true);
+    expect(buildTimelineOk.presSeqOk).toBe(true);
+  });
+
+  test('30. v5.8.2 Exhaustive Audit Fixes (Morph Inactive-Slide Transform Neutralization, Build-Pending Morph Isolation, Same-Slide Morph Dedup, Header-Bar Preset Slot, Locked Batch Opt & Build Timeline Guards)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const auditOk = await page.evaluate(async () => {
+      // 1) captureMorphSnapshots neutralizes inactive slide's zoom/slide-left transform -> exact unskewed coordinates!
+      goToSlide(3);
+      const s3 = slides[2];
+      s3.setAttribute('data-transition', 'zoom');
+      insertFreeShape('roundRect');
+      const mSrc = selectedElement;
+      mSrc.style.left = '20%'; mSrc.style.top = '20%'; mSrc.style.width = '20%'; mSrc.style.height = '20%';
+      applyMorphIdToSelected('exact_box');
+      const activeSnap = captureMorphSnapshots(s3).get('exact_box');
+
+      duplicateSlideForMorphTransition(); // now on slide 4 (s3 is now inactive with data-transition="zoom"!)
+      const inactiveSnap = captureMorphSnapshots(s3).get('exact_box');
+      const snapNeutralizedOk = Boolean(activeSnap && inactiveSnap && Math.abs(activeSnap.cx - inactiveSnap.cx) < 2 && Math.abs(activeSnap.w - inactiveSnap.w) < 2);
+
+      // 2) Duplicate on same slide strips duplicate data-morph-id; Build-pending element skipped in playMorphTransition!
+      const s4 = slides[currentSlide - 1];
+      const dstBox = s4.querySelector('[data-morph-id="exact_box"]');
+      selectElementForInspector(dstBox, false);
+      duplicateSelectedElement();
+      const sameSlideMorphCount = s4.querySelectorAll('[data-morph-id="exact_box"]').length;
+      const dedupOk = sameSlideMorphCount === 1;
+
+      dstBox.setAttribute('data-build-order', '1');
+      dstBox.classList.add('build-step-pending');
+      const mStats = playMorphTransition(s3, s4, captureMorphSnapshots(s3), 450, 3, 4);
+      const buildPendingSkipped = !mStats.matchedIds.includes('exact_box');
+      dstBox.classList.remove('build-step-pending');
+      dstBox.removeAttribute('data-build-order');
+
+      // 3) Locked element in Build Timeline refuses drag reorder & Floating Card element blocked from setElementBuildOrder!
+      clearSlideBuildOrders();
+      insertFreeShape('rect');
+      const b1 = selectedElement; setElementBuildOrder(1);
+      insertFreeShape('rect');
+      const b2 = selectedElement; setElementBuildOrder(2);
+      b2.setAttribute('data-layer-locked', 'true');
+      const blockedLockedReorder = reorderBuildTimelineItems(1, 0) === false && b2.getAttribute('data-build-order') === '2';
+      b2.removeAttribute('data-layer-locked');
+
+      openFloatingCardEditor(null);
+      const fcH3 = document.getElementById('fcRichBodyEditor').querySelector('h3');
+      selectedElement = fcH3; selectedElements = [fcH3];
+      setElementBuildOrder(1);
+      const fcBuildBlocked = !fcH3.hasAttribute('data-build-order');
+      closeFloatingCardEditor();
+
+      // 4) Saving .slide-header-bar as preset inserts into header slot (NEVER inside .slide-grid-body) & strips dangling FC links!
+      goToSlide(3);
+      const hdr = slides[2].querySelector('.slide-header-bar');
+      hdr.setAttribute('data-floating-card-id', 'fc_nonexistent_ghost');
+      selectElementForInspector(hdr, false);
+      const hdrPreset = await saveSelectedCardAsPreset('커스텀 헤더 바 프리셋', '커버·타이틀');
+      hdr.removeAttribute('data-floating-card-id');
+
+      addNewBlankSlide();
+      const blankS = slides[currentSlide - 1];
+      const insertedHdr = insertPresetFromLibrary(hdrPreset.id, false);
+      const hdrInRightSlot = Boolean(
+        insertedHdr &&
+        insertedHdr.classList.contains('slide-header-bar') &&
+        insertedHdr.parentElement === blankS &&
+        !blankS.querySelector('.slide-grid-body .slide-header-bar') &&
+        !insertedHdr.hasAttribute('data-floating-card-id')
+      );
+      await deletePresetFromLibrary(hdrPreset.id);
+
+      // 5) Locked slide protected during runBatchImageOptimization()
+      const c = document.createElement('canvas'); c.width = 600; c.height = 400;
+      const ctx = c.getContext('2d');
+      const grd = ctx.createLinearGradient(0, 0, 600, 400);
+      grd.addColorStop(0, '#111111'); grd.addColorStop(1, '#0055FF');
+      ctx.fillStyle = grd; ctx.fillRect(0, 0, 600, 400);
+      const pngUrl = c.toDataURL('image/png');
+      const lockImg = document.createElement('img');
+      lockImg.setAttribute('src', pngUrl);
+      blankS.appendChild(lockImg);
+      blankS.setAttribute('data-slide-locked', 'true');
+      const optLockRes = await runBatchImageOptimization({ maxDim: 400, quality: 0.7, preferWebp: true });
+      const lockedImgProtected = lockImg.getAttribute('src') === pngUrl && optLockRes.skippedLockedCount >= 1;
+      blankS.removeAttribute('data-slide-locked');
+      lockImg.remove();
+
+      return { snapNeutralizedOk, dedupOk, buildPendingSkipped, blockedLockedReorder, fcBuildBlocked, hdrInRightSlot, lockedImgProtected };
+    });
+
+    expect(auditOk.snapNeutralizedOk).toBe(true);
+    expect(auditOk.dedupOk).toBe(true);
+    expect(auditOk.buildPendingSkipped).toBe(true);
+    expect(auditOk.blockedLockedReorder).toBe(true);
+    expect(auditOk.fcBuildBlocked).toBe(true);
+    expect(auditOk.hdrInRightSlot).toBe(true);
+    expect(auditOk.lockedImgProtected).toBe(true);
+  });
+
+  test('31. v5.8.3 Deep Final Audit (All 900+ data-on-* AST Parse Zero Errors, Print/PDF Build-Pending Visibility & FC Modal Hide, Presenter Next-Slide Build Strip, Morph Lock Guard & Single Asset Lock)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    // 1) Parse EVERY data-on-* handler across the entire live DOM via safe-events.js tokenizer & AST parser (0 syntax errors!)
+    const astAudit = await page.evaluate(() => {
+      const attrs = ['click', 'input', 'change', 'mousedown', 'keydown', 'blur', 'dragstart', 'dragover', 'dragleave', 'drop'];
+      let checked = 0;
+      const errors = [];
+      attrs.forEach(t => {
+        document.querySelectorAll(`[data-on-${t}]`).forEach(el => {
+          const code = el.getAttribute(`data-on-${t}`);
+          if (!code) return;
+          checked++;
+          try {
+            parseSafeProgram(tokenizeSafeExpr(code));
+          } catch (err) {
+            errors.push({ attr: `data-on-${t}`, code: code.slice(0, 80), err: err.message });
+          }
+        });
+      });
+      return { checked, errors };
+    });
+    expect(astAudit.checked).toBeGreaterThan(200);
+    expect(astAudit.errors).toEqual([]);
+
+    // 2) Verify Print/PDF emulation hides #floatingCardEditorModal & keeps .build-step-pending visible (opacity: 1)!
+    await page.evaluate(() => {
+      goToSlide(3);
+      const card0 = slides[2].querySelector('.slide-card');
+      selectElementForInspector(card0, false);
+      setElementBuildOrder(1);
+      openFloatingCardEditor(null);
+      toggleEditMode(false);
+      initSlideBuildSteps(slides[2]);
+    });
+    await page.emulateMedia({ media: 'print' });
+    const printAudit = await page.evaluate(() => {
+      const fcModal = document.getElementById('floatingCardEditorModal');
+      const pendingCard = slides[2].querySelector('[data-build-order].build-step-pending');
+      return {
+        fcHiddenInPrint: window.getComputedStyle(fcModal).display === 'none',
+        pendingVisibleInPrint: pendingCard ? parseFloat(window.getComputedStyle(pendingCard).opacity) === 1 : false,
+      };
+    });
+    await page.emulateMedia({ media: 'screen' });
+    expect(printAudit.fcHiddenInPrint).toBe(true);
+    expect(printAudit.pendingVisibleInPrint).toBe(true);
+
+    // 3) Presenter Next Slide preview strips .build-step-pending; locked slide blocks duplicateSlideForMorphTransition & optimizeSingleMediaAsset; empty slide-card preset rejected!
+    const logicAudit = await page.evaluate(async () => {
+      const s3 = slides[2];
+      const nextClone = cloneSlideForPresenterPreview(s3, document, true);
+      const nextPreviewClean = nextClone && nextClone.querySelectorAll('.build-step-pending').length === 0;
+
+      toggleEditMode(true);
+      goToSlide(3);
+      s3.setAttribute('data-slide-locked', 'true');
+      const countBefore = slides.length;
+      duplicateSlideForMorphTransition();
+      const lockedMorphBlocked = slides.length === countBefore;
+
+      // Single asset optimize lock guard
+      const c = document.createElement('canvas'); c.width = 200; c.height = 150;
+      c.getContext('2d').fillRect(0, 0, 200, 150);
+      const img = document.createElement('img');
+      img.setAttribute('src', c.toDataURL('image/png'));
+      s3.appendChild(img);
+      openMediaAssetManagerModal();
+      const lockedIdx = __lastScannedMediaAssets.findIndex(a => a.el === img);
+      const singleLockRes = lockedIdx >= 0 ? await optimizeSingleMediaAsset(lockedIdx) : null;
+      const singleOptBlocked = Boolean(singleLockRes && singleLockRes.locked === true);
+      closeMediaAssetManagerModal();
+      img.remove();
+      s3.removeAttribute('data-slide-locked');
+
+      // applyTransitionToAllSlides copies data-morph-duration
+      setSlideTransition('morph');
+      setSlideMorphDuration('900');
+      applyTransitionToAllSlides();
+      const durCopied = slides[1] && slides[1].getAttribute('data-morph-duration') === '900';
+
+      // Empty slide-card preset import rejected
+      const emptyImp = await importPresetLibraryPayload({ presets: [{ id: 'preset_empty_bad', kind: 'slide-card', title: 'EMPTY', html: '   ' }] });
+      const emptyRejected = emptyImp === 0 && !getPresetLibraryMap()['preset_empty_bad'];
+
+      // toggleEditMode(false) cancels active build sequence preview cleanly
+      document.body.classList.add('build-seq-previewing');
+      toggleEditMode(false);
+      const previewClearedOnExit = !document.body.classList.contains('build-seq-previewing');
+
+      return { nextPreviewClean, lockedMorphBlocked, singleOptBlocked, durCopied, emptyRejected, previewClearedOnExit };
+    });
+
+    expect(logicAudit.nextPreviewClean).toBe(true);
+    expect(logicAudit.lockedMorphBlocked).toBe(true);
+    expect(logicAudit.singleOptBlocked).toBe(true);
+    expect(logicAudit.durCopied).toBe(true);
+    expect(logicAudit.emptyRejected).toBe(true);
+    expect(logicAudit.previewClearedOnExit).toBe(true);
+  });
 });

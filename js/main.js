@@ -1350,7 +1350,7 @@ function bindKeyboardAndTouchListeners() {
     const isKey = (ch, codeName) => keyLow === ch || code === codeName;
     const mod = e.ctrlKey || e.metaKey;
 
-    const __anyModalNow = ['saveChoiceModal','floatingCardEditorModal','findReplaceModal','overflowAuditModal','slideCommentsModal','slideSorterModal','reuseSlidesModal','starterTemplateModal','shortcutsHelpModal','onboardingGuideModal','tocModal'].some(mid => { const mEl = document.getElementById(mid); return mEl && !mEl.classList.contains('hidden'); });
+    const __anyModalNow = ['saveChoiceModal','floatingCardEditorModal','findReplaceModal','overflowAuditModal','mediaAssetManagerModal','presetLibraryModal','slideCommentsModal','slideSorterModal','reuseSlidesModal','starterTemplateModal','shortcutsHelpModal','onboardingGuideModal','tocModal'].some(mid => { const mEl = document.getElementById(mid); return mEl && !mEl.classList.contains('hidden'); });
     if (!__anyModalNow && e.altKey && isKey('p', 'KeyP') && isEditMode && typeof toggleInteractiveTestMode === 'function') {
       e.preventDefault();
       toggleInteractiveTestMode();
@@ -1374,7 +1374,7 @@ function bindKeyboardAndTouchListeners() {
     const fcModal = document.getElementById('floatingCardEditorModal');
     const isFcOpen = Boolean(fcModal && !fcModal.classList.contains('hidden'));
     const openDialogIds = [
-      'saveChoiceModal', 'findReplaceModal', 'overflowAuditModal',
+      'saveChoiceModal', 'findReplaceModal', 'overflowAuditModal', 'mediaAssetManagerModal', 'presetLibraryModal',
       'slideCommentsModal', 'slideSorterModal', 'reuseSlidesModal', 'starterTemplateModal',
       'shortcutsHelpModal', 'onboardingGuideModal', 'tocModal'
     ];
@@ -1651,6 +1651,8 @@ function bindKeyboardAndTouchListeners() {
         ['floatingCardEditorModal', () => typeof closeFloatingCardEditor === 'function' && closeFloatingCardEditor()],
         ['findReplaceModal', () => typeof closeFindReplaceModal === 'function' && closeFindReplaceModal()],
         ['overflowAuditModal', () => typeof closeOverflowAuditModal === 'function' && closeOverflowAuditModal()],
+        ['mediaAssetManagerModal', () => typeof closeMediaAssetManagerModal === 'function' && closeMediaAssetManagerModal()],
+        ['presetLibraryModal', () => typeof closePresetLibraryModal === 'function' && closePresetLibraryModal()],
         ['slideCommentsModal', () => typeof closeSlideCommentsPanel === 'function' && closeSlideCommentsPanel()],
         ['slideSorterModal', () => typeof closeSlideSorterModal === 'function' && closeSlideSorterModal()],
         ['reuseSlidesModal', () => typeof closeReuseSlidesModal === 'function' && closeReuseSlidesModal()],
@@ -1770,6 +1772,8 @@ function init() {
   if (typeof initTouchPointerBridge === 'function') initTouchPointerBridge();
   if (typeof initOfflineRuntimeUtilityObserver === 'function') initOfflineRuntimeUtilityObserver();
   if (typeof initWorkspaceProjectsStore === 'function') initWorkspaceProjectsStore();
+  if (typeof initPresetLibraryStore === 'function') initPresetLibraryStore();
+  if (typeof initPresetLibraryListeners === 'function') initPresetLibraryListeners();
   renderSavedProjectsList();
   const savedRatio = (document.getElementById('slideStage') && document.getElementById('slideStage').getAttribute('data-aspect-ratio')) || (document.body && document.body.getAttribute('data-aspect-ratio'));
   if (savedRatio && ['16:9', '4:3', '9:16'].includes(savedRatio) && typeof setDeckAspectRatio === 'function') {
@@ -1953,7 +1957,7 @@ document.addEventListener('paste', (e) => {
   const fcModal = document.getElementById('floatingCardEditorModal');
   const isFcModalOpen = Boolean(fcModal && !fcModal.classList.contains('hidden'));
   const otherOpenModal = [
-    'saveChoiceModal', 'findReplaceModal', 'overflowAuditModal', 'slideCommentsModal',
+    'saveChoiceModal', 'findReplaceModal', 'overflowAuditModal', 'mediaAssetManagerModal', 'presetLibraryModal', 'slideCommentsModal',
     'slideSorterModal', 'reuseSlidesModal', 'starterTemplateModal', 'shortcutsHelpModal',
     'onboardingGuideModal', 'tocModal'
   ].some(mid => { const mEl = document.getElementById(mid); return mEl && !mEl.classList.contains('hidden'); });

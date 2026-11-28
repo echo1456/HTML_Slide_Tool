@@ -371,6 +371,7 @@ function toggleStudioCompactMode() {
 }
 
 function toggleEditMode(forceState) {
+  if (typeof cancelBuildSequencePreview === 'function') cancelBuildSequencePreview();
   isEditMode = typeof forceState === 'boolean' ? forceState : !isEditMode;
   document.body.classList.toggle('edit-mode', isEditMode);
   const popup = $studio('pptStudioPopup');
@@ -685,6 +686,7 @@ function toggleInteractiveTestMode(forceState) {
 
   const activeSlideEl = slides[currentSlide - 1];
   if (isInteractiveTestMode) {
+    if (typeof cancelBuildSequencePreview === 'function') cancelBuildSequencePreview();
     if (typeof flushDeferredHistoryNow === 'function') flushDeferredHistoryNow();
     if (typeof closeFloatingCardEditor === 'function') closeFloatingCardEditor();
     makeAllTextEditable(false);

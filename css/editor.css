@@ -560,3 +560,26 @@ body.edit-mode .slide[data-slide-locked="true"]::after {
   font-weight: 800;
   box-shadow: 0 4px 12px rgba(0, 85, 255, 0.35);
 }
+
+/* Edit-Mode Morph ID Visual Indicator (v5.8.0 Magic Move) */
+body.edit-mode:not(.interactive-test-mode) .slide .slide-card[data-morph-id]::after,
+body.edit-mode:not(.interactive-test-mode) .slide .ppt-free-obj[data-morph-id]::after,
+body.edit-mode:not(.interactive-test-mode) .slide .slide-header-bar[data-morph-id]::after,
+body.edit-mode:not(.interactive-test-mode) .slide .ppt-chart-widget[data-morph-id]::after,
+body.edit-mode:not(.interactive-test-mode) .slide .ppt-interactive-widget[data-morph-id]::after {
+  content: "◈ " attr(data-morph-id);
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 34;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(124, 58, 237, 0.92);
+  color: #FFFFFF;
+  font-family: 'JetBrains Mono', 'Pretendard', monospace;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.4;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+}

@@ -224,7 +224,7 @@ function buildSerializedStandaloneHTML(presentationOnly) {
     clonedFcPanel.style.top = '';
     clonedFcPanel.style.margin = '';
   }
-  ['#pptScreenBlackoutOverlay', '#pptDrawCanvas', '#pptDrawToolbar', '#saveChoiceModal', '#floatingCardEditorModal', '#findReplaceModal', '#overflowAuditModal', '#slideCommentsModal', '#slideSorterModal', '#reuseSlidesModal', '#starterTemplateModal', '#shortcutsHelpModal', '#onboardingGuideModal', '#tocModal', '#pptContextMenu', '#autosaveRecoveryBanner'].forEach(sel => {
+  ['#pptScreenBlackoutOverlay', '#pptDrawCanvas', '#pptDrawToolbar', '#saveChoiceModal', '#floatingCardEditorModal', '#findReplaceModal', '#overflowAuditModal', '#mediaAssetManagerModal', '#presetLibraryModal', '#slideCommentsModal', '#slideSorterModal', '#reuseSlidesModal', '#starterTemplateModal', '#shortcutsHelpModal', '#onboardingGuideModal', '#tocModal', '#pptContextMenu', '#autosaveRecoveryBanner'].forEach(sel => {
     const ov = clonedRoot.querySelector(sel);
     if (ov) { ov.classList.add('hidden'); ov.classList.remove('flex'); ov.style.display = ''; }
   });
@@ -234,11 +234,11 @@ function buildSerializedStandaloneHTML(presentationOnly) {
   const clonedAutoSaveStatus = clonedRoot.querySelector('#autoSaveStatusText'); if (clonedAutoSaveStatus) clonedAutoSaveStatus.textContent = '';
   const clonedBodyAll = clonedRoot.querySelector('body');
   if (clonedBodyAll) {
-    clonedBodyAll.classList.remove('edit-mode', 'interactive-test-mode', 'focus-mode', 'pasteboard-mode', 'space-pan-ready', 'space-pan-dragging', 'is-fullscreen', 'fullscreen-mode', 'print-with-notes', 'stage-rescaling');
+    clonedBodyAll.classList.remove('edit-mode', 'interactive-test-mode', 'focus-mode', 'pasteboard-mode', 'space-pan-ready', 'space-pan-dragging', 'is-fullscreen', 'fullscreen-mode', 'print-with-notes', 'stage-rescaling', 'hide-build-badges', 'build-seq-previewing');
   }
   if (isReadOnly) {
     const clonedBody = clonedRoot.querySelector('body'); if (clonedBody) { clonedBody.classList.remove('edit-mode'); clonedBody.setAttribute('data-presentation-only', 'true'); }
-    ['#pptContextualTopBar', '#pptLeftFilmstrip', '#headerNativeFileBadge', '#pwaInstallAppBtn', '#pptStudioPopup', '#pptMarqueeBox', '#pptSmartGuidesLayer', '#floatingCardEditorModal', '#saveChoiceModal', '#starterTemplateModal', '#onboardingGuideModal', '#shortcutsHelpModal', '#findReplaceModal', '#slideSorterModal', '#reuseSlidesModal', '#overflowAuditModal', '#slideCommentsModal', '#pptContextMenu', '#historyDropdownMenu', '#pptRulerTop', '#pptRulerLeft', '#autosaveRecoveryBanner', '#globalImageUploader', '#globalMediaUploader', '#directMediaUploader', '#bgImageUploader', '#projectFileImporter', '#replaceMediaUploader', '#videoPosterUploader', '#audioFileUploader', '#reuseSlidesFileImporter', '#pptxFileImporter'].forEach(sel => { const node = clonedRoot.querySelector(sel); if (node) node.remove(); });
+    ['#pptContextualTopBar', '#pptLeftFilmstrip', '#headerNativeFileBadge', '#pwaInstallAppBtn', '#pptStudioPopup', '#pptMarqueeBox', '#pptSmartGuidesLayer', '#floatingCardEditorModal', '#saveChoiceModal', '#starterTemplateModal', '#onboardingGuideModal', '#shortcutsHelpModal', '#findReplaceModal', '#slideSorterModal', '#reuseSlidesModal', '#overflowAuditModal', '#mediaAssetManagerModal', '#presetLibraryModal', '#slideCommentsModal', '#pptContextMenu', '#historyDropdownMenu', '#pptRulerTop', '#pptRulerLeft', '#autosaveRecoveryBanner', '#globalImageUploader', '#globalMediaUploader', '#directMediaUploader', '#bgImageUploader', '#projectFileImporter', '#replaceMediaUploader', '#videoPosterUploader', '#audioFileUploader', '#reuseSlidesFileImporter', '#pptxFileImporter', '#presetLibraryFileImporter'].forEach(sel => { const node = clonedRoot.querySelector(sel); if (node) node.remove(); });
     clonedRoot.querySelectorAll('.card-edit-controls, .img-edit-overlay, .sub-box-del-btn, .card-media-controls, .embed-widget-drag-bar, .ppt-slide-comment-badge, .iw-edit-bar, .ppt-audio-widget button, .yt-local-hint-bar').forEach(el => el.remove());
     clonedRoot.querySelectorAll('button[onclick*="openSaveModal"], button[data-on-click*="openSaveModal"], button[onclick*="toggleShortcutsHelpModal"], button[data-on-click*="toggleShortcutsHelpModal"], button[onclick*="openSlideCommentsPanel"], button[data-on-click*="openSlideCommentsPanel"]').forEach(btn => btn.remove());
     clonedRoot.querySelectorAll('[data-slide-comments]').forEach(s => s.removeAttribute('data-slide-comments'));
@@ -307,6 +307,36 @@ function dataUrlToUint8Array(dataUrl) {
   for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
   return { ext, bytes };
 }
+async function normalizeDataUrlForPptx(dataUrl) {
+  const s = String(dataUrl || '');
+  if (!/^data:image\/webp;base64,/i.test(s)) return s;
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const w = Math.max(1, img.naturalWidth || img.width || 1);
+        const h = Math.max(1, img.naturalHeight || img.height || 1);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        let hasAlpha = false;
+        try {
+          const sample = ctx.getImageData(0, 0, Math.min(w, 64), Math.min(h, 64)).data;
+          for (let i = 3; i < sample.length; i += 4) {
+            if (sample[i] < 250) { hasAlpha = true; break; }
+          }
+        } catch (e) { hasAlpha = true; }
+        resolve(c.toDataURL(hasAlpha ? 'image/png' : 'image/jpeg', 0.9));
+      } catch (e) {
+        resolve(s);
+      }
+    };
+    img.onerror = () => resolve(s);
+    img.src = s;
+  });
+}
+
 /* ==================== HIGH-FIDELITY CANVAS CHART, SHAPE & GRADIENT RENDERER (v4.7.0) ==================== */
 function parseCssGradientForCanvas(ctx, cssBg, x, y, w, h) {
   if (!cssBg || !cssBg.includes('gradient(')) return null;
@@ -804,14 +834,17 @@ async function exportDeckAsPPTX() {
       presSldIdList.push(`<p:sldId id="${255 + sNum}" r:id="${rId}"/>`);
       contentTypesOverrides.push(`<Override PartName="/ppt/slides/slide${sNum}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`, `<Override PartName="/ppt/notesSlides/notesSlide${sNum}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`);
       const prevDisplay = sEl.style.display, prevVis = sEl.style.visibility, prevPE = sEl.style.pointerEvents, isActive = sEl.classList.contains('active');
+      const suspendedPending = Array.from(sEl.querySelectorAll('[data-build-order].build-step-pending'));
+      suspendedPending.forEach(el => el.classList.remove('build-step-pending'));
       if (!isActive) { sEl.style.visibility = 'hidden'; sEl.style.pointerEvents = 'none'; sEl.style.display = 'flex'; sEl.classList.add('transition-instant-reset', 'active'); void sEl.offsetWidth; }
       const sRect = sEl.getBoundingClientRect(), scale = typeof getStageScale === 'function' ? getStageScale() : 1;
       const bgHex = cssColorToHex6(sEl.style.backgroundColor || window.getComputedStyle(sEl).backgroundColor, sEl.classList.contains('theme-dark') ? '111111' : 'F5F5F7');
       const slideRelItems = ['<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>', `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide${sNum}.xml"/>`];
       let relCounter = 3, shapeIdCounter = 2; const spTreeXml = [];
 
-      const embedDataUrlPic = (dataUrl, xE, yE, wE, hE, label) => {
-        const decoded = dataUrlToUint8Array(dataUrl);
+      const embedDataUrlPic = async (dataUrl, xE, yE, wE, hE, label) => {
+        const compatUrl = await normalizeDataUrlForPptx(dataUrl);
+        const decoded = dataUrlToUint8Array(compatUrl);
         if (!decoded) return false;
         const imgFileName = `image${mediaImages.length + 1}.${decoded.ext}`;
         mediaImages.push({ name: imgFileName, bytes: decoded.bytes, ext: decoded.ext });
@@ -833,7 +866,7 @@ async function exportDeckAsPPTX() {
       const bgLayer = sEl.querySelector(':scope > .slide-bg-layer');
       if (bgLayer && bgLayer.style.backgroundImage) {
         const urlM = bgLayer.style.backgroundImage.match(/url\(["']?(data:image\/[^"')]+)["']?\)/i);
-        if (urlM) embedDataUrlPic(urlM[1], 0, 0, SLIDE_W_EMU, SLIDE_H_EMU, 'SlideBackground');
+        if (urlM) await embedDataUrlPic(urlM[1], 0, 0, SLIDE_W_EMU, SLIDE_H_EMU, 'SlideBackground');
       }
 
       const exportBlocks = collectExportableSlideBlocks(sEl);
@@ -856,7 +889,7 @@ async function exportDeckAsPPTX() {
         const isSvgIconObj = shapeType === 'svg-icon' && Boolean(blk.querySelector('svg'));
         if (isSvgIconObj) {
           const icoPng = await renderSvgIconToDataUrl(blk, box.w, box.h);
-          if (icoPng) embedDataUrlPic(icoPng, xEmu, yEmu, wEmu, hEmu, 'VectorIcon');
+          if (icoPng) await embedDataUrlPic(icoPng, xEmu, yEmu, wEmu, hEmu, 'VectorIcon');
           continue;
         }
         const isPureFreeWidget = isFreeObj && (
@@ -882,7 +915,7 @@ async function exportDeckAsPPTX() {
           if (cardBgLayerPptx && cardBgLayerPptx.style.backgroundImage) {
             const cUrlM = cardBgLayerPptx.style.backgroundImage.match(/url\(["']?(data:image\/[^"')]+)["']?\)/i);
             if (cUrlM) {
-              embedDataUrlPic(cUrlM[1], xEmu, yEmu, wEmu, hEmu, 'CardBackground');
+              await embedDataUrlPic(cUrlM[1], xEmu, yEmu, wEmu, hEmu, 'CardBackground');
               embeddedCardPhoto = true;
             }
           }
@@ -930,7 +963,7 @@ async function exportDeckAsPPTX() {
         if (baStagePptx) {
           const baBox = getLogicalBox(baStagePptx);
           const baUrl = renderBeforeAfterToDataUrl(baStagePptx, baBox.w, baBox.h);
-          if (baUrl) embedDataUrlPic(baUrl, pxToEmuX(baBox.x), pxToEmuY(baBox.y), Math.max(120000, pxToEmuX(baBox.w)), Math.max(80000, pxToEmuY(baBox.h)), 'BeforeAfter');
+          if (baUrl) await embedDataUrlPic(baUrl, pxToEmuX(baBox.x), pxToEmuY(baBox.y), Math.max(120000, pxToEmuX(baBox.w)), Math.max(80000, pxToEmuY(baBox.h)), 'BeforeAfter');
         }
 
         // STEP 3 (FRONT LAYER): High-Fidelity Chart Widget (Non-table -> 2x Retina PNG) ON TOP of card
@@ -938,7 +971,7 @@ async function exportDeckAsPPTX() {
           const cBox = getLogicalBox(chartWidget);
           const cxE = pxToEmuX(cBox.x), cyE = pxToEmuY(cBox.y), cwE = Math.max(120000, pxToEmuX(cBox.w)), chE = Math.max(80000, pxToEmuY(cBox.h));
           const chartPng = renderChartWidgetToDataUrl(chartWidget, cBox.w, cBox.h);
-          if (chartPng) embedDataUrlPic(chartPng, cxE, cyE, cwE, chE, `Chart_${chartData.type}`);
+          if (chartPng) await embedDataUrlPic(chartPng, cxE, cyE, cwE, chE, `Chart_${chartData.type}`);
         }
 
         // STEP 4 (FRONT LAYER): Native PowerPoint Editable Data Table with Exact OOXML Merged Cells ON TOP of card
@@ -1030,10 +1063,11 @@ async function exportDeckAsPPTX() {
         if (imgEl && imgEl.src && imgEl.src.startsWith('data:image/')) {
           const imgBox = getLogicalBox(imgEl);
           const ixEmu = pxToEmuX(imgBox.x), iyEmu = pxToEmuY(imgBox.y), iwEmu = Math.max(80000, pxToEmuX(imgBox.w)), ihEmu = Math.max(60000, pxToEmuY(imgBox.h));
-          embedDataUrlPic(imgEl.src, ixEmu, iyEmu, iwEmu, ihEmu, `Image_${shapeIdCounter}`);
+          await embedDataUrlPic(imgEl.src, ixEmu, iyEmu, iwEmu, ihEmu, `Image_${shapeIdCounter}`);
         }
       }
 
+      suspendedPending.forEach(el => el.classList.add('build-step-pending'));
       if (!isActive) { sEl.classList.remove('active', 'transition-instant-reset'); sEl.style.display = prevDisplay; sEl.style.visibility = prevVis; sEl.style.pointerEvents = prevPE; }
       const speakerNotes = (sEl.getAttribute('data-speaker-notes') || '').trim();
       const hiddenSlideAttr = sEl.getAttribute('data-slide-hidden') === 'true' ? ' show="0"' : '';
@@ -1097,6 +1131,10 @@ function drawCoverImageOnCanvas(ctx, img, x, y, w, h, fitMode) {
 async function exportSlideOrElementAsImage(scope, format) {
   const fmt = format === 'jpg' ? 'jpg' : 'png', mime = fmt === 'jpg' ? 'image/jpeg' : 'image/png', activeSlideEl = slides[currentSlide - 1];
   if (!activeSlideEl) return;
+  if (typeof cancelBuildSequencePreview === 'function') cancelBuildSequencePreview();
+  const suspendedImgPending = Array.from(activeSlideEl.querySelectorAll('[data-build-order].build-step-pending'));
+  suspendedImgPending.forEach(el => el.classList.remove('build-step-pending'));
+  try {
   const stageW = (typeof LOGICAL_STAGE_WIDTH === 'number' && LOGICAL_STAGE_WIDTH > 0) ? LOGICAL_STAGE_WIDTH : 1440;
   const stageH = (typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810;
   const targetBox = (scope === 'selected' && selectedElement && activeSlideEl.contains(selectedElement)) ? selectedElement : activeSlideEl;
@@ -1410,6 +1448,9 @@ async function exportSlideOrElementAsImage(scope, format) {
 
   const baseName = getChosenExportBaseName(), suffix = scope === 'selected' ? `P${String(currentSlide).padStart(2, '0')}_선택요소` : `P${String(currentSlide).padStart(2, '0')}_슬라이드`, fileName = `${baseName}_${suffix}.${fmt}`;
   canvas.toBlob((blob) => { if (!blob) return; triggerDownloadBlob(blob, fileName); showToast(`${fileName} 고충실도 이미지 내보내기 완료!`); }, mime, 0.94);
+  } finally {
+    suspendedImgPending.forEach(el => el.classList.add('build-step-pending'));
+  }
 }
 
 async function extractZipEntriesFromBuffer(arrayBuffer) {

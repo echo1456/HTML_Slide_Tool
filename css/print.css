@@ -20,8 +20,8 @@
   }
   header, footer, #appTopHeader, #appBottomFooter, #pptContextualTopBar, #pptLeftFilmstrip, #pptStudioPopup, #pptSelectionOverlay,
   #tocModal, #saveChoiceModal, #starterTemplateModal, #onboardingGuideModal, #shortcutsHelpModal,
-  #findReplaceModal, #slideSorterModal, #reuseSlidesModal, #overflowAuditModal, #slideCommentsModal,
-  #pptContextMenu, #autosaveRecoveryBanner, #toastBox, #pptMarqueeBox, #pptSmartGuidesLayer, #floatingCardLightbox,
+  #findReplaceModal, #slideSorterModal, #reuseSlidesModal, #overflowAuditModal, #mediaAssetManagerModal, #presetLibraryModal, #slideCommentsModal,
+  #pptContextMenu, #autosaveRecoveryBanner, #toastBox, #pptMarqueeBox, #pptSmartGuidesLayer, #floatingCardLightbox, #floatingCardEditorModal,
   #pptRulerTop, #pptRulerLeft, #pptScreenBlackoutOverlay, #pptDrawCanvas, #pptDrawToolbar, #pptLaserDot,
   .card-edit-controls, .img-edit-overlay, .sub-box-del-btn, .card-media-controls,
   .table-col-resizer, .table-row-resizer, .ppt-persistent-guide, .ppt-slide-comment-badge, .embed-widget-drag-bar,
@@ -116,4 +116,19 @@
   .iw-flip-scene .iw-flip-inner { transform: none !important; }
   .iw-flip-back { display: none !important; }
   .iw-hs-dot::before { display: none !important; }
+
+  /* Ensure unrevealed click-build elements print visibly & edit-only badges never leak onto PDF */
+  body #slideStage .slide [data-build-order].build-step-pending,
+  body:not(.edit-mode) #slideStage .slide [data-build-order].build-step-pending {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+  body.edit-mode [data-build-order]::before,
+  body.edit-mode [data-morph-id]::after,
+  body.edit-mode .slide[data-slide-hidden="true"]::before,
+  body.edit-mode .slide[data-slide-locked="true"]::after {
+    display: none !important;
+    content: none !important;
+  }
 }

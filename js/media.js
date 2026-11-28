@@ -1,3 +1,444 @@
+const MEDIA_COMPRESS_PRESET_STORAGE_KEY = 'ppt_studio_img_compress_preset_v1';
+const MEDIA_COMPRESS_PRESETS = {
+  high: { key: 'high', label: '고화질 (1920px · 90%)', maxDim: 1920, quality: 0.90, preferWebp: true },
+  standard: { key: 'standard', label: '표준 WebP (1440px · 82%)', maxDim: 1440, quality: 0.82, preferWebp: true },
+  compact: { key: 'compact', label: '초경량 (1080px · 72%)', maxDim: 1080, quality: 0.72, preferWebp: true }
+};
+let __cachedCanvasWebpSupport = null;
+
+function supportsCanvasWebpEncoding() {
+  if (__cachedCanvasWebpSupport !== null) return __cachedCanvasWebpSupport;
+  try {
+    const c = document.createElement('canvas');
+    c.width = 2; c.height = 2;
+    const out = c.toDataURL('image/webp', 0.8);
+    __cachedCanvasWebpSupport = typeof out === 'string' && out.startsWith('data:image/webp');
+  } catch (e) {
+    __cachedCanvasWebpSupport = false;
+  }
+  return __cachedCanvasWebpSupport;
+}
+
+let __preferredMediaCompressPresetKey = null;
+
+function getPreferredImageCompressionOptions() {
+  let key = __preferredMediaCompressPresetKey || 'standard';
+  if (!__preferredMediaCompressPresetKey) {
+    try {
+      const saved = localStorage.getItem(MEDIA_COMPRESS_PRESET_STORAGE_KEY);
+      if (saved && MEDIA_COMPRESS_PRESETS[saved]) {
+        key = saved;
+        __preferredMediaCompressPresetKey = saved;
+      }
+    } catch (e) {}
+  }
+  return Object.assign({}, MEDIA_COMPRESS_PRESETS[key] || MEDIA_COMPRESS_PRESETS.standard);
+}
+
+function setImageCompressionPreset(presetKey) {
+  const key = MEDIA_COMPRESS_PRESETS[presetKey] ? presetKey : 'standard';
+  __preferredMediaCompressPresetKey = key;
+  try { localStorage.setItem(MEDIA_COMPRESS_PRESET_STORAGE_KEY, key); } catch (e) {}
+  return MEDIA_COMPRESS_PRESETS[key];
+}
+
+function encodeCanvasToOptimizedDataUrl(canvas, srcMime, opts) {
+  const pref = Object.assign({}, getPreferredImageCompressionOptions(), opts || {});
+  const quality = Math.max(0.45, Math.min(0.98, Number(pref.quality) || 0.82));
+  const preferWebp = pref.preferWebp !== false;
+  const lowSrc = String(srcMime || '').toLowerCase();
+  const preserveAlpha = /^(?:image\/png|image\/webp|image\/gif)$/i.test(lowSrc);
+  const fallbackMime = preserveAlpha ? 'image/png' : 'image/jpeg';
+  const fallbackUrl = canvas.toDataURL(fallbackMime, quality);
+
+  if (preferWebp && supportsCanvasWebpEncoding()) {
+    try {
+      const webpUrl = canvas.toDataURL('image/webp', quality);
+      if (webpUrl && webpUrl.startsWith('data:image/webp')) {
+        // Always choose the smaller encoding when WebP is supported (keeps tiny flat PNG icons optimal)
+        if (!fallbackUrl || webpUrl.length <= fallbackUrl.length || pref.forceWebp) {
+          return webpUrl;
+        }
+      }
+    } catch (e) {}
+  }
+  return fallbackUrl;
+}
+
+function estimateBase64DataUrlBytes(dataUrl) {
+  const str = String(dataUrl || '');
+  const idx = str.indexOf(',');
+  if (idx === -1) return 0;
+  const b64 = str.slice(idx + 1).replace(/\s+/g, '');
+  const pad = b64.endsWith('==') ? 2 : (b64.endsWith('=') ? 1 : 0);
+  return Math.max(0, Math.floor((b64.length * 3) / 4) - pad);
+}
+
+function formatAssetByteSize(bytes) {
+  const n = Math.max(0, Number(bytes) || 0);
+  if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(2) + ' MB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
+
+function extractImageDataUriFromCssValue(cssVal) {
+  const s = String(cssVal || '');
+  const m = s.match(/url\(["']?(data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+)["']?\)/i);
+  if (m) return m[1];
+  const mDirect = s.match(/^(data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+)$/i);
+  return mDirect ? mDirect[1] : '';
+}
+
+function collectDeckImageAssets() {
+  const assets = [];
+  const stage = document.getElementById('slideStage');
+  if (!stage) return assets;
+
+  const pushAsset = (uri, kind, locationLabel, slideNum, el, applyFn) => {
+    if (!uri || !uri.startsWith('data:image/')) return;
+    if (/^data:image\/svg\+xml/i.test(uri)) return;
+    const fmtM = uri.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,/i);
+    const fmt = fmtM ? fmtM[1].toUpperCase().replace('JPEG', 'JPG') : 'IMG';
+    const bytes = estimateBase64DataUrlBytes(uri);
+    const natW = el ? (parseInt(el.getAttribute('data-img-nat-w') || '0', 10) || (el.naturalWidth || 0)) : 0;
+    const natH = el ? (parseInt(el.getAttribute('data-img-nat-h') || '0', 10) || (el.naturalHeight || 0)) : 0;
+    assets.push({ uri, fmt, bytes, kind, locationLabel, slideNum, el, natW, natH, applyFn });
+  };
+
+  const slideEls = Array.from(stage.querySelectorAll('.slide'));
+  slideEls.forEach((sEl, idx) => {
+    const sNum = idx + 1;
+    const tag = `P.${String(sNum).padStart(2, '0')}`;
+    sEl.querySelectorAll('img[src^="data:image/"]').forEach(img => {
+      pushAsset(img.getAttribute('src') || '', '이미지 요소', `${tag} · 이미지`, sNum, img, (nextUri, nw, nh) => {
+        img.setAttribute('src', nextUri);
+        if (nw > 0 && nh > 0) {
+          img.setAttribute('data-img-nat-w', String(nw));
+          img.setAttribute('data-img-nat-h', String(nh));
+        }
+      });
+    });
+    sEl.querySelectorAll('video[poster^="data:image/"]').forEach(vid => {
+      pushAsset(vid.getAttribute('poster') || '', '영상 포스터', `${tag} · 영상 포스터`, sNum, vid, (nextUri) => {
+        vid.setAttribute('poster', nextUri);
+      });
+    });
+    const bgEls = [sEl, ...Array.from(sEl.querySelectorAll('[style*="data:image/"]'))];
+    const visitedBg = new Set();
+    bgEls.forEach(el => {
+      if (visitedBg.has(el)) return;
+      visitedBg.add(el);
+      const bgVal = el.style && el.style.backgroundImage ? el.style.backgroundImage : '';
+      const uri = extractImageDataUriFromCssValue(bgVal);
+      if (!uri) return;
+      const role = el.classList.contains('slide-bg-layer') || el.classList.contains('slide')
+        ? '슬라이드 배경'
+        : (el.classList.contains('card-hover-bg-layer') ? '카드 호버 배경' : '카드 배경');
+      pushAsset(uri, role, `${tag} · ${role}`, sNum, el, (nextUri) => {
+        el.style.backgroundImage = bgVal.replace(uri, nextUri);
+      });
+    });
+  });
+
+  const fcStore = document.getElementById('pptFloatingCardsStore');
+  if (fcStore) {
+    fcStore.querySelectorAll('[data-fc-id]').forEach(rec => {
+      const fcTitle = (rec.getAttribute('data-fc-title') || rec.getAttribute('data-fc-id') || '플로팅 카드').slice(0, 18);
+      ['data-fc-bg-img', 'data-fc-hover-bg-img'].forEach(attr => {
+        const raw = rec.getAttribute(attr) || '';
+        const uri = extractImageDataUriFromCssValue(raw);
+        if (!uri) return;
+        const role = attr === 'data-fc-hover-bg-img' ? '팝업 호버 배경' : '팝업 배경';
+        pushAsset(uri, role, `팝업 "${fcTitle}" · ${role}`, 0, rec, (nextUri) => {
+          rec.setAttribute(attr, raw.replace(uri, nextUri));
+        });
+      });
+      rec.querySelectorAll('img[src^="data:image/"]').forEach(img => {
+        pushAsset(img.getAttribute('src') || '', '팝업 내부 이미지', `팝업 "${fcTitle}" · 이미지`, 0, img, (nextUri, nw, nh) => {
+          img.setAttribute('src', nextUri);
+          if (nw > 0 && nh > 0) {
+            img.setAttribute('data-img-nat-w', String(nw));
+            img.setAttribute('data-img-nat-h', String(nh));
+          }
+        });
+      });
+      rec.querySelectorAll('video[poster^="data:image/"]').forEach(vid => {
+        pushAsset(vid.getAttribute('poster') || '', '팝업 영상 포스터', `팝업 "${fcTitle}" · 포스터`, 0, vid, (nextUri) => {
+          vid.setAttribute('poster', nextUri);
+        });
+      });
+    });
+  }
+  return assets;
+}
+
+function findOrphanFloatingCardIds() {
+  const fcStore = document.getElementById('pptFloatingCardsStore');
+  const stage = document.getElementById('slideStage');
+  if (!fcStore || !stage) return [];
+  const referenced = new Set();
+  stage.querySelectorAll('.slide [data-floating-card-id], .slide [data-floating-card-ids]').forEach(el => {
+    const single = (el.getAttribute('data-floating-card-id') || '').trim();
+    if (single) referenced.add(single);
+    const multi = (el.getAttribute('data-floating-card-ids') || '').trim();
+    if (multi) multi.split(',').map(s => s.trim()).filter(Boolean).forEach(id => referenced.add(id));
+  });
+  const orphans = [];
+  fcStore.querySelectorAll('[data-fc-id]').forEach(rec => {
+    const id = rec.getAttribute('data-fc-id');
+    if (id && !referenced.has(id)) orphans.push(id);
+  });
+  return orphans;
+}
+
+function cleanupOrphanFloatingCards() {
+  const orphans = findOrphanFloatingCardIds();
+  if (orphans.length === 0) {
+    showToast('정리할 미사용 플로팅 팝업 카드가 없습니다.');
+    return 0;
+  }
+  const fcStore = document.getElementById('pptFloatingCardsStore');
+  if (!fcStore) return 0;
+  if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot('미사용 팝업 카드 정리 전', true);
+  let removed = 0;
+  orphans.forEach(id => {
+    const rec = fcStore.querySelector(`[data-fc-id="${id}"]`);
+    if (rec) {
+      if (typeof activeEditingFloatingCardId !== 'undefined' && activeEditingFloatingCardId === id && typeof closeFloatingCardEditor === 'function') {
+        closeFloatingCardEditor();
+      }
+      rec.remove();
+      removed++;
+    }
+  });
+  if (typeof populateFloatingCardSelect === 'function') populateFloatingCardSelect();
+  if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot(`미사용 팝업 카드 ${removed}개 정리`, true);
+  renderMediaAssetManagerModal();
+  showToast(`미사용 플로팅 팝업 카드 ${removed}개가 정리되었습니다. (Ctrl+Z 복원 가능)`);
+  return removed;
+}
+
+function transcodeImageDataUrlAsync(dataUrl, maxDim, quality, preferWebp) {
+  return new Promise((resolve) => {
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) { resolve(null); return; }
+    const fmtM = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/i);
+    const srcMime = fmtM ? fmtM[1] : 'image/jpeg';
+    const probe = new Image();
+    probe.onload = () => {
+      const limit = Math.max(320, Number(maxDim) || 1440);
+      let w = probe.naturalWidth || probe.width || 1;
+      let h = probe.naturalHeight || probe.height || 1;
+      if (w > limit || h > limit) {
+        if (w > h) { h = Math.max(1, Math.round((h * limit) / w)); w = limit; }
+        else { w = Math.max(1, Math.round((w * limit) / h)); h = limit; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(probe, 0, 0, w, h);
+      const nextUrl = encodeCanvasToOptimizedDataUrl(c, srcMime, { quality, preferWebp });
+      resolve({ url: nextUrl, w, h, bytes: estimateBase64DataUrlBytes(nextUrl) });
+    };
+    probe.onerror = () => resolve(null);
+    probe.src = dataUrl;
+  });
+}
+
+function onMediaOptPresetSelectChange(presetKey) {
+  const preset = setImageCompressionPreset(presetKey);
+  const dimSel = document.getElementById('mediaOptMaxDimSelect');
+  if (dimSel && preset) dimSel.value = String(preset.maxDim);
+  showToast(`기본 이미지 삽입 품질이 [${preset.label}]으로 설정되었습니다.`);
+}
+
+let __lastScannedMediaAssets = [];
+
+function openMediaAssetManagerModal() {
+  const modal = document.getElementById('mediaAssetManagerModal');
+  if (!modal) return;
+  const pref = getPreferredImageCompressionOptions();
+  const presetSel = document.getElementById('mediaOptPresetSelect');
+  const dimSel = document.getElementById('mediaOptMaxDimSelect');
+  if (presetSel) presetSel.value = pref.key;
+  if (dimSel) dimSel.value = String(pref.maxDim);
+  const resBanner = document.getElementById('mediaAssetOptResultBanner');
+  if (resBanner) { resBanner.classList.add('hidden'); resBanner.textContent = ''; }
+  renderMediaAssetManagerModal();
+  if (typeof openModalSafe === 'function') openModalSafe(modal);
+  else { modal.classList.remove('hidden'); modal.classList.add('flex'); modal.style.display = 'flex'; }
+}
+
+function closeMediaAssetManagerModal() {
+  const modal = document.getElementById('mediaAssetManagerModal');
+  if (!modal) return;
+  if (typeof closeModalSafe === 'function') closeModalSafe(modal);
+  else { modal.classList.add('hidden'); modal.classList.remove('flex'); modal.style.display = 'none'; }
+}
+
+function renderMediaAssetManagerModal() {
+  const assets = collectDeckImageAssets();
+  __lastScannedMediaAssets = assets;
+  const totalBytes = assets.reduce((acc, a) => acc + a.bytes, 0);
+  const uniqueCount = new Set(assets.map(a => a.uri)).size;
+  const orphans = findOrphanFloatingCardIds();
+
+  const sumEl = document.getElementById('mediaAssetSummaryText');
+  if (sumEl) {
+    sumEl.textContent = `내장 이미지 ${assets.length}건 (고유 ${uniqueCount}개) · 총 ${formatAssetByteSize(totalBytes)}`;
+  }
+  const webpBadge = document.getElementById('mediaAssetWebpSupportBadge');
+  if (webpBadge) {
+    const ok = supportsCanvasWebpEncoding();
+    webpBadge.textContent = ok ? 'WebP 인코딩 지원' : 'PNG/JPEG 폴백 모드';
+  }
+  const orphanBadge = document.getElementById('orphanFcCountBadge');
+  if (orphanBadge) orphanBadge.textContent = String(orphans.length);
+
+  const listEl = document.getElementById('mediaAssetListContainer');
+  if (!listEl) return;
+  if (assets.length === 0) {
+    listEl.innerHTML = '<div class="p-6 rounded-xl bg-canvas border border-borderline text-center text-muted font-bold">현재 덱에 내장된 Base64 이미지가 없습니다.</div>';
+    return;
+  }
+
+  const sorted = assets.map((a, origIdx) => ({ a, origIdx })).sort((x, y) => y.a.bytes - x.a.bytes);
+  listEl.innerHTML = sorted.map(({ a, origIdx }) => {
+    const dimTxt = (a.natW > 0 && a.natH > 0) ? `${a.natW}×${a.natH}` : '자동 크기';
+    const isHeavy = a.bytes >= 400 * 1024;
+    const fmtCls = a.fmt === 'WEBP' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isHeavy ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-canvas text-ink border-borderline');
+    const jumpBtn = a.slideNum > 0
+      ? `<button type="button" class="px-2 py-1 rounded-lg bg-white border border-borderline hover:border-gopro text-[10px] font-bold cursor-pointer shrink-0" data-on-click="goToSlide(${a.slideNum}); closeMediaAssetManagerModal();" title="해당 슬라이드로 이동">이동</button>`
+      : '';
+    return `<div class="p-2 rounded-xl bg-white border border-borderline flex items-center gap-2.5">
+      <div class="w-12 h-9 rounded-lg bg-canvas border border-borderline overflow-hidden shrink-0 flex items-center justify-center"><img src="${a.uri}" alt="에셋 미리보기" class="w-full h-full object-cover"></div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5">
+          <span class="font-bold text-ink truncate">${escapeAttr(a.locationLabel)}</span>
+          <span class="font-mono text-[9px] font-extrabold px-1.5 py-0.5 rounded border ${fmtCls}">${escapeAttr(a.fmt)}</span>
+        </div>
+        <div class="font-mono text-[10px] text-muted">${formatAssetByteSize(a.bytes)} · ${dimTxt}</div>
+      </div>
+      ${jumpBtn}
+      <button type="button" class="px-2 py-1 rounded-lg bg-ink text-white text-[10px] font-bold cursor-pointer shrink-0" data-on-click="optimizeSingleMediaAsset(${origIdx})" title="이 이미지만 WebP/리사이즈 최적화">최적화</button>
+    </div>`;
+  }).join('');
+}
+
+async function optimizeSingleMediaAsset(assetIdx) {
+  const asset = __lastScannedMediaAssets[assetIdx];
+  if (!asset) return null;
+  const lockedSlide = asset.el && asset.el.closest ? asset.el.closest('.slide[data-slide-locked="true"]') : null;
+  if (lockedSlide) {
+    showToast('잠긴 슬라이드의 이미지는 잠금 해제 후 최적화할 수 있습니다.');
+    return { savedBytes: 0, optimized: false, locked: true };
+  }
+  const pref = getPreferredImageCompressionOptions();
+  const maxDim = Number(document.getElementById('mediaOptMaxDimSelect')?.value || pref.maxDim || 1440);
+  const preferWebp = (document.getElementById('mediaOptFormatSelect')?.value || 'webp') === 'webp';
+  const beforeBytes = asset.bytes;
+  const res = await transcodeImageDataUrlAsync(asset.uri, maxDim, pref.quality, preferWebp);
+  if (!res || res.bytes >= beforeBytes) {
+    showToast('이미 최적화된 상태여서 추가 용량 절감이 없습니다.');
+    return { savedBytes: 0, optimized: false };
+  }
+  if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot('단일 이미지 최적화 전', true);
+  asset.applyFn(res.url, res.w, res.h);
+  if (asset.slideNum === 0 && asset.el && typeof activeEditingFloatingCardId !== 'undefined' && asset.el.getAttribute('data-fc-id') === activeEditingFloatingCardId && typeof $fc === 'function') {
+    const fcEd = $fc('fcRichBodyEditor');
+    if (fcEd) {
+      if (asset.kind === '팝업 배경') fcEd.setAttribute('data-fc-bg-img-url', res.url);
+      else if (asset.kind === '팝업 호버 배경') fcEd.setAttribute('data-fc-hover-bg-img-url', res.url);
+      if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+    }
+  }
+  if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot('단일 이미지 경량화', true);
+  renderMediaAssetManagerModal();
+  const saved = beforeBytes - res.bytes;
+  showToast(`이미지 경량화 완료: ${formatAssetByteSize(beforeBytes)} → ${formatAssetByteSize(res.bytes)} (-${Math.round((saved / Math.max(1, beforeBytes)) * 100)}%)`);
+  return { savedBytes: saved, optimized: true, beforeBytes, afterBytes: res.bytes };
+}
+
+async function runBatchImageOptimization(customOpts) {
+  const assets = collectDeckImageAssets();
+  if (assets.length === 0) {
+    showToast('최적화할 내장 이미지가 없습니다.');
+    return { totalBefore: 0, totalAfter: 0, optimizedCount: 0 };
+  }
+  const pref = getPreferredImageCompressionOptions();
+  const maxDim = Number((customOpts && customOpts.maxDim) || document.getElementById('mediaOptMaxDimSelect')?.value || pref.maxDim || 1440);
+  const quality = Number((customOpts && customOpts.quality) || pref.quality || 0.82);
+  const preferWebp = (customOpts && customOpts.preferWebp !== undefined)
+    ? Boolean(customOpts.preferWebp)
+    : ((document.getElementById('mediaOptFormatSelect')?.value || 'webp') === 'webp');
+
+  const btn = document.getElementById('runBatchMediaOptBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 최적화 진행 중...'; }
+
+  const totalBefore = assets.reduce((acc, a) => acc + a.bytes, 0);
+  const uniqueUris = Array.from(new Set(assets.map(a => a.uri)));
+  const transcodedMap = new Map();
+
+  for (let i = 0; i < uniqueUris.length; i++) {
+    const origUri = uniqueUris[i];
+    const origBytes = estimateBase64DataUrlBytes(origUri);
+    const res = await transcodeImageDataUrlAsync(origUri, maxDim, quality, preferWebp);
+    if (res && res.url && res.bytes < origBytes) {
+      transcodedMap.set(origUri, res);
+    }
+  }
+
+  let optimizedCount = 0;
+  let skippedLockedCount = 0;
+  if (transcodedMap.size > 0) {
+    const eligible = assets.filter(a => {
+      if (!transcodedMap.has(a.uri)) return false;
+      const lockedSlide = a.el && a.el.closest ? a.el.closest('.slide[data-slide-locked="true"]') : null;
+      if (lockedSlide) { skippedLockedCount++; return false; }
+      return true;
+    });
+    if (eligible.length > 0) {
+      if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot('미디어 일괄 경량화 전', true);
+      eligible.forEach(a => {
+        const hit = transcodedMap.get(a.uri);
+        if (hit) {
+          a.applyFn(hit.url, hit.w, hit.h);
+          optimizedCount++;
+          // If the optimized Floating Card is currently open in the editor, sync its live preview attributes!
+          if (a.slideNum === 0 && a.el && typeof activeEditingFloatingCardId !== 'undefined' && a.el.getAttribute('data-fc-id') === activeEditingFloatingCardId && typeof $fc === 'function') {
+            const fcEd = $fc('fcRichBodyEditor');
+            if (fcEd) {
+              if (a.kind === '팝업 배경') fcEd.setAttribute('data-fc-bg-img-url', hit.url);
+              else if (a.kind === '팝업 호버 배경') fcEd.setAttribute('data-fc-hover-bg-img-url', hit.url);
+              if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+            }
+          }
+        }
+      });
+      if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot(`미디어 ${optimizedCount}건 일괄 경량화`, true);
+    }
+  }
+
+  const afterAssets = collectDeckImageAssets();
+  const totalAfter = afterAssets.reduce((acc, a) => acc + a.bytes, 0);
+  const savedBytes = Math.max(0, totalBefore - totalAfter);
+  const pct = totalBefore > 0 ? Math.round((savedBytes / totalBefore) * 100) : 0;
+
+  if (btn) { btn.disabled = false; btn.textContent = '⚡ 전체 이미지 일괄 경량화'; }
+  renderMediaAssetManagerModal();
+
+  const banner = document.getElementById('mediaAssetOptResultBanner');
+  if (banner) {
+    banner.classList.remove('hidden');
+    banner.textContent = optimizedCount > 0
+      ? `✅ ${optimizedCount}건 경량화 완료: ${formatAssetByteSize(totalBefore)} → ${formatAssetByteSize(totalAfter)} (${formatAssetByteSize(savedBytes)} 절감, -${pct}%)`
+      : `ℹ️ 모든 이미지가 이미 최적 상태입니다. (현재 총 ${formatAssetByteSize(totalAfter)})`;
+  }
+  showToast(optimizedCount > 0
+    ? `이미지 ${optimizedCount}건 경량화 완료! (${formatAssetByteSize(totalBefore)} → ${formatAssetByteSize(totalAfter)}, -${pct}%)`
+    : '모든 이미지가 이미 최적 크기입니다.');
+  return { totalBefore, totalAfter, savedBytes, pct, optimizedCount, skippedLockedCount };
+}
+
 window.__pptTrackedMediaBlobUrls = window.__pptTrackedMediaBlobUrls instanceof Set ? window.__pptTrackedMediaBlobUrls : new Set();
 
 function createTrackedMediaBlobUrl(blob) {
@@ -256,7 +697,7 @@ function uploadCardInlineMedia(mediaBox, kind) {
       reader.onload = (ev) => {
         const imgObj = new Image();
         imgObj.onload = () => {
-          const maxDim = 1600;
+          const maxDim = Math.max(480, getPreferredImageCompressionOptions().maxDim || 1440);
           let w = imgObj.width;
           let h = imgObj.height;
           if (w > maxDim || h > maxDim) {
@@ -273,8 +714,7 @@ function uploadCardInlineMedia(mediaBox, kind) {
           canvas.height = h;
           canvas.getContext('2d').drawImage(imgObj, 0, 0, w, h);
 
-          const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-          const resizedDataUrl = canvas.toDataURL(mime, 0.88);
+          const resizedDataUrl = encodeCanvasToOptimizedDataUrl(canvas, file.type);
 
           const img = document.createElement('img');
           img.src = resizedDataUrl;
@@ -895,7 +1335,7 @@ function processImageFile(file, slotEl) {
   reader.onload = function (event) {
     const imgObj = new Image();
     imgObj.onload = function () {
-      const maxDim = 1600;
+      const maxDim = Math.max(480, getPreferredImageCompressionOptions().maxDim || 1440);
       let w = imgObj.width;
       let h = imgObj.height;
       if (w > maxDim || h > maxDim) {
@@ -913,8 +1353,7 @@ function processImageFile(file, slotEl) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(imgObj, 0, 0, w, h);
 
-      const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-      const base64Data = canvas.toDataURL(mime, 0.88);
+      const base64Data = encodeCanvasToOptimizedDataUrl(canvas, file.type);
 
       applyImageToSlot(slotEl, base64Data, w, h);
       saveHistorySnapshot();
@@ -1016,7 +1455,7 @@ function initMediaListeners() {
       reader.onload = function (event) {
         const imgObj = new Image();
         imgObj.onload = function () {
-          const maxDim = 1600;
+          const maxDim = Math.max(480, getPreferredImageCompressionOptions().maxDim || 1440);
           let w = imgObj.width;
           let h = imgObj.height;
           if (w > maxDim || h > maxDim) {
@@ -1027,8 +1466,7 @@ function initMediaListeners() {
           canvas.width = w;
           canvas.height = h;
           canvas.getContext('2d').drawImage(imgObj, 0, 0, w, h);
-          const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-          const base64Data = canvas.toDataURL(mime, 0.9);
+          const base64Data = encodeCanvasToOptimizedDataUrl(canvas, file.type);
 
           const targetCard = shouldInsertIntoSelectedCard();
           if (targetCard) {
@@ -1412,11 +1850,11 @@ function executeReplaceMediaPreserveProps(file) {
     reader.onload = (ev) => {
       const probe = new Image();
       probe.onload = () => {
-        const maxDim = 1600; let w = probe.width, h = probe.height;
+        const maxDim = Math.max(480, getPreferredImageCompressionOptions().maxDim || 1440); let w = probe.width, h = probe.height;
         if (w > maxDim || h > maxDim) { if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; } else { w = Math.round((w * maxDim) / h); h = maxDim; } }
         const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(probe, 0, 0, w, h);
-        const preserveAlpha = /^(?:image\/png|image\/webp|image\/gif)$/i.test(file.type || ''); imgEl.src = canvas.toDataURL(preserveAlpha ? 'image/png' : 'image/jpeg', 0.9);
+        imgEl.src = encodeCanvasToOptimizedDataUrl(canvas, file.type);
         imgEl.setAttribute('data-img-nat-w', String(w)); imgEl.setAttribute('data-img-nat-h', String(h));
         imgEl.classList.remove('hidden'); syncImageCssTransformAndFilter(imgEl); saveHistorySnapshot('이미지 속성 유지 교체');
       };
@@ -1459,7 +1897,7 @@ function applyVideoPosterFile(file) {
     img.onload = () => {
       const c = document.createElement('canvas'); c.width = Math.min(1280, img.width); c.height = Math.round(img.height * (c.width / Math.max(1, img.width)));
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      vid.setAttribute('poster', c.toDataURL('image/jpeg', 0.85)); syncVideoSourceInspectorUI(vid); saveHistorySnapshot('동영상 포스터 지정');
+      vid.setAttribute('poster', encodeCanvasToOptimizedDataUrl(c, 'image/jpeg')); syncVideoSourceInspectorUI(vid); saveHistorySnapshot('동영상 포스터 지정');
     };
     img.src = ev.target.result;
   };
@@ -1699,7 +2137,7 @@ function insertDirectImageFile(file) {
     const dataUrl = ev.target.result;
     const probe = new Image();
     probe.onload = () => {
-      const maxDim = 1600;
+      const maxDim = Math.max(480, getPreferredImageCompressionOptions().maxDim || 1440);
       let w = probe.width, h = probe.height;
       if (w > maxDim || h > maxDim) {
         if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
@@ -1708,7 +2146,7 @@ function insertDirectImageFile(file) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(probe, 0, 0, w, h);
-      const preserveAlpha = /^(?:image\/png|image\/webp|image\/gif)$/i.test(file.type || ''); const resizedDataUrl = canvas.toDataURL(preserveAlpha ? 'image/png' : 'image/jpeg', 0.9);
+      const resizedDataUrl = encodeCanvasToOptimizedDataUrl(canvas, file.type);
 
       const targetCard = typeof shouldInsertIntoSelectedCard === 'function' ? shouldInsertIntoSelectedCard() : null;
       if (targetCard) {

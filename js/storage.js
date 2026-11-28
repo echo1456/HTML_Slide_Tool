@@ -1321,6 +1321,21 @@ function sanitizeImportedStageHtml(rawHtml) {
         return;
       }
 
+      if (name === 'data-morph-id') {
+        if (!/^[a-zA-Z0-9_\uAC00-\uD7A3-]+$/.test(val)) {
+          el.removeAttribute(attr.name);
+        }
+        return;
+      }
+
+      if (name === 'data-morph-duration') {
+        const n = parseInt(val, 10);
+        if (!Number.isFinite(n) || n < 100 || n > 5000) {
+          el.removeAttribute(attr.name);
+        }
+        return;
+      }
+
       if (name === 'data-fc-bg-img' || name === 'data-fc-hover-bg-img') {
         const isSafeUrl = /^url\(\s*["']?(?:data:image\/(?:png|jpe?g|gif|webp);base64,[a-zA-Z0-9+/=]+|media\/[a-zA-Z0-9._-]+)["']?\s*\)$/i.test(val);
         const isSafeGrad = /^(?:linear|radial)-gradient\([a-zA-Z0-9#%,.\s()-]+\)$/i.test(val) && !/url\s*\(|expression\s*\(|javascript:/i.test(val);
@@ -1898,3 +1913,668 @@ window.addEventListener('beforeunload', (e) => {
     e.returnValue = '';
   }
 });
+
+
+/* ==================== MY CARD & FLOATING CARD PRESET LIBRARY (v5.7.1 — PPTStudioPresetLibraryDB_v1) ==================== */
+const IDB_PRESET_LIB_NAME = 'PPTStudioPresetLibraryDB_v1';
+const IDB_PRESET_LIB_STORE = 'presets';
+const STORAGE_KEY_PRESET_LIB = 'html_slide_studio_presets_v1';
+let __presetLibraryCache = {};
+let __presetLibraryDbReady = false;
+let __activePresetLibraryFilter = 'all';
+
+function openPresetLibraryDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error('IndexedDB not supported'));
+      return;
+    }
+    const req = indexedDB.open(IDB_PRESET_LIB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_PRESET_LIB_STORE)) {
+        db.createObjectStore(IDB_PRESET_LIB_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function readPresetLibraryLocalFallback() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PRESET_LIB);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function writePresetLibraryLocalFallback(map) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PRESET_LIB, JSON.stringify(map));
+  } catch (e) {}
+}
+
+async function initPresetLibraryStore() {
+  const localMap = readPresetLibraryLocalFallback();
+  try {
+    const db = await openPresetLibraryDB();
+    const allItems = await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_PRESET_LIB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_PRESET_LIB_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    const map = {};
+    allItems.forEach(item => { if (item && item.id) map[item.id] = item; });
+    Object.keys(localMap).forEach(k => {
+      if (!map[k] && localMap[k]) map[k] = localMap[k];
+    });
+    db.close();
+    __presetLibraryCache = map;
+    __presetLibraryDbReady = true;
+    renderPresetLibraryModal();
+  } catch (err) {
+    __presetLibraryCache = Object.assign({}, localMap, __presetLibraryCache);
+    __presetLibraryDbReady = true;
+    renderPresetLibraryModal();
+  }
+}
+
+function getPresetLibraryMap() {
+  if (!__presetLibraryDbReady && Object.keys(__presetLibraryCache).length === 0) {
+    __presetLibraryCache = readPresetLibraryLocalFallback();
+  }
+  return __presetLibraryCache;
+}
+
+async function persistPresetToStore(presetObj) {
+  if (!presetObj || !presetObj.id) return false;
+  const map = getPresetLibraryMap();
+  map[presetObj.id] = presetObj;
+  __presetLibraryCache = map;
+  try {
+    const db = await openPresetLibraryDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_PRESET_LIB_STORE, 'readwrite');
+      tx.objectStore(IDB_PRESET_LIB_STORE).put(presetObj);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    return true;
+  } catch (e) {
+    writePresetLibraryLocalFallback(map);
+    return true;
+  }
+}
+
+async function removePresetFromStore(presetId) {
+  if (!presetId) return false;
+  const map = getPresetLibraryMap();
+  delete map[presetId];
+  __presetLibraryCache = map;
+  try {
+    const db = await openPresetLibraryDB();
+    await new Promise((resolve) => {
+      const tx = db.transaction(IDB_PRESET_LIB_STORE, 'readwrite');
+      tx.objectStore(IDB_PRESET_LIB_STORE).delete(presetId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+    db.close();
+  } catch (e) {
+    writePresetLibraryLocalFallback(map);
+  }
+  return true;
+}
+
+function regeneratePresetInternalIds(rootEl) {
+  if (!rootEl || !rootEl.querySelectorAll) return;
+  const all = [rootEl, ...Array.from(rootEl.querySelectorAll('*'))];
+  all.forEach(el => {
+    if (el.hasAttribute && el.hasAttribute('id')) el.removeAttribute('id');
+    if (el.hasAttribute && el.hasAttribute('data-chart-uid')) {
+      el.setAttribute('data-chart-uid', 'chart_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+    }
+  });
+  const nodeMap = new Map();
+  all.forEach(el => {
+    if (el.hasAttribute && el.hasAttribute('data-conn-node-id')) {
+      const oldId = el.getAttribute('data-conn-node-id');
+      const newId = 'cn_' + Math.random().toString(36).slice(2, 9);
+      nodeMap.set(oldId, newId);
+      el.setAttribute('data-conn-node-id', newId);
+    }
+  });
+  all.forEach(el => {
+    if (!el.hasAttribute) return;
+    const f = el.getAttribute('data-connector-from');
+    const t = el.getAttribute('data-connector-to');
+    if (f && nodeMap.has(f)) el.setAttribute('data-connector-from', nodeMap.get(f));
+    if (t && nodeMap.has(t)) el.setAttribute('data-connector-to', nodeMap.get(t));
+  });
+  const trigMap = new Map();
+  all.forEach(el => {
+    if (el.hasAttribute && el.hasAttribute('data-trigger-node-id')) {
+      const oldId = el.getAttribute('data-trigger-node-id');
+      const newId = 'tn_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+      trigMap.set(oldId, newId);
+      el.setAttribute('data-trigger-node-id', newId);
+    }
+  });
+  all.forEach(el => {
+    if (el.hasAttribute && el.hasAttribute('data-trigger-target')) {
+      const tgt = el.getAttribute('data-trigger-target');
+      if (tgt && trigMap.has(tgt)) el.setAttribute('data-trigger-target', trigMap.get(tgt));
+    }
+  });
+  const groupMap = new Map();
+  all.forEach(el => {
+    if (el.hasAttribute && el.hasAttribute('data-group-id')) {
+      const oldGid = el.getAttribute('data-group-id');
+      if (!oldGid) return;
+      if (!groupMap.has(oldGid)) groupMap.set(oldGid, 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+      el.setAttribute('data-group-id', groupMap.get(oldGid));
+    }
+  });
+}
+
+function captureSelectedCardPresetPayload(customTitle, category) {
+  let targetCard = null;
+  if (typeof selectedElement !== 'undefined' && selectedElement && document.body.contains(selectedElement) && !selectedElement.closest('#fcRichBodyEditor')) {
+    if (selectedElement.classList.contains('slide-card') || selectedElement.classList.contains('slide-header-bar') || (selectedElement.classList.contains('ppt-free-obj') && selectedElement.getAttribute('data-shape-type') === 'freeCard')) {
+      targetCard = selectedElement;
+    } else if (selectedElement.closest) {
+      targetCard = selectedElement.closest('.slide-card, .ppt-free-obj[data-shape-type="freeCard"]');
+    }
+  }
+  if (!targetCard && typeof getTargetCardForHierarchy === 'function') {
+    const hCard = getTargetCardForHierarchy();
+    if (hCard && !hCard.closest('#fcRichBodyEditor')) targetCard = hCard;
+  }
+  if (!targetCard) return null;
+
+  const clone = targetCard.cloneNode(true);
+  clone.classList.remove('ppt-multi-selected', 'is-selected', 'build-step-pending', 'build-step-revealed');
+  clone.removeAttribute('data-layer-locked');
+  clone.removeAttribute('data-group-id');
+  clone.removeAttribute('data-morph-id');
+  clone.querySelectorAll('[data-morph-id]').forEach(el => el.removeAttribute('data-morph-id'));
+  clone.querySelectorAll('.ppt-multi-selected, .is-selected, .chart-cell-selected').forEach(el => el.classList.remove('ppt-multi-selected', 'is-selected', 'chart-cell-selected'));
+  clone.querySelectorAll('.table-col-resizer, .table-row-resizer, .video-missing-fallback').forEach(el => el.remove());
+  clone.querySelectorAll('.iw-flip-scene').forEach(el => el.classList.remove('is-editing-back', 'is-flipped'));
+  clone.querySelectorAll('.iw-hs-pin.is-open').forEach(el => el.classList.remove('is-open'));
+  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  clone.querySelectorAll('[data-err-bound]').forEach(el => el.removeAttribute('data-err-bound'));
+
+  const isFreeCard = clone.classList.contains('ppt-free-obj') && clone.getAttribute('data-shape-type') === 'freeCard';
+  if (!isFreeCard && clone.classList.contains('slide-card')) {
+    delete clone.dataset.bentoStartCol;
+    delete clone.dataset.bentoSpan;
+    delete clone.dataset.bentoStartRow;
+    delete clone.dataset.bentoRowSpan;
+    clone.style.gridColumn = '';
+    clone.style.gridRow = '';
+  }
+
+  const hNode = clone.querySelector('h1, h2, h3, h4, p');
+  const inferredTitle = hNode ? hNode.textContent.trim().slice(0, 28) : '슬라이드 카드 프리셋';
+  const title = (customTitle || document.getElementById('presetNameInput')?.value || '').trim() || inferredTitle || '슬라이드 카드 프리셋';
+  const cat = (category || document.getElementById('presetCategorySelect')?.value || '일반').trim();
+  const bgHex = targetCard.getAttribute('data-card-bg-hex') || (targetCard.classList.contains('card-theme-dark') ? '#1E293B' : '#FFFFFF');
+
+  return {
+    id: 'preset_card_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    kind: 'slide-card',
+    subKind: isFreeCard ? 'freeCard' : 'gridCard',
+    title,
+    category: cat,
+    bgHex,
+    isDark: targetCard.classList.contains('card-theme-dark'),
+    savedAt: new Date().toLocaleString('ko-KR'),
+    html: clone.outerHTML
+  };
+}
+
+function captureCurrentFloatingCardPresetPayload(customTitle, category, explicitFcId) {
+  const fcAttrNames = [
+    'data-fc-title', 'data-fc-bg', 'data-fc-opacity', 'data-fc-color', 'data-fc-border-color',
+    'data-fc-radius', 'data-fc-border-width', 'data-fc-width-class', 'data-fc-bg-blur', 'data-fc-hover-bg-blur',
+    'data-fc-use-width-preset', 'data-fc-custom-w', 'data-fc-custom-h', 'data-fc-fx', 'data-fc-fx-basis',
+    'data-fc-hover-bg', 'data-fc-hover-bg-alpha', 'data-fc-shadow', 'data-fc-shadow-hex', 'data-fc-shadow-alpha',
+    'data-fc-border-fx', 'data-fc-border-fx-hex', 'data-fc-border-fx-width', 'data-fc-pos-preset',
+    'data-fc-pos-x', 'data-fc-pos-y', 'data-fc-bg-img', 'data-fc-hover-bg-img', 'data-fc-bg-mask', 'data-fc-hover-bg-mask'
+  ];
+
+  const isFcOpen = typeof isFloatingCardStudioOpen === 'function' && isFloatingCardStudioOpen();
+  let attrs = {};
+  let cleanHtml = '';
+  let fallbackTitle = '플로팅 팝업 카드 프리셋';
+
+  if (!explicitFcId && isFcOpen && typeof $fc === 'function' && $fc('fcRichBodyEditor')) {
+    const editor = $fc('fcRichBodyEditor');
+    const bgImgUrl = editor.getAttribute('data-fc-bg-img-url') || '';
+    const hoverBgImgUrl = editor.getAttribute('data-fc-hover-bg-img-url') || '';
+    const serializedBgImg = bgImgUrl ? (/^(?:linear|radial)-gradient\(/i.test(bgImgUrl) ? bgImgUrl : `url("${bgImgUrl}")`) : '';
+    const serializedHoverBgImg = hoverBgImgUrl ? (/^(?:linear|radial)-gradient\(/i.test(hoverBgImgUrl) ? hoverBgImgUrl : `url("${hoverBgImgUrl}")`) : '';
+    fallbackTitle = ($fc('fcTitleInput')?.value || '').trim() || fallbackTitle;
+    attrs = {
+      'data-fc-title': fallbackTitle,
+      'data-fc-bg': $fc('fcBgColorInput')?.value || '#FFFFFF',
+      'data-fc-opacity': $fc('fcBgOpacityInput')?.value || '100',
+      'data-fc-color': $fc('fcTextColorInput')?.value || '#111111',
+      'data-fc-border-color': $fc('fcBorderColorInput')?.value || '#111111',
+      'data-fc-radius': $fc('fcRadiusSelect')?.value || '20px',
+      'data-fc-border-width': $fc('fcBorderWidthSelect')?.value || '2px',
+      'data-fc-width-class': $fc('fcWidthSelect')?.value || 'max-w-2xl',
+      'data-fc-bg-blur': $fc('fcBgBlurSlider')?.value || '0',
+      'data-fc-hover-bg-blur': $fc('fcHoverBgBlurSlider')?.value || '0',
+      'data-fc-use-width-preset': String(Boolean($fc('fcUseWidthPresetToggle')?.checked)),
+      'data-fc-custom-w': $fc('fcCustomWidthInput')?.value || '0',
+      'data-fc-custom-h': $fc('fcCustomHeightInput')?.value || '0',
+      'data-fc-fx': $fc('fcReactiveFxSelect')?.value || 'none',
+      'data-fc-fx-basis': $fc('fcFxBasisSelect')?.value || 'box',
+      'data-fc-hover-bg': $fc('fcHoverBgColorInput')?.value || '#EFF6FF',
+      'data-fc-hover-bg-alpha': $fc('fcHoverBgOpacityInput')?.value || '100',
+      'data-fc-shadow': $fc('fcShadowToggle')?.checked ? 'on' : 'off',
+      'data-fc-shadow-hex': $fc('fcShadowColorInput')?.value || '#0055FF',
+      'data-fc-shadow-alpha': $fc('fcShadowOpacityInput')?.value || '28',
+      'data-fc-border-fx': $fc('fcBorderFxToggle')?.checked ? 'on' : 'off',
+      'data-fc-border-fx-hex': $fc('fcBorderFxColorInput')?.value || '#0055FF',
+      'data-fc-border-fx-width': $fc('fcBorderFxWidthInput')?.value || '2',
+      'data-fc-pos-preset': $fc('fcPositionPresetSelect')?.value || 'center',
+      'data-fc-pos-x': $fc('fcPosXInput')?.value || '50',
+      'data-fc-pos-y': $fc('fcPosYInput')?.value || '50',
+      'data-fc-bg-img': serializedBgImg,
+      'data-fc-hover-bg-img': serializedHoverBgImg,
+      'data-fc-bg-mask': editor.getAttribute('data-fc-bg-mask') || '',
+      'data-fc-hover-bg-mask': editor.getAttribute('data-fc-hover-bg-mask') || ''
+    };
+    const clone = editor.cloneNode(true);
+    clone.querySelectorAll('.fc-item-resize-grip, .fc-item-resize-grip-e, .fc-item-resize-grip-s, .fc-item-move-grip, .table-col-resizer, .table-row-resizer').forEach(g => g.remove());
+    clone.querySelectorAll('.fc-item-selected, .chart-cell-selected, .ppt-multi-selected, .is-selected').forEach(el => el.classList.remove('fc-item-selected', 'chart-cell-selected', 'ppt-multi-selected', 'is-selected'));
+    clone.querySelectorAll('.iw-flip-scene.is-editing-back').forEach(s => s.classList.remove('is-editing-back'));
+    cleanHtml = clone.innerHTML;
+  } else {
+    const store = typeof ensureFloatingCardsStore === 'function' ? ensureFloatingCardsStore() : document.getElementById('pptFloatingCardsStore');
+    const selId = explicitFcId || ($studio('floatingCardSelect')?.value || '') || (typeof activeEditingFloatingCardId !== 'undefined' ? activeEditingFloatingCardId : '');
+    let rec = (store && selId) ? store.querySelector(`[data-fc-id="${selId}"]`) : null;
+    if (!rec && store) rec = store.querySelector('[data-fc-id]');
+    if (!rec) return null;
+    fallbackTitle = (rec.getAttribute('data-fc-title') || '').trim() || fallbackTitle;
+    fcAttrNames.forEach(aName => {
+      if (rec.hasAttribute(aName)) attrs[aName] = rec.getAttribute(aName) || '';
+    });
+    cleanHtml = rec.innerHTML;
+  }
+
+  const title = (customTitle || document.getElementById('presetNameInput')?.value || '').trim() || fallbackTitle;
+  const cat = (category || document.getElementById('presetCategorySelect')?.value || '상세 팝업').trim();
+  attrs['data-fc-title'] = title;
+
+  return {
+    id: 'preset_fc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    kind: 'floating-card',
+    title,
+    category: cat,
+    bgHex: attrs['data-fc-bg'] || '#FFFFFF',
+    isDark: typeof isDarkHexColor === 'function' ? isDarkHexColor(attrs['data-fc-bg'] || '#FFFFFF') : false,
+    savedAt: new Date().toLocaleString('ko-KR'),
+    attrs,
+    html: cleanHtml
+  };
+}
+
+async function saveSelectedCardAsPreset(customTitle, category) {
+  const payload = captureSelectedCardPresetPayload(customTitle, category);
+  if (!payload) {
+    showToast('먼저 프리셋으로 저장할 슬라이드 카드를 클릭해 선택해 주세요.');
+    return null;
+  }
+  await persistPresetToStore(payload);
+  const nameInp = document.getElementById('presetNameInput');
+  if (nameInp) nameInp.value = '';
+  renderPresetLibraryModal();
+  showToast(`★ "${payload.title}" 슬라이드 카드가 내 프리셋 라이브러리에 저장되었습니다!`);
+  return payload;
+}
+
+async function saveCurrentFloatingCardAsPreset(customTitle, category, explicitFcId) {
+  const payload = captureCurrentFloatingCardPresetPayload(customTitle, category, explicitFcId);
+  if (!payload) {
+    showToast('저장할 플로팅 팝업 카드가 없습니다. 먼저 플로팅 카드를 열거나 생성해 주세요.');
+    return null;
+  }
+  await persistPresetToStore(payload);
+  const nameInp = document.getElementById('presetNameInput');
+  if (nameInp) nameInp.value = '';
+  renderPresetLibraryModal();
+  showToast(`★ "${payload.title}" 플로팅 카드가 내 프리셋 라이브러리에 저장되었습니다!`);
+  return payload;
+}
+
+function insertPresetFromLibrary(presetId, openEditorAfter) {
+  const map = getPresetLibraryMap();
+  const preset = map[presetId];
+  if (!preset) return null;
+
+  if (preset.kind === 'floating-card') {
+    const store = typeof ensureFloatingCardsStore === 'function' ? ensureFloatingCardsStore() : document.getElementById('pptFloatingCardsStore');
+    if (!store) return null;
+    const newFcId = 'fc_lib_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    const rec = document.createElement('div');
+    rec.setAttribute('data-fc-id', newFcId);
+    const attrs = preset.attrs && typeof preset.attrs === 'object' ? preset.attrs : {};
+    Object.keys(attrs).forEach(k => {
+      if (!/^data-fc-[a-z0-9-]+$/i.test(k)) return;
+      const val = String(attrs[k] ?? '');
+      if (val === '' && (k === 'data-fc-bg-mask' || k === 'data-fc-hover-bg-mask')) return;
+      if ((k === 'data-fc-bg-img' || k === 'data-fc-hover-bg-img') && /(?:javascript|vbscript):/i.test(val)) return;
+      rec.setAttribute(k, val);
+    });
+    if (!rec.getAttribute('data-fc-title')) rec.setAttribute('data-fc-title', preset.title || '플로팅 카드');
+    rec.innerHTML = sanitizeImportedStageHtml(preset.html || '');
+    regeneratePresetInternalIds(rec);
+    store.appendChild(rec);
+    if (typeof populateFloatingCardSelect === 'function') populateFloatingCardSelect();
+    const sel = $studio('floatingCardSelect');
+    if (sel) sel.value = newFcId;
+
+    // Auto-link to currently selected non-slide trigger element if one is active
+    if (typeof selectedElement !== 'undefined' && selectedElement && document.body.contains(selectedElement) && !selectedElement.closest('#fcRichBodyEditor') && !selectedElement.classList.contains('slide') && typeof getLinkedFloatingCardIds === 'function' && typeof setLinkedFloatingCardIds === 'function') {
+      const ids = getLinkedFloatingCardIds(selectedElement);
+      if (!ids.includes(newFcId)) {
+        ids.push(newFcId);
+        setLinkedFloatingCardIds(selectedElement, ids);
+        if (typeof syncLinkInspectorUI === 'function') syncLinkInspectorUI(selectedElement);
+      }
+    }
+    if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot(`플로팅 카드 프리셋 삽입 (${preset.title})`, true);
+    closePresetLibraryModal();
+    if (openEditorAfter && typeof openFloatingCardEditor === 'function') {
+      openFloatingCardEditor(newFcId);
+    }
+    showToast(`🪟 "${preset.title}" 플로팅 카드 프리셋을 불러왔습니다!`);
+    return newFcId;
+  }
+
+  // Slide Card Preset (`slide-card`)
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return null;
+  const activeSlideEl = slides[currentSlide - 1];
+  if (!activeSlideEl) return null;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = sanitizeImportedStageHtml(preset.html || '');
+  const cardEl = wrap.firstElementChild;
+  if (!cardEl) return null;
+
+  regeneratePresetInternalIds(cardEl);
+  cardEl.classList.remove('ppt-multi-selected', 'is-selected');
+  cardEl.removeAttribute('data-layer-locked');
+
+  // Remove dangling floating-card references that do not exist in the current deck's store
+  const fcStoreRef = document.getElementById('pptFloatingCardsStore');
+  [cardEl, ...Array.from(cardEl.querySelectorAll('[data-floating-card-id], [data-floating-card-ids]'))].forEach(lnkEl => {
+    const sId = (lnkEl.getAttribute('data-floating-card-id') || '').trim();
+    if (sId && (!fcStoreRef || !fcStoreRef.querySelector(`[data-fc-id="${sId}"]`))) {
+      lnkEl.removeAttribute('data-floating-card-id');
+    }
+    const mIds = (lnkEl.getAttribute('data-floating-card-ids') || '').trim();
+    if (mIds) {
+      const validIds = mIds.split(',').map(x => x.trim()).filter(x => x && fcStoreRef && fcStoreRef.querySelector(`[data-fc-id="${x}"]`));
+      if (validIds.length > 0) lnkEl.setAttribute('data-floating-card-ids', validIds.join(','));
+      else lnkEl.removeAttribute('data-floating-card-ids');
+    }
+  });
+
+  if (cardEl.classList.contains('slide-header-bar')) {
+    const existingHdr = activeSlideEl.querySelector(':scope > .slide-header-bar');
+    if (existingHdr) {
+      existingHdr.replaceWith(cardEl);
+    } else {
+      const gb = activeSlideEl.querySelector(':scope > .slide-grid-body');
+      if (gb) activeSlideEl.insertBefore(cardEl, gb);
+      else activeSlideEl.prepend(cardEl);
+    }
+  } else if (cardEl.classList.contains('ppt-free-obj')) {
+    if (typeof ensureFreeLayersOnAllSlides === 'function') ensureFreeLayersOnAllSlides();
+    const layer = activeSlideEl.querySelector('.ppt-free-layer');
+    if (!layer) return null;
+    cardEl.style.left = cardEl.style.left || '20%';
+    cardEl.style.top = cardEl.style.top || '20%';
+    cardEl.style.zIndex = String(layer.children.length + 22);
+    layer.appendChild(cardEl);
+  } else {
+    const gridBody = typeof getActiveGridBody === 'function' ? getActiveGridBody() : activeSlideEl.querySelector('.slide-grid-body');
+    if (!gridBody) return null;
+    gridBody.style.display = '';
+    const prevCards = Array.from(gridBody.children).filter(c => c.classList && c.classList.contains('slide-card'));
+    let placedIn2D = false;
+    if (gridBody.getAttribute('data-bento-2d') === 'true' && typeof findLargestEmptyBentoRect === 'function' && typeof applyBento2DCoords === 'function') {
+      const emptyRect = findLargestEmptyBentoRect(gridBody);
+      if (emptyRect) {
+        applyBento2DCoords(cardEl, emptyRect.cs, emptyRect.cw, emptyRect.rs, emptyRect.rh);
+        gridBody.appendChild(cardEl);
+        placedIn2D = true;
+      }
+    }
+    if (!placedIn2D) {
+      gridBody.appendChild(cardEl);
+      if (typeof rebalanceSlideGridLayout === 'function') {
+        rebalanceSlideGridLayout(gridBody, prevCards.length > 0 && gridBody.getAttribute('data-bento-2d') !== 'true');
+      }
+    } else if (typeof syncBento2DMultiRowClass === 'function') {
+      syncBento2DMultiRowClass(gridBody);
+    }
+  }
+
+  if (typeof writeChartDataAndRender === 'function') {
+    cardEl.querySelectorAll('.ppt-chart-widget[data-chart-json]').forEach(w => {
+      try { writeChartDataAndRender(w, JSON.parse(w.getAttribute('data-chart-json'))); } catch (e) {}
+    });
+  }
+  if (isEditMode && typeof makeAllTextEditable === 'function') makeAllTextEditable(true);
+  [cardEl, ...Array.from(cardEl.querySelectorAll('[data-morph-id]'))].forEach(mEl => {
+    const mid = mEl.getAttribute && mEl.getAttribute('data-morph-id');
+    if (mid && activeSlideEl.querySelector(`[data-morph-id="${mid.replace(/"/g, '')}"]`) !== mEl) {
+      mEl.removeAttribute('data-morph-id');
+    }
+  });
+  if (typeof selectElementForInspector === 'function') selectElementForInspector(cardEl, false);
+  if (typeof refreshLayerList === 'function') refreshLayerList();
+  if (typeof syncBuildOrderUI === 'function') syncBuildOrderUI(cardEl);
+  if (typeof syncMorphInspectorUI === 'function') syncMorphInspectorUI(cardEl);
+  if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot(`카드 프리셋 삽입 (${preset.title})`);
+  closePresetLibraryModal();
+  showToast(`★ "${preset.title}" 카드 프리셋이 현재 슬라이드에 삽입되었습니다!`);
+  return cardEl;
+}
+
+async function deletePresetFromLibrary(presetId) {
+  const map = getPresetLibraryMap();
+  const title = map[presetId]?.title || '프리셋';
+  await removePresetFromStore(presetId);
+  renderPresetLibraryModal();
+  showToast(`"${title}" 프리셋이 라이브러리에서 삭제되었습니다.`);
+}
+
+function setPresetLibraryFilter(filterKey) {
+  __activePresetLibraryFilter = (filterKey === 'slide-card' || filterKey === 'floating-card') ? filterKey : 'all';
+  ['all', 'slide-card', 'floating-card'].forEach(k => {
+    const btn = document.getElementById(`presetFilterBtn-${k}`);
+    if (!btn) return;
+    const isAct = k === __activePresetLibraryFilter;
+    btn.className = isAct
+      ? 'px-2.5 py-1 rounded-lg bg-ink text-white cursor-pointer'
+      : 'px-2.5 py-1 rounded-lg bg-canvas border border-borderline text-ink cursor-pointer';
+  });
+  renderPresetLibraryModal();
+}
+
+function openPresetLibraryModal(initialFilter) {
+  const modal = document.getElementById('presetLibraryModal');
+  if (!modal) return;
+  try { if (typeof window.focus === 'function') window.focus(); } catch (e) {}
+  if (initialFilter) setPresetLibraryFilter(initialFilter);
+  else renderPresetLibraryModal();
+  if (typeof openModalSafe === 'function') openModalSafe(modal);
+  else { modal.classList.remove('hidden'); modal.classList.add('flex'); modal.style.display = 'flex'; }
+}
+
+function closePresetLibraryModal() {
+  const modal = document.getElementById('presetLibraryModal');
+  if (!modal) return;
+  if (typeof closeModalSafe === 'function') closeModalSafe(modal);
+  else { modal.classList.add('hidden'); modal.classList.remove('flex'); modal.style.display = 'none'; }
+}
+
+function renderPresetLibraryModal() {
+  const map = getPresetLibraryMap();
+  const allList = Object.values(map).sort((a, b) => String(b.id || '').localeCompare(String(a.id || '')));
+  const badge = document.getElementById('presetLibraryCountBadge');
+  if (badge) badge.textContent = `${allList.length}개 저장됨`;
+
+  const listEl = document.getElementById('presetLibraryListContainer');
+  if (!listEl) return;
+
+  const q = (document.getElementById('presetLibrarySearchInput')?.value || '').trim().toLowerCase();
+  const filtered = allList.filter(item => {
+    if (__activePresetLibraryFilter !== 'all' && item.kind !== __activePresetLibraryFilter) return false;
+    if (q) {
+      const hay = `${item.title || ''} ${item.category || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="p-6 rounded-xl bg-canvas border border-borderline text-center text-muted font-bold">${allList.length === 0 ? '저장된 프리셋이 아직 없습니다. 위 버튼으로 자주 쓰는 카드나 플로팅 팝업 카드를 저장해 보세요.' : '검색·필터 조건에 일치하는 프리셋이 없습니다.'}</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(item => {
+    const isFc = item.kind === 'floating-card';
+    const kindBadge = isFc
+      ? '<span class="font-mono text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-gopro/10 text-gopro border border-gopro/25">플로팅 팝업</span>'
+      : '<span class="font-mono text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-ink/10 text-ink border border-borderline">슬라이드 카드</span>';
+    const swatchHex = /^#[0-9a-fA-F]{3,6}$/.test(item.bgHex || '') ? item.bgHex : '#FFFFFF';
+    const editBtn = isFc
+      ? `<button type="button" class="px-2 py-1 rounded-lg bg-white hover:border-gopro border border-borderline text-[10px] font-bold text-gopro cursor-pointer shrink-0" data-on-click="insertPresetFromLibrary('${escapeAttr(item.id)}', true)" title="보관함에 추가하고 바로 편집창 열기">추가·편집</button>`
+      : '';
+    return `<div class="p-2.5 rounded-xl bg-white border border-borderline flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg border border-borderline shrink-0" style="background-color: ${swatchHex};" title="배경색 ${swatchHex}"></div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5">
+          <span class="font-extrabold text-ink truncate">${escapeAttr(item.title || '프리셋')}</span>
+          ${kindBadge}
+          <span class="font-mono text-[9px] px-1.5 py-0.5 rounded bg-canvas text-muted border border-borderline">${escapeAttr(item.category || '일반')}</span>
+        </div>
+        <div class="font-mono text-[10px] text-muted">${escapeAttr(item.savedAt || '')}</div>
+      </div>
+      <button type="button" class="px-2.5 py-1 rounded-lg bg-gopro text-white text-[10px] font-extrabold cursor-pointer shrink-0" data-on-click="insertPresetFromLibrary('${escapeAttr(item.id)}', false)" title="현재 슬라이드 또는 보관함에 삽입">+ 삽입</button>
+      ${editBtn}
+      <button type="button" class="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold cursor-pointer shrink-0" data-on-click="deletePresetFromLibrary('${escapeAttr(item.id)}')" title="프리셋 삭제">삭제</button>
+    </div>`;
+  }).join('');
+}
+
+function buildPresetLibraryExportPayload() {
+  const map = getPresetLibraryMap();
+  return {
+    format: 'HTML_SLIDE_TOOL_PRESET_LIBRARY_V1',
+    version: (window.PPTStudio && window.PPTStudio.version) || 'v5.7.1',
+    exportedAt: new Date().toISOString(),
+    presets: Object.values(map)
+  };
+}
+
+function exportPresetLibraryJson() {
+  const payload = buildPresetLibraryExportPayload();
+  if (payload.presets.length === 0) {
+    showToast('내보낼 프리셋이 없습니다. 먼저 프리셋을 1개 이상 저장해 주세요.');
+    return false;
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'HTML_Slide_Tool_프리셋라이브러리.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 1200);
+  showToast(`프리셋 ${payload.presets.length}개가 JSON 파일로 내보내졌습니다!`);
+  return true;
+}
+
+function triggerImportPresetLibraryJson() {
+  const inp = document.getElementById('presetLibraryFileImporter');
+  if (!inp) return;
+  inp.value = '';
+  inp.click();
+}
+
+async function importPresetLibraryPayload(rawObj) {
+  const list = Array.isArray(rawObj) ? rawObj : (rawObj && Array.isArray(rawObj.presets) ? rawObj.presets : []);
+  if (list.length === 0) {
+    showToast('가져올 유효한 프리셋 항목이 없습니다.');
+    return 0;
+  }
+  let importedCount = 0;
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    if (!item || typeof item !== 'object') continue;
+    if (item.kind !== 'slide-card' && item.kind !== 'floating-card') continue;
+    const cleanAttrs = {};
+    if (item.attrs && typeof item.attrs === 'object') {
+      Object.keys(item.attrs).forEach(k => {
+        if (!/^data-fc-[a-z0-9-]+$/i.test(k)) return;
+        const v = String(item.attrs[k] ?? '');
+        if ((k === 'data-fc-bg-img' || k === 'data-fc-hover-bg-img') && /(?:javascript|vbscript):/i.test(v)) return;
+        cleanAttrs[k] = v;
+      });
+    }
+    const cleanHtml = sanitizeImportedStageHtml(String(item.html || ''));
+    if (item.kind === 'slide-card') {
+      const probe = document.createElement('div');
+      probe.innerHTML = cleanHtml;
+      if (!probe.firstElementChild) continue;
+    }
+    const safePreset = {
+      id: (typeof item.id === 'string' && /^preset_[a-z0-9_-]+$/i.test(item.id)) ? item.id : ('preset_imp_' + Date.now() + '_' + i),
+      kind: item.kind,
+      subKind: item.subKind === 'freeCard' ? 'freeCard' : 'gridCard',
+      title: String(item.title || '가져온 프리셋').trim().slice(0, 48),
+      category: String(item.category || '일반').trim().slice(0, 24),
+      bgHex: /^#[0-9a-fA-F]{3,6}$/.test(item.bgHex || '') ? item.bgHex : '#FFFFFF',
+      isDark: Boolean(item.isDark),
+      savedAt: String(item.savedAt || new Date().toLocaleString('ko-KR')),
+      attrs: item.kind === 'floating-card' ? cleanAttrs : undefined,
+      html: cleanHtml
+    };
+    await persistPresetToStore(safePreset);
+    importedCount++;
+  }
+  renderPresetLibraryModal();
+  if (importedCount > 0) showToast(`프리셋 ${importedCount}개를 라이브러리에 안전하게 가져왔습니다!`);
+  return importedCount;
+}
+
+function initPresetLibraryListeners() {
+  const inp = document.getElementById('presetLibraryFileImporter');
+  if (!inp || inp.dataset.bound === 'true') return;
+  inp.dataset.bound = 'true';
+  inp.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      const txt = await file.text();
+      const parsed = JSON.parse(txt);
+      await importPresetLibraryPayload(parsed);
+    } catch (err) {
+      console.warn('[HTML Slide Tool] 프리셋 JSON 가져오기 오류:', err);
+      showToast('유효한 프리셋 라이브러리 JSON 파일이 아닙니다.');
+    }
+  });
+}
