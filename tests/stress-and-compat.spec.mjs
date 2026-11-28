@@ -1838,8 +1838,9 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
       Object.defineProperty(pasteEvtTbl, 'clipboardData', {
         value: { items: [], getData: (t) => t === 'text/plain' ? 'PASTED_TABLE_VAL_99' : '' }
       });
-      document.dispatchEvent(pasteEvtTbl);
-      const tblJsonSynced = readChartData(tblW).tableRows[0][0] === 'PASTED_TABLE_VAL_99';
+      td00.dispatchEvent(pasteEvtTbl);
+      const tblJsonSynced = readChartData(tblW).tableRows[0][0] === 'PASTED_TABLE_VAL_99' &&
+                            td00.querySelectorAll('.table-col-resizer, .table-row-resizer').length >= 1;
 
       // 3) insertSlideNumberToken() MUST NOT delete non-editable widget DOM when selection is on a non-editable node!
       const nonEdDiv = document.createElement('div');

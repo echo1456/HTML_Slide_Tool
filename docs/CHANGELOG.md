@@ -1,5 +1,14 @@
 # Changelog
 
+## [v5.8.5] - 2026-11-28 — 비교표 셀 붙여넣기 시 포커스/선택 영역 판정 및 리사이저 보존 수정 (CI 32종 전수 통과)
+
+### Fixed
+- **[P0] 비교표 셀(`<td>`/`<th>`) 전체 선택 후 붙여넣기 시 새 텍스트 박스로 튀어나가며 리사이저가 삭제되던 문제 수정 (`js/main.js`)**:
+  - `td`/`th` 내부 말단에 `contenteditable="false"` 리사이저 핸들이 있어 Chromium에서 전체 선택(`selectNodeContents`) 시 `document.activeElement`가 풀리던 현상을 `activeElement → e.target → Selection anchorNode.closest('[contenteditable="true"]')` 3단계 판정(`resolveEditablePasteTarget()`)으로 해결.
+  - `insertPlainTextPreservingNewlines()`에서 표 셀 붙여넣기 전 `.table-col-resizer`/`.table-row-resizer`를 안전 분리·재부착해 셀 전체 덮어쓰기 붙여넣기 후에도 열/행 크기 조절 핸들이 보존되도록 보강.
+
+---
+
 ## [v5.8.4] - 2026-11-28 — 심층 3차 전수검사 완료: 붙여넣기 컨텍스트·표 셀 JSON 동기화·PPTX 다중 이미지·한글 IME·마스터 잠금 7건 해결
 
 ### Fixed & Hardened

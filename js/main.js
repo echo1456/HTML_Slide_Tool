@@ -1933,19 +1933,42 @@ function insertPlainTextPreservingNewlines(doc, targetEl, plainText) {
       lastInserted = tn;
     }
   });
+  const isTableCell = Boolean(targetEl && targetEl.matches && targetEl.matches('th[data-cell-key], td[data-cell-key]'));
+  const savedResizers = isTableCell ? Array.from(targetEl.querySelectorAll('.table-col-resizer, .table-row-resizer')) : [];
+  let rangeInTarget = false;
   if (sel && sel.rangeCount > 0) {
     const range = sel.getRangeAt(0);
-    range.deleteContents();
-    range.insertNode(frag);
-    if (lastInserted) {
-      range.setStartAfter(lastInserted);
-      range.setEndAfter(lastInserted);
-      sel.removeAllRanges();
-      sel.addRange(range);
+    const anc = range.commonAncestorContainer;
+    if (!targetEl || targetEl === anc || targetEl.contains(anc)) {
+      rangeInTarget = true;
+      if (isTableCell && savedResizers.length > 0) {
+        const firstRz = savedResizers[0];
+        if (firstRz && firstRz.parentNode === targetEl) {
+          try {
+            if (typeof range.comparePoint === 'function' && range.comparePoint(firstRz, 0) <= 0) {
+              range.setEndBefore(firstRz);
+            }
+          } catch (e) {}
+        }
+      }
+      range.deleteContents();
+      range.insertNode(frag);
+      if (lastInserted) {
+        range.setStartAfter(lastInserted);
+        range.setEndAfter(lastInserted);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
     }
-  } else if (targetEl) {
-    targetEl.appendChild(frag);
   }
+  if (!rangeInTarget && targetEl) {
+    const firstRz = savedResizers[0];
+    if (firstRz && firstRz.parentNode === targetEl) targetEl.insertBefore(frag, firstRz);
+    else targetEl.appendChild(frag);
+  }
+  savedResizers.forEach(rz => {
+    if (rz.parentNode !== targetEl) targetEl.appendChild(rz);
+  });
 }
 
 document.addEventListener('paste', (e) => {
@@ -1984,6 +2007,20 @@ document.addEventListener('paste', (e) => {
     return false;
   };
 
+  const resolveEditablePasteTarget = () => {
+    if (active && active.isContentEditable) return active;
+    const evT = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement ? e.target.parentElement : null);
+    if (evT && evT.isContentEditable) return evT;
+    const selNow = window.getSelection ? window.getSelection() : null;
+    if (selNow && selNow.rangeCount > 0 && selNow.anchorNode) {
+      const anc = selNow.anchorNode.nodeType === 3 ? selNow.anchorNode.parentElement : selNow.anchorNode;
+      const ed = anc && anc.closest ? anc.closest('[contenteditable="true"]') : null;
+      if (ed && ed.isContentEditable) return ed;
+    }
+    return null;
+  };
+  const editableTarget = resolveEditablePasteTarget();
+
   const items = e.clipboardData && e.clipboardData.items ? Array.from(e.clipboardData.items) : [];
   const imgItem = items.find(it => it.type && it.type.startsWith('image/'));
 
@@ -2014,11 +2051,11 @@ document.addEventListener('paste', (e) => {
         return;
       }
     }
-    if (active && active.isContentEditable && fcEditor && fcEditor.contains(active)) {
+    if (editableTarget && fcEditor && fcEditor.contains(editableTarget)) {
       const plainFc = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
       e.preventDefault();
-      insertPlainTextPreservingNewlines(document, active, plainFc);
-      if (!syncPastedEditableCellOrChart(active) && typeof recordFcSnapshot === 'function') {
+      insertPlainTextPreservingNewlines(document, editableTarget, plainFc);
+      if (!syncPastedEditableCellOrChart(editableTarget) && typeof recordFcSnapshot === 'function') {
         recordFcSnapshot();
       }
       return;
@@ -2049,10 +2086,10 @@ document.addEventListener('paste', (e) => {
 
   const plain = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
 
-  if (active && active.isContentEditable) {
+  if (editableTarget && (!editableTarget.closest || !editableTarget.closest('#fcRichBodyEditor'))) {
     e.preventDefault();
-    insertPlainTextPreservingNewlines(document, active, plain);
-    if (!syncPastedEditableCellOrChart(active)) {
+    insertPlainTextPreservingNewlines(document, editableTarget, plain);
+    if (!syncPastedEditableCellOrChart(editableTarget)) {
       if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot('텍스트 붙여넣기');
       else if (typeof markUnsavedChanges === 'function') markUnsavedChanges();
     }
