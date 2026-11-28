@@ -1104,7 +1104,7 @@ function openSlidePageJumpInput() {
   inp.focus(); inp.select(); let done = false;
   const restorePill = () => { if (done) return; done = true; pill.innerHTML = origHtml; updateSlideUI(); };
   const commitJump = () => { const val = parseInt(inp.value, 10); restorePill(); if (!isNaN(val) && val >= 1 && val <= totalSlides && val !== currentSlide) goToSlide(val); };
-  inp.addEventListener('keydown', (ke) => { ke.stopPropagation(); if (ke.key === 'Enter') { ke.preventDefault(); commitJump(); } else if (ke.key === 'Escape') { ke.preventDefault(); restorePill(); } });
+  inp.addEventListener('keydown', (ke) => { ke.stopPropagation(); if (ke.key === 'Enter' && !ke.isComposing && ke.keyCode !== 229) { ke.preventDefault(); commitJump(); } else if (ke.key === 'Escape') { ke.preventDefault(); restorePill(); } });
   inp.addEventListener('blur', restorePill);
 }
 
@@ -1131,6 +1131,7 @@ function applySlideMasterConfig() {
   const logoTxt = ($studio('masterHeaderLogoInput')?.value || '').trim(), footerTxt = ($studio('masterFooterTextInput')?.value || '').trim(), showPageNum = Boolean($studio('masterShowPageNumChk')?.checked), skipCover = Boolean($studio('masterSkipCoverChk')?.checked);
   slides = Array.from(document.querySelectorAll('.slide')); const total = slides.length;
   slides.forEach((sEl, idx) => {
+    if (sEl.getAttribute('data-slide-locked') === 'true') return;
     sEl.querySelectorAll('.ppt-slide-master-layer').forEach(old => old.remove());
     if (skipCover && idx === 0) return; if (!logoTxt && !footerTxt && !showPageNum) return;
     const isDark = sEl.classList.contains('theme-dark'), txtColor = isDark ? 'rgba(255,255,255,0.62)' : 'rgba(17,17,17,0.52)', layer = document.createElement('div');
@@ -1140,7 +1141,7 @@ function applySlideMasterConfig() {
   });
   saveHistorySnapshot('슬라이드 마스터 일괄 적용');
 }
-function clearSlideMasterConfig() { document.querySelectorAll('.ppt-slide-master-layer').forEach(el => el.remove()); saveHistorySnapshot('슬라이드 마스터 제거'); }
+function clearSlideMasterConfig() { document.querySelectorAll('.slide:not([data-slide-locked="true"]) .ppt-slide-master-layer').forEach(el => el.remove()); saveHistorySnapshot('슬라이드 마스터 제거'); }
 let __reuseCandidateSlidesHtml = [];
 function triggerReuseSlidesImport() {
   const inp = document.getElementById('reuseSlidesFileImporter'); if (!inp) return;
@@ -1151,11 +1152,12 @@ function triggerReuseSlidesImport() {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const raw = String(ev.target.result || ''); let stageHtml = '';
-        if (file.name.toLowerCase().endsWith('.json')) { try { stageHtml = JSON.parse(raw).stageHtml || ''; } catch (err) {} }
+        if (file.name.toLowerCase().endsWith('.json')) { try { stageHtml = JSON.parse(raw).stageHtml || ''; } catch (err) { showToast('유효한 JSON 프로젝트 파일이 아닙니다.'); return; } }
         else { const doc = new DOMParser().parseFromString(raw, 'text/html'); const st = doc.getElementById('slideStage'); stageHtml = st ? st.innerHTML : raw; }
         const safeStage = typeof sanitizeImportedStageHtml === 'function' ? sanitizeImportedStageHtml(stageHtml) : stageHtml;
         const temp = document.createElement('div'); temp.innerHTML = safeStage;
-        const importedSlides = Array.from(temp.querySelectorAll('.slide')); if (importedSlides.length === 0) return;
+        const importedSlides = Array.from(temp.querySelectorAll('.slide'));
+        if (importedSlides.length === 0) { showToast('선택한 파일에서 재사용할 슬라이드(.slide)를 찾을 수 없습니다.'); return; }
         __reuseCandidateSlidesHtml = importedSlides.map((s, idx) => { const h = s.querySelector('h1, h2, h3'); return { title: h ? h.textContent.trim().slice(0, 36) : `가져온 슬라이드 ${idx + 1}`, section: s.getAttribute('data-section') || '', outerHtml: s.outerHTML }; });
         openReuseSlidesModal();
       };
@@ -1177,7 +1179,16 @@ function importSelectedSlidesFromModal() {
     const newSlide = wrap.firstElementChild;
     if (newSlide) {
       newSlide.classList.remove('active', 'ppt-multi-selected', 'is-selected');
+      newSlide.removeAttribute('data-slide-locked');
+      newSlide.querySelectorAll('.ppt-multi-selected, .is-selected').forEach(el => el.classList.remove('ppt-multi-selected', 'is-selected'));
+      newSlide.querySelectorAll('.iw-flip-scene').forEach(el => el.classList.remove('is-editing-back', 'is-flipped'));
+      newSlide.querySelectorAll('.iw-hs-pin.is-open').forEach(el => el.classList.remove('is-open'));
       if (typeof regenerateClonedSlideInternalIds === 'function') regenerateClonedSlideInternalIds(newSlide);
+      if (typeof writeChartDataAndRender === 'function') {
+        newSlide.querySelectorAll('.ppt-chart-widget[data-chart-json]').forEach(w => {
+          try { writeChartDataAndRender(w, JSON.parse(w.getAttribute('data-chart-json'))); } catch (err) {}
+        });
+      }
       if (insertAnchor && insertAnchor.parentNode === stage) {
         shiftGotoSlideTargetsOnInsert(currentSlide + 1 + insertedCount);
         insertAnchor.insertAdjacentElement('afterend', newSlide);
@@ -1197,6 +1208,9 @@ function toggleAutoPlayKiosk() {
   const sec = Math.max(2, Math.min(120, parseInt($studio('autoPlayIntervalInput')?.value || '5', 10) || 5));
   if (btn) { btn.classList.add('is-active'); btn.textContent = `⏹ 자동 재생 중 (${sec}초)`; }
   autoPlayKioskTimer = setInterval(() => {
+    if (document.hidden) return;
+    const fcLb = document.getElementById('floatingCardLightbox');
+    if (fcLb && fcLb.classList.contains('open')) return;
     const activeSlideEl = slides[currentSlide - 1];
     if (activeSlideEl && typeof advanceSlideBuildStep === 'function' && advanceSlideBuildStep(activeSlideEl)) { syncPresenterWindowState(); return; }
     const nextVisible = findNextVisibleSlideIndex(currentSlide, 1);
@@ -1252,7 +1266,8 @@ function insertSlideNumberToken() {
   if (sel && sel.rangeCount > 0) {
     const r = sel.getRangeAt(0);
     const anc = r.commonAncestorContainer.nodeType === 3 ? r.commonAncestorContainer.parentElement : r.commonAncestorContainer;
-    if (anc && anc.closest('#slideStage')) {
+    const editableHost = anc && anc.closest ? anc.closest('[data-editable][contenteditable="true"]') : null;
+    if (editableHost && editableHost.closest('#slideStage') && !editableHost.closest('[data-layer-locked="true"]') && !editableHost.closest('.ppt-chart-widget')) {
       r.deleteContents();
       const wrap = document.createElement('span');
       wrap.innerHTML = tokenHtml;

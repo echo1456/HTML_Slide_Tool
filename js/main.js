@@ -1543,8 +1543,8 @@ function bindKeyboardAndTouchListeners() {
     if (isTyping) {
       if (e.key === 'Escape') {
       if (typeof abortActiveDragSession === 'function') abortActiveDragSession(); activeEl.blur(); return; }
-      if (isContentEd && e.key === 'Tab' && !mod && !e.isComposing) { if (typeof adjustListIndent === 'function') { e.preventDefault(); adjustListIndent(e.shiftKey ? -1 : 1); return; } }
-      if (isContentEd && e.key === 'Enter' && !mod && !e.isComposing) {
+      if (isContentEd && e.key === 'Tab' && !mod && !e.isComposing && e.keyCode !== 229) { if (typeof adjustListIndent === 'function') { e.preventDefault(); adjustListIndent(e.shiftKey ? -1 : 1); return; } }
+      if (isContentEd && e.key === 'Enter' && !mod && !e.isComposing && e.keyCode !== 229) {
         if (activeEl.closest('.iw-tab-btn')) { e.preventDefault(); activeEl.blur(); return; }
         const listParent = activeEl.closest('ul, ol'), liItem = activeEl.closest('li');
         if (!listParent || !liItem) {
@@ -1858,6 +1858,7 @@ window.addEventListener('blur', () => {
 window.addEventListener('pagehide', () => {
   if (window.__pptAutoSaveIntervalId) { clearInterval(window.__pptAutoSaveIntervalId); window.__pptAutoSaveIntervalId = null; }
   if (typeof revokeAllTrackedMediaBlobUrls === 'function') revokeAllTrackedMediaBlobUrls();
+  if (typeof autoPlayKioskTimer !== 'undefined' && autoPlayKioskTimer) { clearInterval(autoPlayKioskTimer); autoPlayKioskTimer = null; }
   try { if (typeof studioPopupWin !== 'undefined' && studioPopupWin && !studioPopupWin.closed) studioPopupWin.close(); } catch (e) {}
   try { if (typeof fcStudioPopupWin !== 'undefined' && fcStudioPopupWin && !fcStudioPopupWin.closed) fcStudioPopupWin.close(); } catch (e) {}
   try { if (typeof presenterPopupWin !== 'undefined' && presenterPopupWin && !presenterPopupWin.closed) presenterPopupWin.close(); } catch (e) {}
@@ -1893,7 +1894,7 @@ function navigateTableCellWithTab(currentCell, dir) {
 document.addEventListener('keydown', (e) => {
   if (!isActiveEditing()) return;
   const active = document.activeElement;
-  if (e.key === 'Tab') {
+  if (e.key === 'Tab' && !e.isComposing && e.keyCode !== 229) {
     const cell = active ? active.closest('th[data-cell-key], td[data-cell-key]') : null;
     if (cell && navigateTableCellWithTab(cell, e.shiftKey ? -1 : 1)) {
       e.preventDefault();
@@ -1956,6 +1957,7 @@ document.addEventListener('paste', (e) => {
   // Modal Isolation for Paste!
   const fcModal = document.getElementById('floatingCardEditorModal');
   const isFcModalOpen = Boolean(fcModal && !fcModal.classList.contains('hidden'));
+  const isFcPasteTarget = (typeof isFloatingCardCanvasActive === 'function') ? isFloatingCardCanvasActive() : isFcModalOpen;
   const otherOpenModal = [
     'saveChoiceModal', 'findReplaceModal', 'overflowAuditModal', 'mediaAssetManagerModal', 'presetLibraryModal', 'slideCommentsModal',
     'slideSorterModal', 'reuseSlidesModal', 'starterTemplateModal', 'shortcutsHelpModal',
@@ -1963,10 +1965,29 @@ document.addEventListener('paste', (e) => {
   ].some(mid => { const mEl = document.getElementById(mid); return mEl && !mEl.classList.contains('hidden'); });
   if (otherOpenModal) return;
 
+  const syncPastedEditableCellOrChart = (edEl) => {
+    if (!edEl || !edEl.closest) return false;
+    const cellEl = edEl.closest('th[data-cell-key], td[data-cell-key]');
+    if (cellEl) {
+      const colIdx = parseInt(cellEl.getAttribute('data-col-idx') || '-1', 10);
+      const rowKey = cellEl.getAttribute('data-row-key');
+      if (rowKey === 'header' && colIdx >= 0 && typeof onTableHeaderInlineEdit === 'function') {
+        onTableHeaderInlineEdit(cellEl, colIdx);
+        return true;
+      }
+      const rIdx = parseInt(rowKey || '-1', 10);
+      if (rIdx >= 0 && colIdx >= 0 && typeof onTableCellInlineEdit === 'function') {
+        onTableCellInlineEdit(cellEl, rIdx, colIdx);
+        return true;
+      }
+    }
+    return false;
+  };
+
   const items = e.clipboardData && e.clipboardData.items ? Array.from(e.clipboardData.items) : [];
   const imgItem = items.find(it => it.type && it.type.startsWith('image/'));
 
-  if (isFcModalOpen) {
+  if (isFcPasteTarget) {
     const fcEditor = typeof $fc === 'function' ? $fc('fcRichBodyEditor') : document.getElementById('fcRichBodyEditor');
     if (imgItem && fcEditor) {
       const file = imgItem.getAsFile();
@@ -1997,7 +2018,15 @@ document.addEventListener('paste', (e) => {
       const plainFc = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
       e.preventDefault();
       insertPlainTextPreservingNewlines(document, active, plainFc);
-      if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+      if (!syncPastedEditableCellOrChart(active) && typeof recordFcSnapshot === 'function') {
+        recordFcSnapshot();
+      }
+      return;
+    }
+    const fcInternalClip = typeof readSharedElementClipboard === 'function' ? readSharedElementClipboard() : [];
+    if (fcInternalClip.length > 0 && typeof pasteCopiedElements === 'function') {
+      e.preventDefault();
+      pasteCopiedElements(false);
     }
     return;
   }
@@ -2023,7 +2052,10 @@ document.addEventListener('paste', (e) => {
   if (active && active.isContentEditable) {
     e.preventDefault();
     insertPlainTextPreservingNewlines(document, active, plain);
-    if (typeof markUnsavedChanges === 'function') markUnsavedChanges();
+    if (!syncPastedEditableCellOrChart(active)) {
+      if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot('텍스트 붙여넣기');
+      else if (typeof markUnsavedChanges === 'function') markUnsavedChanges();
+    }
     return;
   }
 

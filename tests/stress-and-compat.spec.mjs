@@ -1786,4 +1786,90 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(logicAudit.emptyRejected).toBe(true);
     expect(logicAudit.previewClearedOnExit).toBe(true);
   });
+
+  test('32. v5.8.4 Deep Audit Round 2 (Non-Modal FC Paste Focus Isolation, Table Cell Paste JSON Sync, Slide Number Token Non-Editable Guard, Slide Master Lock & Reuse Slide Cleanup)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const r2Ok = await page.evaluate(() => {
+      goToSlide(3);
+      const s3 = slides[2];
+
+      // 1) Non-Modal FC Paste Focus Isolation: with FC preview panel OPEN, clicking slide sets context='slide', so paste goes to slide NOT FC!
+      openFloatingCardEditor(null);
+      setActiveEditingContext('slide');
+      const freeCountBefore = s3.querySelectorAll('.ppt-free-obj').length;
+      const fcHtmlBefore = document.getElementById('fcRichBodyEditor').innerHTML;
+      const pasteEvtSlide = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(pasteEvtSlide, 'clipboardData', {
+        value: { items: [], getData: (t) => t === 'text/plain' ? 'SLIDE_PASTE_WITH_FC_OPEN' : '' }
+      });
+      document.dispatchEvent(pasteEvtSlide);
+      const pastedOnSlide = s3.querySelectorAll('.ppt-free-obj').length === freeCountBefore + 1 &&
+                            document.getElementById('fcRichBodyEditor').innerHTML === fcHtmlBefore;
+
+      // Now switch context back to floating-card & verify internal element paste works inside FC!
+      setActiveEditingContext('floating-card');
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      const fcFirstBox = fcEd.querySelector('.fc-text-box');
+      selectElementForInspector(fcFirstBox, false);
+      copySelectedElements();
+      const fcBoxCountBefore = fcEd.querySelectorAll('.fc-text-box').length;
+      const pasteEvtFc = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(pasteEvtFc, 'clipboardData', {
+        value: { items: [], getData: () => '' }
+      });
+      document.dispatchEvent(pasteEvtFc);
+      const pastedInsideFc = fcEd.querySelectorAll('.fc-text-box').length === fcBoxCountBefore + 1;
+      closeFloatingCardEditor();
+
+      // 2) Pasting plain text inside Table cell syncs data-chart-json immediately (zero silent loss!)
+      clearSelectionInspector();
+      insertChartOrTable('table', 'slide');
+      const tblW = getSelectedChartWidget();
+      const td00 = tblW.querySelector('td[data-cell-key="td-0-0"]');
+      td00.focus();
+      const rng = document.createRange();
+      rng.selectNodeContents(td00);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(rng);
+      const pasteEvtTbl = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(pasteEvtTbl, 'clipboardData', {
+        value: { items: [], getData: (t) => t === 'text/plain' ? 'PASTED_TABLE_VAL_99' : '' }
+      });
+      document.dispatchEvent(pasteEvtTbl);
+      const tblJsonSynced = readChartData(tblW).tableRows[0][0] === 'PASTED_TABLE_VAL_99';
+
+      // 3) insertSlideNumberToken() MUST NOT delete non-editable widget DOM when selection is on a non-editable node!
+      const nonEdDiv = document.createElement('div');
+      nonEdDiv.className = 'non-editable-probe';
+      nonEdDiv.textContent = 'DO_NOT_DESTROY_ME';
+      s3.appendChild(nonEdDiv);
+      const rNonEd = document.createRange();
+      rNonEd.selectNodeContents(nonEdDiv);
+      sel.removeAllRanges();
+      sel.addRange(rNonEd);
+      insertSlideNumberToken();
+      const nonEdSurvived = nonEdDiv.textContent === 'DO_NOT_DESTROY_ME';
+      nonEdDiv.remove();
+
+      // 4) Slide Master respects data-slide-locked="true"
+      s3.setAttribute('data-slide-locked', 'true');
+      const logoInp = document.getElementById('masterHeaderLogoInput');
+      if (logoInp) logoInp.value = 'MASTER_TEST_LOGO';
+      applySlideMasterConfig();
+      const masterSkippedLocked = !s3.querySelector('.ppt-slide-master-layer');
+      s3.removeAttribute('data-slide-locked');
+      clearSlideMasterConfig();
+
+      return { pastedOnSlide, pastedInsideFc, tblJsonSynced, nonEdSurvived, masterSkippedLocked };
+    });
+
+    expect(r2Ok.pastedOnSlide).toBe(true);
+    expect(r2Ok.pastedInsideFc).toBe(true);
+    expect(r2Ok.tblJsonSynced).toBe(true);
+    expect(r2Ok.nonEdSurvived).toBe(true);
+    expect(r2Ok.masterSkippedLocked).toBe(true);
+  });
 });

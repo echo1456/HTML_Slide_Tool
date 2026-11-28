@@ -1551,8 +1551,10 @@ function triggerImportPptxFile() {
         }
         const stage = document.getElementById('slideStage');
         const anchorSlide = slides[currentSlide - 1];
+        const firstImportedSlideNum = anchorSlide ? (currentSlide + 1) : (slides.length + 1);
         let insertAfter = anchorSlide;
-        const deckLabel = typeof escapeAttr === 'function' ? escapeAttr(file.name.replace(/\.pptx$/i, '').slice(0, 24)) : 'PPTX IMPORT';
+        const rawDeckLabel = (file.name.replace(/\.pptx$/i, '').trim().slice(0, 24)) || 'PPTX IMPORT';
+        const deckLabel = typeof escapeAttr === 'function' ? escapeAttr(rawDeckLabel) : rawDeckLabel;
 
         for (let i = 0; i < slideKeys.length; i++) {
           const sKey = slideKeys[i];
@@ -1603,7 +1605,7 @@ function triggerImportPptxFile() {
           const bodyList = paragraphs.slice(1, 24);
           const newSlide = document.createElement('section');
           newSlide.className = 'slide theme-light px-8 md:px-14 pt-6 pb-8 flex flex-col justify-between';
-          newSlide.setAttribute('data-section', deckLabel);
+          newSlide.setAttribute('data-section', rawDeckLabel);
           if (importedNotes) newSlide.setAttribute('data-speaker-notes', importedNotes);
 
           const hasImg = imgDataUrls.length > 0;
@@ -1612,8 +1614,9 @@ function triggerImportPptxFile() {
             : `<p data-editable class="text-sm text-muted">내용을 편집하세요.</p>`;
 
           const cardCtrlHtml = `<div class="card-edit-controls items-center justify-end gap-1 mb-2"><button type="button" data-on-click="moveCard(this, -1)" class="px-2 py-0.5 rounded bg-canvas border border-borderline text-[11px] font-mono">◀ 이전</button><button type="button" data-on-click="moveCard(this, 1)" class="px-2 py-0.5 rounded bg-canvas border border-borderline text-[11px] font-mono">▶ 다음</button><button type="button" data-on-click="deleteCard(this)" class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 text-[11px] font-bold">×</button></div>`;
+          const imgsHtml = imgDataUrls.slice(0, 4).map((u, uIdx) => `<img src="${u}" class="slot-img w-full h-full object-contain rounded-xl" alt="PPTX 이미지 ${uIdx + 1}">`).join('');
           const mediaCardHtml = hasImg
-            ? `<div class="slide-card hover-reactive bg-white border border-borderline rounded-2xl p-4 flex items-center justify-center overflow-hidden" data-hover-init="true">${cardCtrlHtml}<img src="${imgDataUrls[0]}" class="slot-img w-full h-full object-contain rounded-xl" alt="PPTX 이미지"></div>`
+            ? `<div class="slide-card hover-reactive bg-white border border-borderline rounded-2xl p-4 flex flex-col overflow-hidden" data-hover-init="true">${cardCtrlHtml}<div class="flex-1 min-h-0 grid ${imgDataUrls.length > 1 ? 'grid-cols-2 gap-2' : 'grid-cols-1'} items-center justify-items-center overflow-hidden">${imgsHtml}</div></div>`
             : '';
 
           newSlide.innerHTML = `<div class="slide-bg-layer"></div><div class="slide-bg-overlay"></div><div class="slide-header-bar flex items-end justify-between border-b border-borderline pb-3.5 shrink-0">
@@ -1638,7 +1641,8 @@ function triggerImportPptxFile() {
         }
 
         if (isEditMode && typeof makeAllTextEditable === 'function') makeAllTextEditable(true);
-        if (typeof updateSlideUI === 'function') updateSlideUI();
+        if (typeof goToSlide === 'function') goToSlide(firstImportedSlideNum);
+        else if (typeof updateSlideUI === 'function') updateSlideUI();
         if (typeof saveHistorySnapshot === 'function') saveHistorySnapshot(`PPTX 슬라이드 ${slideKeys.length}장 가져오기`);
         showToast(`"${file.name}"에서 총 ${slideKeys.length}장의 슬라이드를 가져왔습니다!`);
       } catch (err) {

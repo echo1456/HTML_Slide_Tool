@@ -1,5 +1,25 @@
 # Changelog
 
+## [v5.8.4] - 2026-11-28 — 심층 3차 전수검사 완료: 붙여넣기 컨텍스트·표 셀 JSON 동기화·PPTX 다중 이미지·한글 IME·마스터 잠금 7건 해결
+
+### Fixed & Hardened
+- **[P0] 비모달 플로팅 카드 패널 오픈 중 슬라이드 붙여넣기 가로채기 및 플로팅 카드 내부 요소 `Ctrl+C`/`Ctrl+V` 미작동 수정 (`js/main.js`)**:
+  - `paste` 이벤트 분기를 `isFcModalOpen`에서 `isFloatingCardCanvasActive()`로 교정해, 플로팅 카드 미리보기 패널이 열려 있더라도 슬라이드를 클릭한 상태에서는 슬라이드로 정확히 붙여넣어지도록 수정.
+  - 플로팅 카드 활성 상태에서 복사한 내부 요소(텍스트 박스·차트·위젯)를 실제 브라우저 `paste` 이벤트로 즉시 붙여넣을 수 있도록 `pasteCopiedElements(false)` 연결.
+- **[P0] 비교표 셀(`th`/`td[data-cell-key]`) 텍스트 붙여넣기 시 `data-chart-json` 미동기화 유실 버그 해결 (`js/main.js`)**:
+  - 표 헤더·데이터 셀에 텍스트 붙여넣기 직후 `onTableHeaderInlineEdit()`/`onTableCellInlineEdit()`을 즉시 호출해 `data-chart-json`과 합계 행(`SUM`)·히스토리가 실시간 동기화되도록 수정.
+- **[P0] `insertSlideNumberToken()`의 비편집·잠금 DOM 파괴 결함 수정 (`js/navigation.js`)**:
+  - 선택 영역이 `[data-editable][contenteditable="true"]` 내부(잠금·차트 제외)일 때만 인라인 삽입하고, 그 외 영역에서는 기존 DOM을 훼손하지 않고 우측 하단 자유 배지로 안전 삽입.
+- **[P0] PPTX 가져오기(`triggerImportPptxFile`) 3종 결함 해결 (`js/export.js`)**:
+  - 파일명에 `&` 등이 포함될 때 `data-section` 이중 이스케이프(`&amp;amp;`)가 발생하던 문제를 원본 문자열 저장으로 교정하고, 슬라이드당 최대 4개 이미지(2열 그리드) 가져오기 및 완료 후 첫 가져온 슬라이드로 자동 이동(`goToSlide`) 추가.
+- **[P1] 슬라이드 마스터 잠금 보호 및 슬라이드 재사용(`Reuse Slides`) 정화·오류 안내 보강 (`js/navigation.js`)**:
+  - `applySlideMasterConfig()`/`clearSlideMasterConfig()`에서 잠긴 슬라이드 제외, 재사용 파일 오류/0장 토스트 안내, 재사용 슬라이드 잠금 해제·플립/핫스팟 정화·차트 재렌더링 적용.
+- **[P1] Safari/iPadOS 한글 IME(`e.keyCode === 229`) 방어 보강 (`js/main.js`, `js/floating-cards.js`, `js/navigation.js`)**: `Enter`·`Tab` 키 처리에 `keyCode !== 229` 가드 추가.
+- **[P1] 키오스크 자동 재생(`autoPlayKioskTimer`) 백그라운드/라이트박스 일시정지 및 `pagehide` 정리 (`js/navigation.js`, `js/main.js`)**.
+- **[Testing] Playwright Chromium E2E `Test 32` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 32개 CI E2E 스위트로 영구 회귀 검증.
+
+---
+
 ## [v5.8.3] - 2026-11-28 — 심층 2차 전수검사 완료: PDF 인쇄·PPTX/PNG 내보내기·발표자 뷰·잠금 가드·프리셋 정합성 7건 해결
 
 ### Fixed & Hardened

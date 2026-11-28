@@ -1477,7 +1477,7 @@ function openFloatingCardEditor(cardId) {
       fcTypeTimer = setTimeout(() => recordFcSnapshot(), 400);
     });
     editor.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing) {
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.isComposing && e.keyCode !== 229) {
         const activeEd = fcDoc.activeElement;
         if (activeEd && activeEd.isContentEditable && editor.contains(activeEd) && typeof insertCleanLineBreakInEditable === 'function') {
           e.preventDefault();
