@@ -214,7 +214,7 @@ function startTableColResize(e, handleEl, colIdx) {
     syncTableCellSizeInputs(cell); if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
   };
   const onUp = () => { ownerDoc.removeEventListener('mousemove', onMove); ownerDoc.removeEventListener('mouseup', onUp); widget.setAttribute('data-chart-json', JSON.stringify(data)); recordChartChangeHistory('표 열 너비 조절'); };
-  ownerDoc.addEventListener('mousemove', onMove); ownerDoc.addEventListener('mouseup', onUp);
+  startManagedDragSession(ownerDoc, onMove, onUp);
 }
 function startTableRowResize(e, handleEl, rowKey) {
   if (!isActiveEditing()) return; e.preventDefault(); e.stopPropagation();
@@ -228,7 +228,7 @@ function startTableRowResize(e, handleEl, rowKey) {
     syncTableCellSizeInputs(cell); if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
   };
   const onUp = () => { ownerDoc.removeEventListener('mousemove', onMove); ownerDoc.removeEventListener('mouseup', onUp); widget.setAttribute('data-chart-json', JSON.stringify(data)); recordChartChangeHistory('표 행 높이 조절'); };
-  ownerDoc.addEventListener('mousemove', onMove); ownerDoc.addEventListener('mouseup', onUp);
+  startManagedDragSession(ownerDoc, onMove, onUp);
 }
 function applySelectedTableCellDimension(dim, rawVal) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const widget = getSelectedChartWidget(); if (!widget || !activeChartCellTarget || !widget.contains(activeChartCellTarget)) return;
@@ -649,6 +649,7 @@ function insertTableRowAt(offset) { if (isChartMutationLocked(getSelectedChartWi
   d.tableRows.splice(insertIdx, 0, Array.from({ length: colCount }, (_, i) => i === 0 ? `새 항목 ${insertIdx + 1}` : '내용 입력'));
   shiftTableCellStylesOnRow(d, insertIdx, 1);
   resetTableMerges(d); d.summaryRowIndices = (d.summaryRowIndices || []).map(idx => idx >= insertIdx ? idx + 1 : idx);
+  recalculateTableSummaryRows(d);
   writeChartDataAndRender(w, d); recordChartChangeHistory('표 중간 행 삽입');
 }
 function insertTableColAt(offset) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
@@ -657,7 +658,7 @@ function insertTableColAt(offset) { if (isChartMutationLocked(getSelectedChartWi
   d.tableHeaders.splice(insertIdx, 0, `새 열 ${insertIdx + 1}`); d.tableRows.forEach(row => row.splice(insertIdx, 0, '내용 입력'));
   if (Array.isArray(d.colWidths) && d.colWidths.length > 0) d.colWidths.splice(insertIdx, 0, 120);
   shiftTableCellStylesOnCol(d, insertIdx, 1);
-  resetTableMerges(d); writeChartDataAndRender(w, d); recordChartChangeHistory('표 중간 열 삽입');
+  resetTableMerges(d); recalculateTableSummaryRows(d); writeChartDataAndRender(w, d); recordChartChangeHistory('표 중간 열 삽입');
 }
 function removeSelectedTableCol() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;
   const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); if (d.type !== 'table' || !Array.isArray(d.tableHeaders) || d.tableHeaders.length <= 1) return;
@@ -665,7 +666,7 @@ function removeSelectedTableCol() { if (isChartMutationLocked(getSelectedChartWi
   d.tableHeaders.splice(targetCol, 1); d.tableRows.forEach(row => { if (targetCol < row.length) row.splice(targetCol, 1); });
   if (Array.isArray(d.colWidths) && targetCol < d.colWidths.length) d.colWidths.splice(targetCol, 1);
   shiftTableCellStylesOnCol(d, targetCol, -1);
-  resetTableMerges(d); activeChartCellTarget = null; selectedTableCellKeys.clear();
+  resetTableMerges(d); recalculateTableSummaryRows(d); activeChartCellTarget = null; selectedTableCellKeys.clear();
   writeChartDataAndRender(w, d); recordChartChangeHistory('표 선택 열 삭제');
 }
 function removeSelectedTableRow() { if (isChartMutationLocked(getSelectedChartWidget(), true)) return;

@@ -70,7 +70,7 @@ function computeAndRenderSmartGuides(movingEls, proposedLeftPx, proposedTopPx, g
   const scopeEl = parentCard || slideEl;
   const selector = parentCard
     ? '.sub-box, .card-inline-media, .ppt-chart-widget, .card-inner-textbox, .card-embedded-obj, .hierarchy-tier'
-    : '.ppt-free-obj, .slide-card';
+    : '.ppt-free-obj, .slide-card, .slide-header-bar';
 
   const others = Array.from(scopeEl.querySelectorAll(selector)).filter(el => {
     if (el.style.visibility === 'hidden' || el.style.display === 'none' || el.getAttribute('data-layer-hidden') === 'true') return false;
@@ -86,6 +86,16 @@ function computeAndRenderSmartGuides(movingEls, proposedLeftPx, proposedTopPx, g
     vCandidates.push({ pos: r.left }, { pos: r.left + r.width / 2 }, { pos: r.right });
     hCandidates.push({ pos: r.top }, { pos: r.top + r.height / 2 }, { pos: r.bottom });
   });
+
+  if (!parentCard) {
+    document.querySelectorAll('#slideStage .ppt-persistent-guide').forEach(g => {
+      const axis = g.getAttribute('data-guide-axis');
+      const posVal = parseFloat(g.getAttribute('data-guide-pos') || 'NaN');
+      if (!Number.isFinite(posVal)) return;
+      if (axis === 'x') vCandidates.push({ pos: sRect.left + posVal * scale });
+      else if (axis === 'y') hCandidates.push({ pos: sRect.top + posVal * scale });
+    });
+  }
 
   if (lockedAxis !== 'y') {
     const myXPoints = [proposedLeftPx, proposedLeftPx + groupW / 2, proposedLeftPx + groupW];

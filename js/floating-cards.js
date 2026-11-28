@@ -241,6 +241,12 @@ function updateFcHistoryButtons() {
   const r = $fc('fcRedoBtn');
   if (u) u.disabled = fcUndoStack.length <= 1;
   if (r) r.disabled = fcRedoStack.length === 0;
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const mainU = $studio('undoBtn');
+    const mainR = $studio('redoBtn');
+    if (mainU) mainU.disabled = fcUndoStack.length <= 1;
+    if (mainR) mainR.disabled = fcRedoStack.length === 0;
+  }
 }
 
 function captureFcEditorState() {
@@ -483,8 +489,7 @@ function makeFcBlockResizable(blockEl) {
         doc.removeEventListener('mouseup', onUp);
         recordFcSnapshot();
       };
-      doc.addEventListener('mousemove', onMove);
-      doc.addEventListener('mouseup', onUp);
+      startManagedDragSession(doc, onMove, onUp);
     };
     blockEl.appendChild(moveGrip);
   }
@@ -523,8 +528,7 @@ function makeFcBlockResizable(blockEl) {
         doc.removeEventListener('mouseup', onUp);
         recordFcSnapshot();
       };
-      doc.addEventListener('mousemove', onMove);
-      doc.addEventListener('mouseup', onUp);
+      startManagedDragSession(doc, onMove, onUp);
     };
   };
 
@@ -582,10 +586,109 @@ function enhanceAllFcResizableItems(editor) {
   });
 }
 
+function getFloatingCardSafeWorkspaceRect() {
+  const vw = window.innerWidth || 1440;
+  const vh = window.innerHeight || 900;
+  const ctxBar = document.getElementById('pptContextualTopBar');
+  const topHdr = document.getElementById('appTopHeader');
+  let safeTop = 10;
+  [topHdr, ctxBar].forEach(el => {
+    if (!el) return;
+    const cs = window.getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return;
+    const r = el.getBoundingClientRect();
+    if (r.height > 0 && r.bottom > safeTop) safeTop = Math.ceil(r.bottom) + 8;
+  });
+
+  const footer = document.getElementById('appBottomFooter');
+  let safeBottom = vh - 10;
+  if (footer) {
+    const fcs = window.getComputedStyle(footer);
+    if (fcs.display !== 'none' && fcs.visibility !== 'hidden') {
+      const fr = footer.getBoundingClientRect();
+      if (fr.height > 0 && fr.top > safeTop + 120) safeBottom = Math.floor(fr.top) - 8;
+    }
+  }
+
+  const film = document.getElementById('pptLeftFilmstrip');
+  let safeLeft = 10;
+  if (film) {
+    const flcs = window.getComputedStyle(film);
+    if (flcs.display !== 'none' && flcs.visibility !== 'hidden') {
+      const flr = film.getBoundingClientRect();
+      if (flr.width > 0 && flr.right > safeLeft) safeLeft = Math.ceil(flr.right) + 10;
+    }
+  }
+
+  const studio = document.getElementById('pptStudioPopup');
+  let safeRight = vw - 10;
+  if (studio && studio.classList.contains('studio-docked') && studio.classList.contains('open') && (!studioPopupWin || studioPopupWin.closed)) {
+    const scs = window.getComputedStyle(studio);
+    if (scs.display !== 'none' && scs.visibility !== 'hidden') {
+      const sr = studio.getBoundingClientRect();
+      if (sr.width > 0 && sr.left > safeLeft + 260) safeRight = Math.floor(sr.left) - 10;
+    }
+  }
+
+  const width = Math.max(320, safeRight - safeLeft);
+  const height = Math.max(240, safeBottom - safeTop);
+  return { left: safeLeft, top: safeTop, right: safeLeft + width, bottom: safeTop + height, width, height };
+}
+
+function fitFloatingCardPanelToSafeWorkspace(mode) {
+  if (typeof fcStudioPopupWin !== 'undefined' && fcStudioPopupWin && !fcStudioPopupWin.closed) return;
+  const modal = document.getElementById('floatingCardEditorModal');
+  const panel = document.getElementById('fcEditorDialogPanel');
+  if (!modal || !panel) return;
+  if (mode !== 'open' && modal.classList.contains('hidden')) return;
+
+  const safe = getFloatingCardSafeWorkspaceRect();
+  panel.style.position = 'fixed';
+  panel.style.margin = '0';
+
+  if (panel.classList.contains('fc-maximized')) {
+    panel.style.left = safe.left + 'px';
+    panel.style.top = safe.top + 'px';
+    panel.style.width = safe.width + 'px';
+    panel.style.height = safe.height + 'px';
+    panel.style.maxWidth = safe.width + 'px';
+    panel.style.maxHeight = safe.height + 'px';
+  } else if (mode === 'open' || mode === 'restore') {
+    const targetW = Math.min(safe.width, Math.max(360, Math.min(760, safe.width - 16)));
+    const targetH = Math.min(safe.height, Math.max(360, Math.round(safe.height * 0.92)));
+    const targetL = Math.round(safe.left + Math.max(0, (safe.width - targetW) / 2));
+    const targetT = Math.round(safe.top + Math.max(0, (safe.height - targetH) / 2));
+    panel.style.left = targetL + 'px';
+    panel.style.top = targetT + 'px';
+    panel.style.width = targetW + 'px';
+    panel.style.height = targetH + 'px';
+    panel.style.maxWidth = safe.width + 'px';
+    panel.style.maxHeight = safe.height + 'px';
+  } else {
+    const r = panel.getBoundingClientRect();
+    const curW = Math.min(safe.width, Math.max(340, Math.round(r.width || 680)));
+    const curH = Math.min(safe.height, Math.max(260, Math.round(r.height || safe.height * 0.9)));
+    const maxL = Math.max(safe.left, safe.right - curW);
+    const maxT = Math.max(safe.top, safe.bottom - curH);
+    const clampedL = Math.max(safe.left, Math.min(maxL, Math.round(r.left)));
+    const clampedT = Math.max(safe.top, Math.min(maxT, Math.round(r.top)));
+    panel.style.left = clampedL + 'px';
+    panel.style.top = clampedT + 'px';
+    panel.style.width = curW + 'px';
+    panel.style.height = curH + 'px';
+    panel.style.maxWidth = safe.width + 'px';
+    panel.style.maxHeight = safe.height + 'px';
+  }
+  if (typeof positionSelectionOverlay === 'function' && selectedElement && panel.contains(selectedElement)) {
+    positionSelectionOverlay();
+  }
+}
+
 function toggleFcDialogMaximize() {
   const panel = $fc('fcEditorDialogPanel');
   if (!panel) return;
-  panel.classList.toggle('fc-maximized');
+  const nowMax = panel.classList.toggle('fc-maximized');
+  fitFloatingCardPanelToSafeWorkspace(nowMax ? 'clamp' : 'restore');
 }
 
 function openExternalFloatingCardWindow() {
@@ -700,9 +803,28 @@ function openExternalFloatingCardWindow() {
     if (typeof closeModalSafe === 'function') closeModalSafe(modal);
     else { modal.classList.add('hidden'); modal.classList.remove('flex'); modal.style.display = 'none'; }
   }
-  win.addEventListener('beforeunload', () => {
-    dockFcStudioBackToMain(true);
+  win.document.addEventListener('keydown', (ke) => {
+    const t = win.document.activeElement;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+    const mod = ke.ctrlKey || ke.metaKey;
+    if (mod && ke.code === 'KeyZ' && !ke.shiftKey) {
+      ke.preventDefault();
+      if (typeof fcUndoAction === 'function') fcUndoAction();
+    } else if (mod && (ke.code === 'KeyY' || (ke.code === 'KeyZ' && ke.shiftKey))) {
+      ke.preventDefault();
+      if (typeof fcRedoAction === 'function') fcRedoAction();
+    } else if (ke.key === 'Escape') {
+      if (typeof abortActiveDragSession === 'function') abortActiveDragSession();
+    }
   });
+  let fcDockedOnce = false;
+  const dockFcOnce = () => {
+    if (fcDockedOnce) return;
+    fcDockedOnce = true;
+    dockFcStudioBackToMain(true);
+  };
+  win.addEventListener('beforeunload', dockFcOnce);
+  win.addEventListener('pagehide', dockFcOnce);
   showToast('플로팅 카드 스튜디오가 독립 브라우저 창으로 분리되었습니다!');
 }
 
@@ -732,6 +854,7 @@ function dockFcStudioBackToMain(fromUnload) {
       if (!fromUnload) {
         if (typeof openModalSafe === 'function') openModalSafe(modal);
         else { modal.classList.remove('hidden'); modal.classList.add('flex'); modal.style.display = 'flex'; }
+        fitFloatingCardPanelToSafeWorkspace('open');
         if (typeof setActiveEditingContext === 'function') setActiveEditingContext('floating-card');
       } else {
         const fcEdBack = document.getElementById('fcRichBodyEditor');
@@ -944,8 +1067,7 @@ function startFcPreviewResize(e, dir) {
     doc.removeEventListener('mouseup', onUp);
     recordFcSnapshot();
   };
-  doc.addEventListener('mousemove', onMove);
-  doc.addEventListener('mouseup', onUp);
+  startManagedDragSession(doc, onMove, onUp);
 }
 
 function applyFcPreviewSizeFromInputs() {
@@ -968,7 +1090,7 @@ function applyFcPreviewSizeFromInputs() {
     editor.style.maxHeight = 'none';
   } else {
     editor.style.height = '';
-    editor.style.maxHeight = '360px';
+    editor.style.maxHeight = 'none';
   }
 }
 
@@ -1046,59 +1168,65 @@ function setFloatingCardHoverBgImage() {
   inp.click();
 }
 
+function bindFloatingCardUnifiedCanvasListeners(editor) {
+  if (!editor || editor.dataset.unifiedMainBound) return;
+  editor.dataset.unifiedMainBound = 'true';
+  editor.addEventListener('mousedown', (ev) => {
+    if (typeof setActiveEditingContext === 'function') setActiveEditingContext('floating-card');
+    const editHsDot = ev.target && ev.target.closest ? ev.target.closest('.iw-hs-dot') : null;
+    if (editHsDot && editor.contains(editHsDot)) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const pinEl = editHsDot.closest('.iw-hs-pin');
+      const hsStage = editHsDot.closest('.iw-hs-stage');
+      if (pinEl && hsStage) {
+        const stRect = hsStage.getBoundingClientRect();
+        const startX = ev.clientX, startY = ev.clientY;
+        let dragged = false;
+        const docRef = editor.ownerDocument || document;
+        const onPinMove = (me) => {
+          if (Math.abs(me.clientX - startX) > 3 || Math.abs(me.clientY - startY) > 3) dragged = true;
+          if (!dragged || stRect.width <= 0 || stRect.height <= 0) return;
+          const pctX = Math.max(4, Math.min(96, ((me.clientX - stRect.left) / stRect.width) * 100));
+          const pctY = Math.max(6, Math.min(94, ((me.clientY - stRect.top) / stRect.height) * 100));
+          pinEl.style.left = pctX.toFixed(1) + '%';
+          pinEl.style.top = pctY.toFixed(1) + '%';
+          if (typeof syncHotspotPinPopoverSide === 'function') syncHotspotPinPopoverSide(pinEl);
+        };
+        const onPinUp = () => {
+          docRef.removeEventListener('mousemove', onPinMove);
+          docRef.removeEventListener('mouseup', onPinUp);
+          if (dragged && typeof recordFcSnapshot === 'function') recordFcSnapshot();
+          else if (typeof toggleHotspotPin === 'function') toggleHotspotPin(pinEl);
+        };
+        startManagedDragSession(docRef, onPinMove, onPinUp);
+      }
+      return;
+    }
+    const hit = ev.target && ev.target.closest ? ev.target.closest('.ppt-chart-widget, .ppt-interactive-widget, .card-embedded-obj, .fc-resizable-item, h1, h2, h3, h4, p, blockquote, li, img') : null;
+    if (hit && editor.contains(hit) && typeof selectElementForInspector === 'function') {
+      selectElementForInspector(hit, Boolean(ev.shiftKey));
+    }
+  });
+  const syncFcOverlayOnScroll = () => {
+    if (selectedElement && editor.contains(selectedElement) && typeof positionSelectionOverlay === 'function') {
+      positionSelectionOverlay();
+    }
+  };
+  editor.addEventListener('scroll', syncFcOverlayOnScroll, { passive: true });
+  const outerFcScroll = editor.closest('#fcPreviewResizeBox')?.parentElement;
+  if (outerFcScroll && !outerFcScroll.dataset.fcScrollBound) {
+    outerFcScroll.dataset.fcScrollBound = 'true';
+    outerFcScroll.addEventListener('scroll', syncFcOverlayOnScroll, { passive: true });
+  }
+}
+
 function clearFloatingCardBgImage() {
   const editor = $fc('fcRichBodyEditor');
   if (!editor) return;
   editor.removeAttribute('data-fc-bg-img-url');
   updateFloatingCardPreviewStyle();
   recordFcSnapshot();
-  if (typeof toggleFcLegacyPropsDrawer === 'function') toggleFcLegacyPropsDrawer(false);
-  if (editor && !editor.dataset.unifiedMainBound) {
-    editor.dataset.unifiedMainBound = 'true';
-    editor.addEventListener('mousedown', (ev) => {
-      if (typeof setActiveEditingContext === 'function') setActiveEditingContext('floating-card');
-      const editHsDot = ev.target && ev.target.closest ? ev.target.closest('.iw-hs-dot') : null;
-      if (editHsDot && editor.contains(editHsDot)) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const pinEl = editHsDot.closest('.iw-hs-pin');
-        const hsStage = editHsDot.closest('.iw-hs-stage');
-        if (pinEl && hsStage) {
-          const stRect = hsStage.getBoundingClientRect();
-          const startX = ev.clientX, startY = ev.clientY;
-          let dragged = false;
-          const docRef = editor.ownerDocument || document;
-          const onPinMove = (me) => {
-            if (Math.abs(me.clientX - startX) > 3 || Math.abs(me.clientY - startY) > 3) dragged = true;
-            if (!dragged || stRect.width <= 0 || stRect.height <= 0) return;
-            const pctX = Math.max(4, Math.min(96, ((me.clientX - stRect.left) / stRect.width) * 100));
-            const pctY = Math.max(6, Math.min(94, ((me.clientY - stRect.top) / stRect.height) * 100));
-            pinEl.style.left = pctX.toFixed(1) + '%';
-            pinEl.style.top = pctY.toFixed(1) + '%';
-            if (typeof syncHotspotPinPopoverSide === 'function') syncHotspotPinPopoverSide(pinEl);
-          };
-          const onPinUp = () => {
-            docRef.removeEventListener('mousemove', onPinMove);
-            docRef.removeEventListener('mouseup', onPinUp);
-            if (dragged && typeof recordFcSnapshot === 'function') recordFcSnapshot();
-            else if (typeof toggleHotspotPin === 'function') toggleHotspotPin(pinEl);
-          };
-          docRef.addEventListener('mousemove', onPinMove);
-          docRef.addEventListener('mouseup', onPinUp);
-        }
-        return;
-      }
-      const hit = ev.target && ev.target.closest ? ev.target.closest('.ppt-chart-widget, .ppt-interactive-widget, .card-embedded-obj, .fc-resizable-item, h1, h2, h3, h4, p, blockquote, li, img') : null;
-      if (hit && editor.contains(hit) && typeof selectElementForInspector === 'function') {
-        selectElementForInspector(hit, Boolean(ev.shiftKey));
-      }
-    });
-    editor.addEventListener('scroll', () => {
-      if (selectedElement && editor.contains(selectedElement) && typeof positionSelectionOverlay === 'function') {
-        positionSelectionOverlay();
-      }
-    }, { passive: true });
-  }
   showToast('플로팅 카드 기본 배경 이미지가 제거되었습니다.');
 }
 
@@ -1182,9 +1310,11 @@ function startFcPreviewPanelDrag(e) {
   panel.style.top = rect.top + 'px';
   panel.style.margin = '0';
   const startX = e.clientX, startY = e.clientY, initL = rect.left, initT = rect.top;
+  panel.classList.remove('fc-maximized');
+  const safe = getFloatingCardSafeWorkspaceRect();
   const onMove = (me) => {
-    const nextL = Math.max(8, Math.min(window.innerWidth - 160, initL + (me.clientX - startX)));
-    const nextT = Math.max(48, Math.min(window.innerHeight - 80, initT + (me.clientY - startY)));
+    const nextL = Math.max(safe.left, Math.min(Math.max(safe.left, safe.right - 180), initL + (me.clientX - startX)));
+    const nextT = Math.max(safe.top, Math.min(Math.max(safe.top, safe.bottom - 72), initT + (me.clientY - startY)));
     panel.style.left = Math.round(nextL) + 'px';
     panel.style.top = Math.round(nextT) + 'px';
     if (typeof positionSelectionOverlay === 'function' && selectedElement && panel.contains(selectedElement)) {
@@ -1195,8 +1325,7 @@ function startFcPreviewPanelDrag(e) {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
   };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
+  startManagedDragSession(document, onMove, onUp);
 }
 
 let fcOriginTriggerElement = null;
@@ -1380,6 +1509,10 @@ function openFloatingCardEditor(cardId) {
     modal.style.visibility = 'visible';
     modal.style.opacity = '1';
   }
+  bindFloatingCardUnifiedCanvasListeners(editor);
+  if (!fcStudioPopupWin || fcStudioPopupWin.closed) {
+    fitFloatingCardPanelToSafeWorkspace('open');
+  }
   if (typeof setActiveEditingContext === 'function') setActiveEditingContext('floating-card');
   setTimeout(() => { if (editor) editor.focus(); }, 30);
 }
@@ -1533,9 +1666,14 @@ function saveFloatingCardFromEditor() {
 
   if (typeof setActiveEditingContext === 'function') setActiveEditingContext('slide');
 
+  const alreadyLinkedInDeck = Array.from(document.querySelectorAll('#slideStage [data-floating-card-id], #slideStage [data-floating-card-ids]')).some(el => {
+    const ids = getLinkedFloatingCardIds(el);
+    return ids.includes(activeEditingFloatingCardId);
+  });
+
   if (slideTriggerTarget) {
     selectElementForInspector(slideTriggerTarget, false);
-  } else {
+  } else if (!alreadyLinkedInDeck) {
     const activeSlideEl = slides[currentSlide - 1];
     if (activeSlideEl) {
       ensureFreeLayersOnAllSlides();
@@ -2038,6 +2176,10 @@ function closeFloatingCardLightbox() {
     lightbox.querySelectorAll('video, audio').forEach(m => { try { if (!m.paused) m.pause(); } catch (e) {} });
     lightbox.classList.remove('open', 'fc-multi-open');
     lightbox.querySelectorAll('.fc-multi-card-item').forEach(n => n.remove());
+    const contentBox = document.getElementById('floatingCardLightboxContent');
+    if (contentBox) {
+      contentBox.querySelectorAll('.fc-bg-img-layer, .fc-hover-bg-img-layer').forEach(ly => { ly.style.backgroundImage = ''; });
+    }
     const bodyEl = document.getElementById('floatingCardLightboxBody');
     if (bodyEl) bodyEl.innerHTML = '';
   }

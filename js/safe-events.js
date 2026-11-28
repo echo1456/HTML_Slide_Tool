@@ -467,6 +467,13 @@ function initDeclarativeEventSystem(targetDoc, contextWin) {
       });
     });
     obs.observe(doc.documentElement, { childList: true, subtree: true });
+    doc.__pptSafeEventObserver = obs;
+    const ownerWin = doc.defaultView;
+    if (ownerWin && ownerWin !== window) {
+      ownerWin.addEventListener('pagehide', () => {
+        try { obs.disconnect(); } catch (e) {}
+      }, { once: true });
+    }
   }
 }
 

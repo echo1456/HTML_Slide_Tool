@@ -13,7 +13,7 @@ function collectSlideTextMatches(query, caseSensitive) {
   const results = []; if (!query) return results;
   const needle = caseSensitive ? query : query.toLowerCase();
   slides.forEach((slideEl, sIdx) => {
-    const walker = document.createTreeWalker(slideEl, NodeFilter.SHOW_TEXT, { acceptNode(node) { const p = node.parentElement; if (!p || p.closest('.card-edit-controls, .img-edit-overlay, .sub-box-del-btn, .card-media-controls, .table-col-resizer, .table-row-resizer, .iw-edit-bar, .chart-scenario-bar, .iw-flip-cue, .iw-hs-dot, .ppt-slide-comment-badge, .embed-widget-drag-bar, .yt-local-hint-bar, .yt-poster-card, .ppt-audio-widget button, .deferred-embed-consent, .ppt-slide-master-layer')) return NodeFilter.FILTER_REJECT; return node.nodeValue && node.nodeValue.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
+    const walker = document.createTreeWalker(slideEl, NodeFilter.SHOW_TEXT, { acceptNode(node) { const p = node.parentElement; if (!p || p.closest('.card-edit-controls, .img-edit-overlay, .sub-box-del-btn, .card-media-controls, .table-col-resizer, .table-row-resizer, .iw-edit-bar, .chart-scenario-bar, .iw-flip-cue, .iw-hs-dot, .ppt-slide-comment-badge, .embed-widget-drag-bar, .yt-local-hint-bar, .yt-poster-card, .ppt-audio-widget button, .deferred-embed-consent, .ppt-slide-master-layer, [data-slide-number-token="true"]')) return NodeFilter.FILTER_REJECT; return node.nodeValue && node.nodeValue.trim().length > 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
     let textNode;
     while ((textNode = walker.nextNode())) {
       const hay = caseSensitive ? textNode.nodeValue : textNode.nodeValue.toLowerCase(); let pos = 0;
@@ -47,6 +47,21 @@ function syncChartJsonAfterTextNodeEdit(textNode) {
       const rIdx = parseInt(rowKey || '-1', 10);
       if (d.tableRows && d.tableRows[rIdx] && colIdx >= 0 && colIdx < d.tableRows[rIdx].length) {
         d.tableRows[rIdx][colIdx] = txt;
+        const isSummaryRow = Array.isArray(d.summaryRowIndices) && d.summaryRowIndices.includes(rIdx);
+        if (!isSummaryRow && typeof recalculateTableSummaryRows === 'function' && recalculateTableSummaryRows(d)) {
+          d.summaryRowIndices.forEach(sIdx => {
+            const sRow = d.tableRows[sIdx];
+            if (!sRow) return;
+            sRow.forEach((val, col) => {
+              const tdEl = widget.querySelector(`td[data-cell-key="td-${sIdx}-${col}"]`);
+              if (tdEl && tdEl !== cellEl) {
+                const resizers = Array.from(tdEl.querySelectorAll('.table-col-resizer, .table-row-resizer'));
+                tdEl.textContent = val;
+                resizers.forEach(rz => tdEl.appendChild(rz));
+              }
+            });
+          });
+        }
       }
     }
   }
@@ -95,7 +110,8 @@ function jumpToFindMatch(idx) {
   __activeFindMatchIdx = safeIdx;
   const match = __findMatchesList[safeIdx]; if (!match) return;
   goToSlide(match.slideNum);
-  const targetEl = match.textNode && match.textNode.parentElement ? match.textNode.parentElement : null;
+  const rawParent = match.textNode && match.textNode.parentElement ? match.textNode.parentElement : null;
+  const targetEl = rawParent ? (rawParent.closest('th[data-cell-key], td[data-cell-key], [data-editable]') || rawParent) : null;
   if (targetEl && (typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode) && typeof selectElementForInspector === 'function') {
     selectElementForInspector(targetEl);
   }
@@ -119,10 +135,11 @@ function isFindMatchLocked(textNode) {
 }
 
 function replaceCurrentFindMatch() {
+  const switchedIntoEdit = !isEditMode;
   if (typeof isInteractiveTestMode !== 'undefined' && isInteractiveTestMode && typeof toggleInteractiveTestMode === 'function') toggleInteractiveTestMode(false);
-  if (!isEditMode && typeof toggleEditMode === 'function') toggleEditMode(true);
+  if (switchedIntoEdit && typeof toggleEditMode === 'function') toggleEditMode(true);
   const query = document.getElementById('findQueryInput')?.value || '', replaceWith = document.getElementById('replaceQueryInput')?.value ?? ''; if (!query) return;
-  if (__findMatchesList.length === 0) runSlideFindSearch(false);
+  if (switchedIntoEdit || __findMatchesList.length === 0) runSlideFindSearch(true);
   if (__findMatchesList.length === 0) return;
   const curIdx = Math.max(0, Math.min(__activeFindMatchIdx, __findMatchesList.length - 1));
   const match = __findMatchesList[curIdx]; if (!match || !match.textNode || !match.textNode.parentNode) return;

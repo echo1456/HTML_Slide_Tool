@@ -8,7 +8,7 @@ function toggleLeftFilmstrip() {
   const collapsed = aside.classList.toggle('filmstrip-collapsed');
   const btn = document.getElementById('filmstripCollapseBtn');
   if (btn) btn.textContent = collapsed ? '▶' : '◀';
-  setTimeout(() => { if (typeof updateStageViewportScale === 'function') updateStageViewportScale(); }, 20);
+  setTimeout(() => { if (typeof updateStageViewportScale === 'function') updateStageViewportScale(); if (typeof fitFloatingCardPanelToSafeWorkspace === 'function') fitFloatingCardPanelToSafeWorkspace('clamp'); }, 20);
 }
 
 function renderLeftFilmstripThumbnails() {
@@ -32,6 +32,16 @@ function renderLeftFilmstripThumbnails() {
       <div class="text-[11px] font-bold text-ink line-clamp-2 leading-snug">${escapeAttr(title)}</div>
     </div>`;
   }).join('');
+  const activeThumb = listEl.querySelector('.filmstrip-thumb-card.is-active-slide');
+  if (activeThumb && listEl.scrollHeight > listEl.clientHeight) {
+    const itemTop = activeThumb.offsetTop;
+    const itemBottom = itemTop + activeThumb.offsetHeight;
+    if (itemTop < listEl.scrollTop) {
+      listEl.scrollTop = Math.max(0, itemTop - 8);
+    } else if (itemBottom > listEl.scrollTop + listEl.clientHeight) {
+      listEl.scrollTop = itemBottom - listEl.clientHeight + 8;
+    }
+  }
 }
 
 let __dragFilmIdx = -1;
@@ -52,6 +62,8 @@ function onFilmstripDrop(e, targetIdx) {
   if (__dragFilmIdx < targetIdx) targetEl.insertAdjacentElement('afterend', movingEl);
   else targetEl.insertAdjacentElement('beforebegin', movingEl);
   __dragFilmIdx = -1;
+  selectedFilmstripSlides.clear();
+  if (typeof clearSelectionInspector === 'function') clearSelectionInspector();
   remapGotoSlideTargetsOnReorder(fromNum, toNum);
   currentSlide = toNum;
   updateSlideUI();
@@ -80,6 +92,10 @@ function duplicateSelectedFilmstripSlides() {
     if (s) {
       const clone = s.cloneNode(true);
       clone.classList.remove('active', 'ppt-multi-selected', 'is-selected');
+      clone.removeAttribute('data-slide-locked');
+      clone.querySelectorAll('.ppt-multi-selected, .is-selected').forEach(el => el.classList.remove('ppt-multi-selected', 'is-selected'));
+      clone.querySelectorAll('.iw-flip-scene').forEach(el => el.classList.remove('is-editing-back', 'is-flipped'));
+      clone.querySelectorAll('.iw-hs-pin.is-open').forEach(el => el.classList.remove('is-open'));
       regenerateClonedSlideInternalIds(clone);
       s.insertAdjacentElement('afterend', clone);
       shiftGotoSlideTargetsOnInsert(num + 1);
@@ -112,6 +128,7 @@ function deleteSelectedFilmstripSlides() {
     }
   });
   selectedFilmstripSlides.clear();
+  if (typeof clearSelectionInspector === 'function') clearSelectionInspector();
   slides = Array.from(document.querySelectorAll('.slide'));
   totalSlides = slides.length;
   currentSlide = Math.max(1, Math.min(currentSlide, totalSlides));

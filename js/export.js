@@ -192,12 +192,38 @@ function buildSerializedStandaloneHTML(presentationOnly) {
   const clonedLb = clonedRoot.querySelector('#floatingCardLightbox');
   if (clonedLb) {
     clonedLb.classList.remove('open', 'fc-multi-open');
+    clonedLb.style.removeProperty('--fc-lb-scale');
     clonedLb.querySelectorAll('.fc-multi-card-item').forEach(n => n.remove());
+    const clonedLbContent = clonedLb.querySelector('#floatingCardLightboxContent');
+    if (clonedLbContent) {
+      clonedLbContent.querySelectorAll('.fc-bg-img-layer, .fc-hover-bg-img-layer, .fc-bg-tint-layer').forEach(ly => {
+        ly.style.backgroundImage = '';
+        ly.style.backgroundColor = '';
+      });
+    }
     const clonedLbBody = clonedLb.querySelector('#floatingCardLightboxBody');
     if (clonedLbBody) clonedLbBody.innerHTML = '';
   }
   const clonedFcEd = clonedRoot.querySelector('#fcRichBodyEditor');
-  if (clonedFcEd) clonedFcEd.innerHTML = '';
+  if (clonedFcEd) {
+    clonedFcEd.innerHTML = '';
+    clonedFcEd.removeAttribute('data-fc-bg-img-url');
+    clonedFcEd.removeAttribute('data-fc-hover-bg-img-url');
+    clonedFcEd.removeAttribute('data-fc-bg-mask');
+    clonedFcEd.removeAttribute('data-fc-hover-bg-mask');
+  }
+  ['#fcEditorBgPreviewLayer', '#fcEditorHoverBgPreviewLayer', '#fcEditorBgTintLayer'].forEach(sel => {
+    const ly = clonedRoot.querySelector(sel);
+    if (ly) { ly.style.backgroundImage = ''; ly.style.backgroundColor = ''; ly.classList.remove('has-hover-img'); }
+  });
+  const clonedFcPanel = clonedRoot.querySelector('#fcEditorDialogPanel');
+  if (clonedFcPanel) {
+    clonedFcPanel.classList.remove('fc-maximized');
+    clonedFcPanel.style.position = '';
+    clonedFcPanel.style.left = '';
+    clonedFcPanel.style.top = '';
+    clonedFcPanel.style.margin = '';
+  }
   ['#pptScreenBlackoutOverlay', '#pptDrawCanvas', '#pptDrawToolbar', '#saveChoiceModal', '#floatingCardEditorModal', '#findReplaceModal', '#overflowAuditModal', '#slideCommentsModal', '#slideSorterModal', '#reuseSlidesModal', '#starterTemplateModal', '#shortcutsHelpModal', '#onboardingGuideModal', '#tocModal', '#pptContextMenu', '#autosaveRecoveryBanner'].forEach(sel => {
     const ov = clonedRoot.querySelector(sel);
     if (ov) { ov.classList.add('hidden'); ov.classList.remove('flex'); ov.style.display = ''; }
@@ -208,7 +234,7 @@ function buildSerializedStandaloneHTML(presentationOnly) {
   const clonedAutoSaveStatus = clonedRoot.querySelector('#autoSaveStatusText'); if (clonedAutoSaveStatus) clonedAutoSaveStatus.textContent = '';
   const clonedBodyAll = clonedRoot.querySelector('body');
   if (clonedBodyAll) {
-    clonedBodyAll.classList.remove('edit-mode', 'interactive-test-mode', 'focus-mode', 'pasteboard-mode', 'space-pan-ready', 'space-pan-dragging', 'is-fullscreen', 'fullscreen-mode', 'print-with-notes');
+    clonedBodyAll.classList.remove('edit-mode', 'interactive-test-mode', 'focus-mode', 'pasteboard-mode', 'space-pan-ready', 'space-pan-dragging', 'is-fullscreen', 'fullscreen-mode', 'print-with-notes', 'stage-rescaling');
   }
   if (isReadOnly) {
     const clonedBody = clonedRoot.querySelector('body'); if (clonedBody) { clonedBody.classList.remove('edit-mode'); clonedBody.setAttribute('data-presentation-only', 'true'); }
@@ -259,7 +285,7 @@ async function exportDeckAsZipPackage(presentationOnly) {
     const blobMap = window.__pptSessionMediaBlobs instanceof Map ? window.__pptSessionMediaBlobs : new Map(); let count = 0;
     for (const mName of mediaNames) {
       if (blobMap.has(mName)) { entries.push({ name: `media/${mName}`, data: new Uint8Array(await blobMap.get(mName).arrayBuffer()) }); count++; }
-      else { try { const resp = await fetch(`media/${mName}`); if (resp.ok) { entries.push({ name: `media/${mName}`, data: new Uint8Array(await resp.arrayBuffer()) }); count++; } } catch (e) {} }
+      else { try { const resp = await fetch(`media/${mName}`); if (resp.ok) { entries.push({ name: `media/${mName}`, data: new Uint8Array(await resp.arrayBuffer()) }); count++; } } catch (e) { console.warn('[HTML Slide Tool] 미디어 ZIP 번들 건너뜀:', mName, e); } }
     }
     triggerDownloadBlob(buildZipBlobFromEntries(entries, 'application/zip'), `${baseName}.zip`);
     if (typeof markChangesSaved === 'function') markChangesSaved();
@@ -416,8 +442,9 @@ function drawChartWidgetOnCanvas(ctx, widgetEl, x, y, w, h) {
   ctx.clip();
 
   const pad = 16;
-  // Title
-  ctx.font = '800 14px Pretendard, Malgun Gothic, sans-serif';
+  // Title (respects persisted data.titleFontSize)
+  const titlePx = Math.max(11, Math.min(36, Number(data.titleFontSize || 14)));
+  ctx.font = `800 ${titlePx}px Pretendard, Malgun Gothic, sans-serif`;
   ctx.fillStyle = '#111111';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -616,7 +643,7 @@ function drawChartWidgetOnCanvas(ctx, widgetEl, x, y, w, h) {
         ctx.strokeRect(plotX + cIdx * colW, curY, colW, rowH);
         const hdrPx = Math.max(9, Math.min(36, Number((data.cellStyles && data.cellStyles[`th-${cIdx}`] && data.cellStyles[`th-${cIdx}`].fontSize) || data.tableFontSize || 11)));
         ctx.font = `700 ${hdrPx}px Pretendard, Malgun Gothic, sans-serif`;
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = (data.cellStyles && data.cellStyles[`th-${cIdx}`] && data.cellStyles[`th-${cIdx}`].color) || '#FFFFFF';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(hTxt || '').slice(0, 18), plotX + cIdx * colW + 8, curY + rowH / 2);
@@ -633,7 +660,7 @@ function drawChartWidgetOnCanvas(ctx, widgetEl, x, y, w, h) {
         ctx.strokeRect(plotX + cIdx * colW, curY, colW, rowH);
         const tdPx = Math.max(9, Math.min(36, Number((data.cellStyles && data.cellStyles[key] && data.cellStyles[key].fontSize) || data.tableFontSize || 11)));
         ctx.font = `${(data.highlightFirstCol && cIdx === 0) ? '700' : '500'} ${tdPx}px Pretendard, Malgun Gothic, sans-serif`;
-        ctx.fillStyle = '#111111';
+        ctx.fillStyle = (data.cellStyles && data.cellStyles[key] && data.cellStyles[key].color) || '#111111';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(rArr[cIdx] || '').slice(0, 20), plotX + cIdx * colW + 8, curY + rowH / 2);
@@ -695,9 +722,15 @@ function renderBeforeAfterToDataUrl(baStage, logicalW, logicalH) {
 
 function collectExportableSlideBlocks(slideEl) {
   if (!slideEl) return [];
-  const std = Array.from(slideEl.querySelectorAll('.slide-header-bar, .slide-card, .ppt-free-obj'));
+  const isHiddenLayer = (el) => {
+    if (!el || el.nodeType !== 1) return true;
+    if (el.getAttribute('data-layer-hidden') === 'true') return true;
+    if (el.style.display === 'none' || el.style.visibility === 'hidden') return true;
+    return Boolean(el.closest && el.closest('[data-layer-hidden="true"]'));
+  };
+  const std = Array.from(slideEl.querySelectorAll('.slide-header-bar, .slide-card, .ppt-free-obj')).filter(el => !isHiddenLayer(el));
   const directExtras = Array.from(slideEl.children).filter(ch => {
-    if (ch.nodeType !== 1 || ch.tagName !== 'DIV') return false;
+    if (ch.nodeType !== 1 || ch.tagName !== 'DIV' || isHiddenLayer(ch)) return false;
     if (ch.classList.contains('slide-bg-layer') || ch.classList.contains('slide-bg-overlay') || ch.classList.contains('slide-grid-body') || ch.classList.contains('ppt-free-layer') || ch.classList.contains('ppt-slide-master-layer') || ch.classList.contains('slide-header-bar') || ch.classList.contains('slide-card')) return false;
     return !std.includes(ch) && (ch.textContent || '').trim().length > 0;
   });
@@ -843,8 +876,23 @@ async function exportDeckAsPPTX() {
           const svgStrokeAttr = svgStrokeNode ? (svgStrokeNode.getAttribute('stroke') || '') : '';
           const svgStrokeW = svgStrokeNode ? (parseFloat(svgStrokeNode.getAttribute('stroke-width') || '0') || 0) : 0;
           const isArrowShape = shapeType === 'arrow' || shapeType === 'arrowRight' || shapeType === 'arrowBoth';
-          const rawBg = (svgFillAttr && svgFillAttr !== 'none') ? svgFillAttr : (blk.style.backgroundColor || blkCs.backgroundColor);
-          const isTransparent = !rawBg || rawBg === 'transparent' || rawBg === 'rgba(0, 0, 0, 0)';
+          const cardBgLayerPptx = blk.querySelector(':scope > .card-bg-layer');
+          const cardBgTintPptx = blk.querySelector(':scope > .card-bg-tint');
+          let embeddedCardPhoto = false;
+          if (cardBgLayerPptx && cardBgLayerPptx.style.backgroundImage) {
+            const cUrlM = cardBgLayerPptx.style.backgroundImage.match(/url\(["']?(data:image\/[^"')]+)["']?\)/i);
+            if (cUrlM) {
+              embedDataUrlPic(cUrlM[1], xEmu, yEmu, wEmu, hEmu, 'CardBackground');
+              embeddedCardPhoto = true;
+            }
+          }
+          const tintBgFallback = cardBgTintPptx ? (cardBgTintPptx.style.backgroundColor || window.getComputedStyle(cardBgTintPptx).backgroundColor) : '';
+          const hexFallbackAttr = blk.getAttribute('data-card-bg-hex') || '';
+          let rawBg = (svgFillAttr && svgFillAttr !== 'none') ? svgFillAttr : (blk.style.backgroundColor || blkCs.backgroundColor);
+          if ((!rawBg || rawBg === 'transparent' || rawBg === 'rgba(0, 0, 0, 0)') && !embeddedCardPhoto) {
+            rawBg = (tintBgFallback && tintBgFallback !== 'transparent' && tintBgFallback !== 'rgba(0, 0, 0, 0)') ? tintBgFallback : hexFallbackAttr;
+          }
+          const isTransparent = embeddedCardPhoto || !rawBg || rawBg === 'transparent' || rawBg === 'rgba(0, 0, 0, 0)';
           const cardBg = cssColorToHex6(rawBg, sEl.classList.contains('theme-dark') ? '1E293B' : 'FFFFFF');
           const fillXml = (isTransparent || shapeType === 'line') ? '<a:noFill/>' : `<a:solidFill><a:srgbClr val="${cardBg}"/></a:solidFill>`;
           const borderCol = cssColorToHex6((svgStrokeAttr && svgStrokeAttr !== 'none') ? svgStrokeAttr : (blkCs.borderTopColor || blkCs.borderColor || '#E2E4E9'), 'E2E4E9');
@@ -1168,6 +1216,15 @@ async function exportSlideOrElementAsImage(scope, format) {
           if (!isNaN(lOp) && lOp < 1) ctx.globalAlpha *= Math.max(0.05, lOp);
           if (lCs.filter && lCs.filter !== 'none') ctx.filter = lCs.filter;
           drawCoverImageOnCanvas(ctx, bgInfo.img, bx, by, bw, bh, lCs.backgroundSize === 'contain' ? 'contain' : 'cover');
+          if (cBgTintEl) {
+            const tCs = window.getComputedStyle(cBgTintEl);
+            const tGrad = cBgTintEl.style.backgroundImage && cBgTintEl.style.backgroundImage.includes('gradient(')
+              ? parseCssGradientForCanvas(ctx, cBgTintEl.style.backgroundImage, bx, by, bw, bh)
+              : null;
+            const tCol = tCs.backgroundColor;
+            if (tGrad) { ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.fillStyle = tGrad; ctx.fillRect(bx, by, bw, bh); }
+            else if (tCol && tCol !== 'rgba(0, 0, 0, 0)' && tCol !== 'transparent') { ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.fillStyle = tCol; ctx.fillRect(bx, by, bw, bh); }
+          }
         }
         ctx.restore();
       } catch (e) {}

@@ -263,6 +263,18 @@ function insertInteractiveWidget(explicitType, explicitTargetMode) {
 }
 
 /* Before / After Helpers */
+function recordWidgetChangeHistory(widgetOrChild, label) {
+  const inFc = Boolean(
+    (widgetOrChild && widgetOrChild.closest && widgetOrChild.closest('#fcRichBodyEditor')) ||
+    (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive())
+  );
+  if (inFc) {
+    if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+  } else if (typeof saveHistorySnapshot === 'function') {
+    saveHistorySnapshot(label || '위젯 편집');
+  }
+}
+
 function isWidgetMutationLocked(btnOrWidget) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return true;
   const widget = btnOrWidget ? (btnOrWidget.classList && btnOrWidget.classList.contains('ppt-interactive-widget') ? btnOrWidget : btnOrWidget.closest('.ppt-interactive-widget')) : null;
@@ -351,7 +363,7 @@ function resetBeforeAfterSplit(btn) {
   const stage = widget ? widget.querySelector('.iw-ba-stage') : null;
   if (!stage) return;
   setBeforeAfterPosition(stage, 50);
-  saveHistorySnapshot('Before/After 50:50 초기화');
+  recordWidgetChangeHistory(stage, 'Before/After 50:50 초기화');
 }
 function uploadBeforeAfterImage(btn, side) {
   if (isWidgetMutationLocked(btn)) return;
@@ -367,7 +379,7 @@ function uploadBeforeAfterImage(btn, side) {
     if (!file) return;
     compressImageFileToDataUrl(file, 1400, (dataUrl) => {
       imgTarget.src = dataUrl;
-      saveHistorySnapshot(`Before/After ${side === 'before' ? 'Before' : 'After'} 이미지 교체`);
+      recordWidgetChangeHistory(stage, `Before/After ${side === 'before' ? 'Before' : 'After'} 이미지 교체`);
       showToast(`${side === 'before' ? 'Before' : 'After'} 이미지가 적용되었습니다.`);
     });
   };
@@ -402,7 +414,7 @@ function uploadHotspotBaseImage(btn) {
     if (!file) return;
     compressImageFileToDataUrl(file, 1400, (dataUrl) => {
       imgTarget.src = dataUrl;
-      saveHistorySnapshot('핫스팟 배경 이미지 변경');
+      recordWidgetChangeHistory(stage, '핫스팟 배경 이미지 변경');
       showToast('핫스팟 배경 이미지가 교체되었습니다.');
     });
   };
@@ -424,7 +436,7 @@ function addHotspotPin(btn, xPct, yPct) {
   if (pin) {
     stage.appendChild(pin);
     renumberHotspotPins(stage);
-    saveHistorySnapshot('핫스팟 핀 추가');
+    recordWidgetChangeHistory(stage, '핫스팟 핀 추가');
     showToast(`핫스팟 핀 #${nextNum}이 추가되었습니다. 드래그하여 위치를 조절하세요.`);
   }
 }
@@ -438,7 +450,7 @@ function deleteActiveHotspotPin(btn) {
   const target = stage.querySelector('.iw-hs-pin.is-open') || pins[pins.length - 1];
   target.remove();
   renumberHotspotPins(stage);
-  saveHistorySnapshot('핫스팟 핀 삭제');
+  recordWidgetChangeHistory(stage, '핫스팟 핀 삭제');
   showToast('선택한 핫스팟 핀이 삭제되었습니다.');
 }
 function toggleHotspotPin(pinEl) {
@@ -488,7 +500,7 @@ function addIwTab(btn) {
   newPanel.innerHTML = `<div><span ${ed} class="font-mono text-[10px] font-extrabold text-gopro uppercase block mb-1">OPTION 0${nextIdx + 1}</span><h4 ${ed} class="text-base md:text-lg font-extrabold text-ink mb-2">새 탭 제목을 입력하세요</h4><p ${ed} class="text-xs md:text-sm text-muted leading-relaxed">이 탭을 클릭했을 때 보여줄 상세 설명을 작성하세요.</p></div><div ${ed} class="pt-2 border-t border-borderline font-mono text-xs font-extrabold text-ink">KEY METRIC</div>`;
   body.appendChild(newPanel);
   switchIwTab(newBtn, nextIdx);
-  saveHistorySnapshot('탭 카드 탭 추가');
+  recordWidgetChangeHistory(widget, '탭 카드 탭 추가');
 }
 function removeActiveIwTab(btn) {
   if (isWidgetMutationLocked(btn)) return;
@@ -513,7 +525,7 @@ function removeActiveIwTab(btn) {
   });
   remPanels.forEach((p, i) => p.setAttribute('data-iw-panel-idx', String(i)));
   switchIwTab(remBtns[0], 0);
-  saveHistorySnapshot('탭 카드 탭 삭제');
+  recordWidgetChangeHistory(widget, '탭 카드 탭 삭제');
 }
 
 /* 3D Flip Card Helpers */
@@ -553,7 +565,7 @@ function uploadIwTabImage(btn) {
         activePanel.insertBefore(imgEl, activePanel.firstChild);
       }
       imgEl.src = dataUrl;
-      saveHistorySnapshot('탭 카드 이미지 삽입');
+      recordWidgetChangeHistory(widget, '탭 카드 이미지 삽입');
       showToast('현재 활성 탭에 이미지가 삽입되었습니다.');
     });
   };
@@ -568,7 +580,7 @@ function insertChartIntoIwTab(btn) {
   const existing = activePanel.querySelector('.ppt-chart-widget');
   if (existing) {
     existing.remove();
-    saveHistorySnapshot('탭 내부 차트 제거');
+    recordWidgetChangeHistory(widget, '탭 내부 차트 제거');
     showToast('현재 탭 내부의 차트가 제거되었습니다.');
     return;
   }
@@ -579,7 +591,7 @@ function insertChartIntoIwTab(btn) {
   data.title = '탭 세부 데이터 비교';
   activePanel.appendChild(cw);
   writeChartDataAndRender(cw, data);
-  saveHistorySnapshot('탭 내부 차트 삽입');
+  recordWidgetChangeHistory(widget, '탭 내부 차트 삽입');
   showToast('현재 활성 탭 내부에 편집 가능한 라이브 차트가 삽입되었습니다!');
 }
 
@@ -607,7 +619,7 @@ function cycleIwFlipFaceTheme(btn) {
   face.style.borderColor = next.border;
   face.querySelectorAll('h3, h4').forEach(h => { h.style.color = next.fg; });
   face.querySelectorAll('p').forEach(p => { p.style.color = next.muted; });
-  saveHistorySnapshot(`3D 플립 카드 ${isBack ? '뒷면' : '앞면'} 배경 변경 (${next.name})`);
+  recordWidgetChangeHistory(widget, `3D 플립 카드 ${isBack ? '뒷면' : '앞면'} 배경 변경 (${next.name})`);
   showToast(`3D 플립 카드 [${isBack ? '뒷면' : '앞면'}] 테마가 "${next.name}"으로 변경되었습니다.`);
 }
 
@@ -637,7 +649,7 @@ function uploadIwFlipFaceImage(btn) {
         else face.appendChild(imgEl);
       }
       imgEl.src = dataUrl;
-      saveHistorySnapshot(`3D 플립 카드 ${isBack ? '뒷면' : '앞면'} 이미지 삽입`);
+      recordWidgetChangeHistory(widget, `3D 플립 카드 ${isBack ? '뒷면' : '앞면'} 이미지 삽입`);
       showToast(`3D 플립 카드 [${isBack ? '뒷면' : '앞면'}]에 이미지가 삽입되었습니다.`);
     });
   };

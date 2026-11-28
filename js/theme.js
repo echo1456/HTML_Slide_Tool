@@ -588,6 +588,7 @@ function applyThemePreset(bgHex, isDark) {
   if (stage) stage.style.backgroundColor = resolvedBg;
   const cardBg = resolvedDark ? '#1E293B' : '#FFFFFF';
   activeSlideEl.querySelectorAll('.slide-card').forEach(card => {
+    if (card.getAttribute('data-layer-locked') === 'true') return;
     card.classList.remove('card-theme-dark', 'bg-ink');
     card.style.color = '';
     card.setAttribute('data-card-bg-hex', cardBg);
@@ -730,6 +731,7 @@ function applyBrandKitPreset(kitKey) {
   if (!kit) return;
 
   const applyAll = $studio('brandKitApplyAllChk') ? Boolean($studio('brandKitApplyAllChk').checked) : true;
+  if (!applyAll && typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const targetSlides = applyAll ? Array.from(document.querySelectorAll('#slideStage .slide')) : [slides[currentSlide - 1]].filter(Boolean);
   if (targetSlides.length === 0) return;
 
@@ -743,7 +745,6 @@ function applyBrandKitPreset(kitKey) {
   }
 
   // 2. Apply slide background, dark/light theme, card surface & typography
-  if (!applyAll && typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   targetSlides.forEach(sEl => {
     if (sEl.getAttribute('data-slide-locked') === 'true') return;
     sEl.style.backgroundImage = '';
@@ -752,6 +753,7 @@ function applyBrandKitPreset(kitKey) {
     sEl.classList.toggle('theme-light', !kit.isDark);
     sEl.style.fontFamily = kit.fontFamily;
     sEl.querySelectorAll('.slide-card').forEach(card => {
+      if (card.getAttribute('data-layer-locked') === 'true') return;
       card.classList.remove('card-theme-dark', 'bg-ink');
       card.style.color = '';
       card.setAttribute('data-card-bg-hex', kit.cardBg);
@@ -904,6 +906,7 @@ function applyThemeToAllSlides() {
     const dstBgOverlay = s.querySelector(':scope > .slide-bg-overlay');
     if (dstBgOverlay) dstBgOverlay.style.backgroundImage = srcBgOverlayImg;
     s.querySelectorAll('.slide-card').forEach(card => {
+      if (card.getAttribute('data-layer-locked') === 'true') return;
       card.classList.remove('card-theme-dark', 'bg-ink');
       card.style.color = '';
       card.setAttribute('data-card-bg-hex', cardBg);

@@ -314,7 +314,7 @@ function exportWorkspaceItemJson(projId) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 1200);
   showToast(`"${proj.title}" 백업 파일(.json)이 다운로드되었습니다.`);
 }
 
@@ -1009,7 +1009,7 @@ function applyStarterTemplate(templateKey) {
   stage.innerHTML = showcaseStoreHtml + stageHtml;
   if (typeof writeChartDataAndRender === 'function') {
     stage.querySelectorAll('.ppt-chart-widget[data-chart-json]').forEach(w => {
-      try { writeChartDataAndRender(w, JSON.parse(w.getAttribute('data-chart-json'))); } catch (e) {}
+      try { writeChartDataAndRender(w, JSON.parse(w.getAttribute('data-chart-json'))); } catch (e) { console.warn('[HTML Slide Tool] 차트 복원 파싱 오류:', e); }
     });
   }
   currentSlide = 1;
@@ -1080,7 +1080,7 @@ function exportProjectJsonFile() {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 1200);
   markChangesSaved();
   hasUnexportedFileChanges = false;
   showToast('프로젝트 작업 파일(.json)이 다운로드되었습니다.');
@@ -1500,7 +1500,7 @@ async function importProjectFileObject(file, nativeHandle) {
       document.querySelectorAll('#slideStage video, #slideStage audio').forEach(el => {
         const mName = (el.getAttribute('data-media-name') || '').trim() || ((el.getAttribute('src') || '').startsWith('media/') ? el.getAttribute('src').slice(6) : '');
         if (mName && window.__pptSessionMediaBlobs.has(mName)) {
-          el.src = URL.createObjectURL(window.__pptSessionMediaBlobs.get(mName));
+          const blobRef = window.__pptSessionMediaBlobs.get(mName); el.src = typeof createTrackedMediaBlobUrl === 'function' ? createTrackedMediaBlobUrl(blobRef) : URL.createObjectURL(blobRef);
         }
       });
       activeWorkspaceProjectId = null;
@@ -1691,6 +1691,10 @@ async function writeAutoSaveToIndexedDB(unsavedFlag) {
   } catch (e) {
     console.error('IndexedDB 자동 저장 실패:', e);
     updateAutoSaveStatus(false);
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22) && !window.__pptQuotaWarnShown) {
+      window.__pptQuotaWarnShown = true;
+      showToast('브라우저 자동 저장 공간이 부족합니다. [저장] 메뉴에서 .json 또는 .zip 백업을 권장합니다.');
+    }
   }
 }
 

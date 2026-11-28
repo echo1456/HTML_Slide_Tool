@@ -335,10 +335,10 @@ body:not(.edit-mode) .slide-card:hover > .card-bg-tint {
 .slide.theme-dark .border-borderline {
   border-color: rgba(255, 255, 255, 0.16) !important;
 }
-.slide.theme-dark .bg-white,
-.slide.theme-dark .bg-white\/50,
-.slide.theme-dark .bg-white\/60,
-.slide.theme-dark .bg-canvas {
+.slide.theme-dark .bg-white:not([style*="background"]),
+.slide.theme-dark .bg-white\/50:not([style*="background"]),
+.slide.theme-dark .bg-white\/60:not([style*="background"]),
+.slide.theme-dark .bg-canvas:not([style*="background"]) {
   background-color: rgba(255, 255, 255, 0.06) !important;
 }
 
@@ -793,6 +793,7 @@ body:not(.edit-mode) [data-floating-card-id] {
   z-index: 75;
   background: rgba(15, 23, 42, 0.58);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: none;
   align-items: center;
   justify-content: center;
@@ -1474,6 +1475,7 @@ body:not(.edit-mode) .iw-ba-stage:hover .iw-ba-divider {
   font-weight: 800;
   letter-spacing: 0.06em;
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 .iw-ba-badge-before { left: 12px; transition: opacity 0.15s ease; }
 .iw-ba-badge-after { right: 12px; background: var(--accent-color, #0055FF); transition: opacity 0.15s ease; }
@@ -1748,6 +1750,7 @@ body:not(.edit-mode):not([data-interactive-hints="off"]) .slide-card[data-floati
   font-size: 11px;
   line-height: 1.35;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: none;
   max-width: 240px;
 }
@@ -1874,48 +1877,58 @@ body:not(.edit-mode) .ppt-chart-widget [data-chart-part]:hover {
 
 /* ==================== v5.0.13: LIGHT-THEME ADAPTATION FOR DARK-COVER TEMPLATES & DARK CARD CONTRAST ==================== */
 /* When a dark-authored slide (e.g. Showcase Cover, Proposal Closing, Quote, Cover) is switched to a Light Brand Kit / Light Theme */
-.slide.theme-light .text-white:not(.bg-gopro):not(.bg-ink):not(.bg-emerald-600):not(.bg-rose-600):not(.bg-violet-600):not(.bg-indigo-600):not(.bg-amber-600):not(.iw-flip-back):not(.iw-edit-bar):not(.iw-ba-badge):not(.card-theme-dark):not(button):not(th),
-.slide.theme-light .text-white\/80:not(.card-theme-dark),
-.slide.theme-light .text-white\/75:not(.card-theme-dark),
-.slide.theme-light .text-white\/70:not(.card-theme-dark),
-.slide.theme-light .text-white\/60:not(.card-theme-dark) {
+.slide.theme-light .text-white:not(.bg-gopro):not(.bg-ink):not(.bg-emerald-600):not(.bg-rose-600):not(.bg-violet-600):not(.bg-indigo-600):not(.bg-amber-600):not(.iw-flip-back):not(.iw-edit-bar):not(.iw-ba-badge):not(.card-theme-dark):not(button):not(th):not([style*="color"]),
+.slide.theme-light .text-white\/80:not(.card-theme-dark):not([style*="color"]),
+.slide.theme-light .text-white\/75:not(.card-theme-dark):not([style*="color"]),
+.slide.theme-light .text-white\/70:not(.card-theme-dark):not([style*="color"]),
+.slide.theme-light .text-white\/60:not(.card-theme-dark):not([style*="color"]) {
   color: #111827 !important;
 }
-.slide.theme-light .text-white\/80:not(.card-theme-dark),
-.slide.theme-light .text-white\/75:not(.card-theme-dark) {
+.slide.theme-light .text-white\/80:not(.card-theme-dark):not([style*="color"]),
+.slide.theme-light .text-white\/75:not(.card-theme-dark):not([style*="color"]) {
   color: #374151 !important;
 }
-.slide.theme-light .text-white\/70:not(.card-theme-dark),
-.slide.theme-light .text-white\/60:not(.card-theme-dark) {
+.slide.theme-light .text-white\/70:not(.card-theme-dark):not([style*="color"]),
+.slide.theme-light .text-white\/60:not(.card-theme-dark):not([style*="color"]) {
   color: #4B5563 !important;
 }
-.slide.theme-light .text-sky-300:not(.card-theme-dark) {
+.slide.theme-light .text-sky-300:not(.card-theme-dark):not([style*="color"]) {
   color: var(--accent-color, #0055FF) !important;
 }
 .slide.theme-light .border-white\/15:not(.card-theme-dark),
 .slide.theme-light .border-white\/20:not(.card-theme-dark) {
   border-color: #E2E4E9 !important;
 }
-.slide.theme-light .bg-white\/10:not(.card-theme-dark) {
+.slide.theme-light .bg-white\/10:not(.card-theme-dark):not([style*="background"]) {
   background-color: rgba(15, 23, 42, 0.05) !important;
 }
-/* Protect intentionally dark pills, buttons, flip backs, edit bars, badges & dark cards inside light slides */
-.slide.theme-light .bg-ink,
-.slide.theme-light .bg-ink .text-white,
-.slide.theme-light .bg-gopro,
-.slide.theme-light .bg-gopro .text-white,
-.slide.theme-light .img-edit-overlay,
-.slide.theme-light .img-edit-overlay .text-white,
-.slide.theme-light .iw-edit-bar,
-.slide.theme-light .iw-edit-bar .text-white,
-.slide.theme-light .iw-flip-back,
-.slide.theme-light .iw-flip-back .text-white,
-.slide.theme-light .iw-flip-back .text-white\/80,
-.slide.theme-light .iw-flip-back .text-sky-300,
-.slide.theme-light .ppt-free-obj[data-shape-type="linkButton"],
-.slide.theme-light .ppt-free-obj[data-shape-type="triggerButton"],
-.slide.theme-light .ppt-free-obj[data-shape-type="pill"] {
+/* Protect intentionally dark pills, buttons, flip backs, edit bars, badges & dark cards inside light slides (ID specificity beats multi-:not chain) */
+#slideStage .slide.theme-light .bg-ink:not([style*="color"]),
+#slideStage .slide.theme-light .bg-ink .text-white:not([style*="color"]),
+#slideStage .slide.theme-light .bg-gopro:not([style*="color"]),
+#slideStage .slide.theme-light .bg-gopro .text-white:not([style*="color"]),
+#slideStage .slide.theme-light .img-edit-overlay,
+#slideStage .slide.theme-light .img-edit-overlay .text-white,
+#slideStage .slide.theme-light .iw-edit-bar,
+#slideStage .slide.theme-light .iw-edit-bar .text-white,
+#slideStage .slide.theme-light .iw-flip-back:not([style*="color"]),
+#slideStage .slide.theme-light .iw-flip-back .text-white:not([style*="color"]),
+#slideStage .slide.theme-light .card-theme-dark .text-white:not([style*="color"]),
+#slideStage .slide.theme-light .ppt-free-obj[data-shape-type="linkButton"]:not([style*="color"]),
+#slideStage .slide.theme-light .ppt-free-obj[data-shape-type="triggerButton"]:not([style*="color"]),
+#slideStage .slide.theme-light .ppt-free-obj[data-shape-type="pill"]:not([style*="color"]) {
   color: #FFFFFF !important;
+}
+#slideStage .slide.theme-light .card-theme-dark .text-white\/80:not([style*="color"]),
+#slideStage .slide.theme-light .card-theme-dark .text-white\/75:not([style*="color"]) {
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+#slideStage .slide.theme-light .card-theme-dark .text-white\/70:not([style*="color"]),
+#slideStage .slide.theme-light .card-theme-dark .text-white\/60:not([style*="color"]) {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+#slideStage .slide.theme-light .card-theme-dark .text-sky-300:not([style*="color"]) {
+  color: #7DD3FC !important;
 }
 .slide.theme-light .iw-flip-back .text-white\/80 { color: rgba(255, 255, 255, 0.84) !important; }
 .slide.theme-light .iw-flip-back .text-sky-300 { color: #7DD3FC !important; }

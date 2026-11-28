@@ -73,9 +73,10 @@ function unwrapActiveInlineFxSpan() {
 }
 
 function applyReactiveShadowSettings(isLiveInput) {
-  const targets = (selectedElements && selectedElements.length > 1)
+  const targets = ((selectedElements && selectedElements.length > 1)
     ? selectedElements
-    : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []);
+    : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []))
+    .filter(el => el && el.getAttribute('data-layer-locked') !== 'true');
   const isOn = Boolean($studio('fxShadowToggle')?.checked);
   const hex = $studio('fxShadowColorPicker')?.value || '#0055FF';
   const alpha = Number($studio('fxShadowOpacitySlider')?.value ?? 28);
@@ -117,6 +118,22 @@ function applyReactiveBorderSettings(isLiveInput) {
 }
 
 function applyReactiveEffectToSelected(fxType) {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive()) {
+    const fcEd = typeof getActiveFcPreviewCanvas === 'function' ? getActiveFcPreviewCanvas() : null;
+    const hasInnerFcSelection = Boolean(fcEd && selectedElement && fcEd.contains(selectedElement));
+    if (!hasInnerFcSelection) {
+      const fxSel = typeof $fc === 'function' ? $fc('fcReactiveFxSelect') : document.getElementById('fcReactiveFxSelect');
+      if (fxSel) {
+        fxSel.value = fxType || 'none';
+        if (typeof updateFloatingCardPreviewStyle === 'function') updateFloatingCardPreviewStyle();
+        if (typeof recordFcSnapshot === 'function') recordFcSnapshot();
+        showToast(fxType === 'none'
+          ? '플로팅 카드의 반응형 효과가 해제되었습니다.'
+          : `플로팅 카드에 [${REACTIVE_FX_LABELS[fxType] || fxType}] 효과가 적용되었습니다.`);
+        return;
+      }
+    }
+  }
   const activeSlideEl = slides[currentSlide - 1];
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   if (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true') { showToast('잠긴 레이어에서는 반응형 모션을 변경할 수 없습니다.'); return; }
@@ -281,9 +298,10 @@ function applyReactiveEffectToSelected(fxType) {
   };
 
   // Case 3: Element-level reactive animation (supports single & multi-selection)
-  const rawTargets = (selectedElements && selectedElements.length > 1)
+  const rawTargets = ((selectedElements && selectedElements.length > 1)
     ? [...selectedElements]
-    : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []);
+    : ((selectedElement || getTargetCardForHierarchy()) ? [selectedElement || getTargetCardForHierarchy()] : []))
+    .filter(el => el && el.getAttribute('data-layer-locked') !== 'true');
 
   if (rawTargets.length === 0) {
     showToast('먼저 반응형 인터랙션을 적용할 텍스트를 드래그하거나 카드·타이틀·도형을 클릭해 주세요.');
@@ -342,6 +360,7 @@ function applyReactiveEffectToSelected(fxType) {
 }
 
 function applySpotlightToSiblingGroup() {
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const target = selectedElement || getTargetCardForHierarchy();
   if (!target || !target.parentElement) {
     showToast('먼저 스포트라이트 효과를 연동할 카드나 텍스트 항목을 선택해 주세요.');
@@ -350,7 +369,8 @@ function applySpotlightToSiblingGroup() {
   const parent = target.parentElement;
   parent.setAttribute('data-spotlight-group', 'true');
   Array.from(parent.children).forEach(child => {
-    if (child.classList.contains('card-edit-controls') || child.classList.contains('card-bg-layer')) return;
+    if (child.getAttribute('data-layer-locked') === 'true') return;
+    if (child.matches('.card-edit-controls, .card-bg-layer, .card-hover-bg-layer, .card-bg-tint, .slide-bg-layer, .slide-bg-overlay, .ppt-free-layer, .ppt-connectors-layer, .ppt-slide-master-layer, .fc-item-move-grip, .fc-item-resize-grip, .fc-item-resize-grip-e, .fc-item-resize-grip-s')) return;
     child.classList.remove('hover-reactive');
     child.setAttribute('data-fx', 'hover-spotlight');
   });

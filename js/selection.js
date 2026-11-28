@@ -80,7 +80,7 @@ function detachElementToFreeLayer(el, silentBatch) {
   freeBox.style.alignItems = 'stretch';
   freeBox.style.textAlign = 'left';
 
-  if (el.classList.contains('slide-card')) {
+  if (el.classList.contains('slide-card') || el.classList.contains('slide-header-bar')) {
     freeBox.setAttribute('data-shape-type', 'freeCard');
     const csEl = window.getComputedStyle(el);
     const computedBg = csEl.backgroundColor;
@@ -479,7 +479,13 @@ function refreshLayerList() {
 }
 
 function changeSelectedLayerOrder(direction) {
-  const targets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
+  const rawTargets = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
+  const targets = rawTargets.filter(el => el && el.getAttribute('data-layer-locked') !== 'true');
+  if (rawTargets.length > 0 && targets.length === 0) {
+    showToast('잠긴 레이어의 순서는 변경할 수 없습니다.');
+    return;
+  }
   if (targets.length === 0) {
     showToast('순서를 변경할 카드나 오브젝트를 먼저 선택해 주세요.');
     return;
@@ -1057,7 +1063,13 @@ function positionSelectionOverlay() {
   if (detachBtn) detachBtn.classList.toggle('hidden', Boolean(fcClipBox));
   if (fcClipBox) {
     const clipR = fcClipBox.getBoundingClientRect();
-    if (rect.bottom < clipR.top + 4 || rect.top > clipR.bottom - 4) {
+    const outerScroll = fcClipBox.closest('#fcPreviewResizeBox')?.parentElement;
+    const outerR = outerScroll ? outerScroll.getBoundingClientRect() : clipR;
+    const visTop = Math.max(clipR.top, outerR.top);
+    const visBottom = Math.min(clipR.bottom, outerR.bottom);
+    const visLeft = Math.max(clipR.left, outerR.left);
+    const visRight = Math.min(clipR.right, outerR.right);
+    if (rect.bottom < visTop + 4 || rect.top > visBottom - 4 || rect.right < visLeft + 4 || rect.left > visRight - 4) {
       overlay.classList.remove('visible');
       return;
     }
@@ -1860,14 +1872,16 @@ function getAlignableTargets() {
   const activeSlideEl = slides[currentSlide - 1];
   if (activeSlideEl && activeSlideEl.getAttribute('data-slide-locked') === 'true') return [];
   const raw = selectedElements.length > 0 ? selectedElements : (selectedElement ? [selectedElement] : []);
-  return raw.filter(el => el && document.body.contains(el) && el.getAttribute('data-layer-locked') !== 'true');
+  return raw.filter(el => el && document.body.contains(el) && !el.closest('#fcRichBodyEditor') && el.getAttribute('data-layer-locked') !== 'true');
 }
 
 function setElementLeftTopPx(el, targetLeftPx, targetTopPx, slideRect) {
   const r = el.getBoundingClientRect();
   if (el.classList.contains('ppt-free-obj')) {
-    const nextL = ((targetLeftPx - slideRect.left) / slideRect.width) * 100;
-    const nextT = ((targetTopPx - slideRect.top) / slideRect.height) * 100;
+    const safeSW = Math.max(1, slideRect.width);
+    const safeSH = Math.max(1, slideRect.height);
+    const nextL = ((targetLeftPx - slideRect.left) / safeSW) * 100;
+    const nextT = ((targetTopPx - slideRect.top) / safeSH) * 100;
     el.style.left = nextL.toFixed(2) + '%';
     el.style.top = nextT.toFixed(2) + '%';
   } else {
@@ -2025,7 +2039,7 @@ function distributeSelectedElements(axis) {
 }
 
 function groupSelectedElements() {
-  const targets = getAlignableTargets();
+  const targets = getAlignableTargets().filter(el => !el.classList.contains('slide-header-bar'));
   if (targets.length < 2) {
     showToast('그룹화할 2개 이상의 요소를 Shift+클릭 또는 빈 공간 드래그로 선택해 주세요.');
     return;

@@ -150,6 +150,7 @@ function fillVacatedBentoRect(gridBody, vacated) {
 
   const checkExpand = (side) => {
     const neighbors = cards.filter(c => {
+      if (c.getAttribute('data-layer-locked') === 'true') return false;
       const b = getBento2DCoords(c);
       if (side === 'left') return b.cEnd === vacated.cs && b.rs >= vacated.rs && b.rEnd <= vREnd;
       if (side === 'right') return b.cs === vCEnd && b.rs >= vacated.rs && b.rEnd <= vREnd;
@@ -323,11 +324,18 @@ function resizeGridCardProportionally(card, dir, dx, dy, gridBody, initialCardRe
       const rMaxRow = Math.max(meInit.rEnd, ...rightNeighbors.map(o => o._bentoDragInit.rEnd));
       const leftGroup = cards.filter(o => o._bentoDragInit.cEnd === seam && o._bentoDragInit.rs < rMaxRow && o._bentoDragInit.rEnd > rMinRow);
       const rightGroup = cards.filter(o => o._bentoDragInit.cs === seam && o._bentoDragInit.rs < rMaxRow && o._bentoDragInit.rEnd > rMinRow);
-      const maxShrink = Math.min(...leftGroup.map(o => o._bentoDragInit.cw - 3));
-      const maxGrow = Math.min(...rightGroup.map(o => o._bentoDragInit.cw - 3));
-      const clamped = Math.max(-maxShrink, Math.min(maxGrow, deltaCols));
-      leftGroup.forEach(o => { const w = work.get(o); w.cw = o._bentoDragInit.cw + clamped; w.cEnd = w.cs + w.cw; });
-      rightGroup.forEach(o => { const w = work.get(o); w.cs = o._bentoDragInit.cs + clamped; w.cw = o._bentoDragInit.cw - clamped; w.cEnd = w.cs + w.cw; });
+      const seamHasLocked = leftGroup.concat(rightGroup).some(o => o.getAttribute('data-layer-locked') === 'true');
+      if (!seamHasLocked) {
+        const maxShrink = Math.min(...leftGroup.map(o => o._bentoDragInit.cw - 3));
+        const maxGrow = Math.min(...rightGroup.map(o => o._bentoDragInit.cw - 3));
+        const clamped = Math.max(-maxShrink, Math.min(maxGrow, deltaCols));
+        leftGroup.forEach(o => { const w = work.get(o); w.cw = o._bentoDragInit.cw + clamped; w.cEnd = w.cs + w.cw; });
+        rightGroup.forEach(o => { const w = work.get(o); w.cs = o._bentoDragInit.cs + clamped; w.cw = o._bentoDragInit.cw - clamped; w.cEnd = w.cs + w.cw; });
+      } else if (deltaCols < 0) {
+        const rawEnd = Math.max(meInit.cs + 3, Math.min(meInit.cEnd, meInit.cEnd + deltaCols));
+        meWork.cw = Math.max(3, rawEnd - meInit.cs);
+        meWork.cEnd = meWork.cs + meWork.cw;
+      }
     } else {
       const rawEnd = Math.max(meInit.cs + 3, Math.min(25, meInit.cEnd + deltaCols));
       const { cEnd } = clampAgainstObstaclesX(card, meInit.cs, rawEnd, new Set());
@@ -344,11 +352,19 @@ function resizeGridCardProportionally(card, dir, dx, dy, gridBody, initialCardRe
       const rMaxRow = Math.max(meInit.rEnd, ...leftNeighbors.map(o => o._bentoDragInit.rEnd));
       const leftGroup = cards.filter(o => o._bentoDragInit.cEnd === seam && o._bentoDragInit.rs < rMaxRow && o._bentoDragInit.rEnd > rMinRow);
       const rightGroup = cards.filter(o => o._bentoDragInit.cs === seam && o._bentoDragInit.rs < rMaxRow && o._bentoDragInit.rEnd > rMinRow);
-      const maxLeftShrink = Math.min(...leftGroup.map(o => o._bentoDragInit.cw - 3));
-      const maxRightShrink = Math.min(...rightGroup.map(o => o._bentoDragInit.cw - 3));
-      const clamped = Math.max(-maxLeftShrink, Math.min(maxRightShrink, deltaCols));
-      leftGroup.forEach(o => { const w = work.get(o); w.cw = o._bentoDragInit.cw + clamped; w.cEnd = w.cs + w.cw; });
-      rightGroup.forEach(o => { const w = work.get(o); w.cs = o._bentoDragInit.cs + clamped; w.cw = o._bentoDragInit.cw - clamped; w.cEnd = w.cs + w.cw; });
+      const seamHasLocked = leftGroup.concat(rightGroup).some(o => o.getAttribute('data-layer-locked') === 'true');
+      if (!seamHasLocked) {
+        const maxLeftShrink = Math.min(...leftGroup.map(o => o._bentoDragInit.cw - 3));
+        const maxRightShrink = Math.min(...rightGroup.map(o => o._bentoDragInit.cw - 3));
+        const clamped = Math.max(-maxLeftShrink, Math.min(maxRightShrink, deltaCols));
+        leftGroup.forEach(o => { const w = work.get(o); w.cw = o._bentoDragInit.cw + clamped; w.cEnd = w.cs + w.cw; });
+        rightGroup.forEach(o => { const w = work.get(o); w.cs = o._bentoDragInit.cs + clamped; w.cw = o._bentoDragInit.cw - clamped; w.cEnd = w.cs + w.cw; });
+      } else if (deltaCols > 0) {
+        const rawStart = Math.max(meInit.cs, Math.min(meInit.cEnd - 3, meInit.cs + deltaCols));
+        meWork.cs = rawStart;
+        meWork.cw = Math.max(3, meInit.cEnd - rawStart);
+        meWork.cEnd = meWork.cs + meWork.cw;
+      }
     } else {
       const rawStart = Math.max(1, Math.min(meInit.cEnd - 3, meInit.cs + deltaCols));
       const { cs } = clampAgainstObstaclesX(card, rawStart, meInit.cEnd, new Set());
@@ -369,11 +385,18 @@ function resizeGridCardProportionally(card, dir, dx, dy, gridBody, initialCardRe
       const cMaxCol = Math.max(meInit.cEnd, ...bottomNeighbors.map(o => o._bentoDragInit.cEnd));
       const topGroup = cards.filter(o => o._bentoDragInit.rEnd === seam && o._bentoDragInit.cs < cMaxCol && o._bentoDragInit.cEnd > cMinCol);
       const bottomGroup = cards.filter(o => o._bentoDragInit.rs === seam && o._bentoDragInit.cs < cMaxCol && o._bentoDragInit.cEnd > cMinCol);
-      const maxShrink = Math.min(...topGroup.map(o => o._bentoDragInit.rh - 3));
-      const maxGrow = Math.min(...bottomGroup.map(o => o._bentoDragInit.rh - 3));
-      const clamped = Math.max(-maxShrink, Math.min(maxGrow, deltaRows));
-      topGroup.forEach(o => { const w = work.get(o); w.rh = o._bentoDragInit.rh + clamped; w.rEnd = w.rs + w.rh; });
-      bottomGroup.forEach(o => { const w = work.get(o); w.rs = o._bentoDragInit.rs + clamped; w.rh = o._bentoDragInit.rh - clamped; w.rEnd = w.rs + w.rh; });
+      const seamHasLocked = topGroup.concat(bottomGroup).some(o => o.getAttribute('data-layer-locked') === 'true');
+      if (!seamHasLocked) {
+        const maxShrink = Math.min(...topGroup.map(o => o._bentoDragInit.rh - 3));
+        const maxGrow = Math.min(...bottomGroup.map(o => o._bentoDragInit.rh - 3));
+        const clamped = Math.max(-maxShrink, Math.min(maxGrow, deltaRows));
+        topGroup.forEach(o => { const w = work.get(o); w.rh = o._bentoDragInit.rh + clamped; w.rEnd = w.rs + w.rh; });
+        bottomGroup.forEach(o => { const w = work.get(o); w.rs = o._bentoDragInit.rs + clamped; w.rh = o._bentoDragInit.rh - clamped; w.rEnd = w.rs + w.rh; });
+      } else if (deltaRows < 0) {
+        const rawEnd = Math.max(meInit.rs + 3, Math.min(meInit.rEnd, meInit.rEnd + deltaRows));
+        meWork.rh = Math.max(3, rawEnd - meInit.rs);
+        meWork.rEnd = meWork.rs + meWork.rh;
+      }
     } else {
       const rawEnd = Math.max(meInit.rs + 3, Math.min(25, meInit.rEnd + deltaRows));
       const { rEnd } = clampAgainstObstaclesY(card, meInit.rs, rawEnd, new Set());
@@ -390,11 +413,19 @@ function resizeGridCardProportionally(card, dir, dx, dy, gridBody, initialCardRe
       const cMaxCol = Math.max(meInit.cEnd, ...topNeighbors.map(o => o._bentoDragInit.cEnd));
       const topGroup = cards.filter(o => o._bentoDragInit.rEnd === seam && o._bentoDragInit.cs < cMaxCol && o._bentoDragInit.cEnd > cMinCol);
       const bottomGroup = cards.filter(o => o._bentoDragInit.rs === seam && o._bentoDragInit.cs < cMaxCol && o._bentoDragInit.cEnd > cMinCol);
-      const maxTopShrink = Math.min(...topGroup.map(o => o._bentoDragInit.rh - 3));
-      const maxBottomShrink = Math.min(...bottomGroup.map(o => o._bentoDragInit.rh - 3));
-      const clamped = Math.max(-maxTopShrink, Math.min(maxBottomShrink, deltaRows));
-      topGroup.forEach(o => { const w = work.get(o); w.rh = o._bentoDragInit.rh + clamped; w.rEnd = w.rs + w.rh; });
-      bottomGroup.forEach(o => { const w = work.get(o); w.rs = o._bentoDragInit.rs + clamped; w.rh = o._bentoDragInit.rh - clamped; w.rEnd = w.rs + w.rh; });
+      const seamHasLocked = topGroup.concat(bottomGroup).some(o => o.getAttribute('data-layer-locked') === 'true');
+      if (!seamHasLocked) {
+        const maxTopShrink = Math.min(...topGroup.map(o => o._bentoDragInit.rh - 3));
+        const maxBottomShrink = Math.min(...bottomGroup.map(o => o._bentoDragInit.rh - 3));
+        const clamped = Math.max(-maxTopShrink, Math.min(maxBottomShrink, deltaRows));
+        topGroup.forEach(o => { const w = work.get(o); w.rh = o._bentoDragInit.rh + clamped; w.rEnd = w.rs + w.rh; });
+        bottomGroup.forEach(o => { const w = work.get(o); w.rs = o._bentoDragInit.rs + clamped; w.rh = o._bentoDragInit.rh - clamped; w.rEnd = w.rs + w.rh; });
+      } else if (deltaRows > 0) {
+        const rawStart = Math.max(meInit.rs, Math.min(meInit.rEnd - 3, meInit.rs + deltaRows));
+        meWork.rs = rawStart;
+        meWork.rh = Math.max(3, meInit.rEnd - rawStart);
+        meWork.rEnd = meWork.rs + meWork.rh;
+      }
     } else {
       const rawStart = Math.max(1, Math.min(meInit.rEnd - 3, meInit.rs + deltaRows));
       const { rs } = clampAgainstObstaclesY(card, rawStart, meInit.rEnd, new Set());

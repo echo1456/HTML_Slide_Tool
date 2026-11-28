@@ -1,5 +1,112 @@
 # Changelog
 
+## [v5.6.17] - 2026-11-28 — 2차 5단계 전수검사 Phase 5 (최종 완료): 내보내기(PPTX/PNG/HTML) 정합성 · Base64 중복 제거 · Safari 다운로드 · 저장 진단 · CI 25종 인증
+
+### Fixed & Hardened
+- **[P0] 숨김 레이어(`data-layer-hidden="true"`) 내보내기 누출 차단 및 PPTX/PNG 카드 배경·틴트 정합성 완성 (`js/export.js`)**:
+  - `collectExportableSlideBlocks()`에서 숨긴 레이어(`data-layer-hidden="true"`, `display: none`, `visibility: hidden`)를 제외해 PPTX와 PNG/JPG 이미지 내보내기에 숨긴 요소가 노출되지 않도록 수정.
+  - `exportDeckAsPPTX()`에서 카드·상단 바·`freeCard`의 `.card-bg-layer` 배경 사진을 슬라이드 뒤에 정상 임베드하고, 배경색이 `transparent`일 때 `.card-bg-tint`/`data-card-bg-hex`로 폴백해 다크 카드 배경 유실 방지.
+  - `exportSlideOrElementAsImage()`에서 `.card-bg-layer` 사진 위에 `.card-bg-tint` 반투명 오버레이를 정상 합성하고, `drawChartWidgetOnCanvas()`에서 `data.titleFontSize`와 셀별 커스텀 글자색(`cellStyles.color`) 반영.
+- **[P0] 단독 HTML 내보내기 Base64 배경 이미지 중복 비대화 원천 제거 및 라이트박스 비트맵 즉시 해제 (`js/export.js`, `js/floating-cards.js`)**:
+  - `buildSerializedStandaloneHTML()`에서 `#floatingCardLightboxContent`의 `.fc-bg-img-layer`/`.fc-hover-bg-img-layer`와 `#fcEditorBgPreviewLayer`/`.fc-maximized`/임시 좌표/`stage-rescaling` 클래스를 완전 정화해, 한 번 열어본 플로팅 카드의 고화질 배경 사진이 내보낸 HTML에 2~3배 중복 저장되던 용량 팽창을 제거.
+  - `closeFloatingCardLightbox()` 닫기 시에도 `.fc-bg-img-layer`/`.fc-hover-bg-img-layer` 인라인 이미지를 비워 브라우저 메모리 즉시 회수.
+- **[P1] Safari JSON 다운로드 0바이트 방지 · ZIP 복원 Blob URL 추적 · IndexedDB 용량 초과 경고 (`js/storage.js`)**:
+  - `exportWorkspaceItemJson()` 및 `exportProjectJsonFile()`의 `URL.revokeObjectURL()`을 `1200ms` 지연 호출로 변경해 Safari/WebKit 0바이트 다운로드 실패 방지.
+  - `.pptstudio.zip` 복원 시 미디어 Blob URL을 `createTrackedMediaBlobUrl()`로 등록하고, `writeAutoSaveToIndexedDB()`의 `QuotaExceededError` 발생 시 백업 안내 토스트 표시 및 무음 `catch` 진단 경고 추가.
+- **[P1] GitHub Actions CI Node.js 22 LTS 업그레이드 (`.github/workflows/ci.yml`)**: deprecated Node.js 20 런타임을 Node.js 22 LTS로 전환.
+- **[Testing] Playwright Chromium E2E `Test 25` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 25개 CI E2E 스위트로 2차 전수검사 5개 페이즈 전체를 영구 회귀 검증.
+
+---
+
+## [v5.6.16] - 2026-11-28 — 2차 5단계 전수검사 Phase 4: 미디어 Blob URL 회수 · 플로팅 카드 위젯 히스토리 · 스마트패드/Safari 호환성 · 표 합계 재계산 6건 해결
+
+### Fixed & Hardened
+- **[P0] 미디어 Blob URL 추적·회수 시스템 도입 및 동영상 코덱 실패 방어 (`js/media.js`, `js/main.js`)**:
+  - `createTrackedMediaBlobUrl()`, `revokeMediaBlobUrlIfUnused()`, `revokeAllTrackedMediaBlobUrls()`를 도입해 동영상·오디오 교체(`uploadCardInlineMedia`, `applyVideoToSlot`, `executeReplaceMediaPreserveProps`), 슬롯 제거(`clearImageSlot`), 페이지 종료(`pagehide`) 시 미사용 `blob:` URL을 안전 회수.
+  - `insertDirectVideoFile()`에 `probe.onerror` 핸들러(즉시 회수 + 지원 코덱 안내 토스트)를 추가하고, `uploadCardInlineMedia()`에 잠금 슬라이드 가드 보강.
+- **[P0] 플로팅 팝업 카드 내부 인터랙티브 위젯 편집 히스토리 분리 (`js/widgets.js`)**:
+  - `recordWidgetChangeHistory()`를 신설해 Before/After · 핫스팟 · 탭 카드 · 3D 플립 카드의 12개 편집 함수가 `#fcRichBodyEditor` 내부에서는 `recordFcSnapshot()`으로 기록되도록 교정 (플로팅 카드 내 `Ctrl+Z`로 위젯 편집 즉시 복원).
+- **[P0] Safari / iPadOS `-webkit-backdrop-filter` 4건 보강 (`css/slides.css`, `css/editor.css`)**: 라이트박스·위젯 배지·카드 편집 컨트롤의 배경 블러가 iPad/Mac Safari에서도 동일하게 렌더링되도록 접두사 추가.
+- **[P0] 스마트패드(iPad) 터치 발표 UX 전면 보강 (`js/presenter-view.js`, `js/main.js`)**:
+  - 판서 캔버스(`#pptDrawCanvas`) Retina/HiDPI(`devicePixelRatio`) 선명화, `touch-action: none` 및 `touchcancel` 고착 방지, 터치 레이저 포인터(`touchmove`), 발표자 뷰 팝업 종료 시 타이머·참조 정리 추가.
+  - 하단 진행바(`#progressBarContainer`) 터치 스크럽 드래그 및 다중 페이지 플로팅 카드(`1/N`) 라이트박스 좌우 터치 스와이프 전환 지원.
+- **[P1] 비교표 행/열 삽입·삭제 시 합계/평균 행 자동 재계산 (`js/charts.js`)**: `insertTableRowAt`, `insertTableColAt`, `removeSelectedTableCol`에서 `recalculateTableSummaryRows(d)` 자동 실행.
+- **[Testing] Playwright Chromium E2E `Test 24` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 24개 CI E2E 스위트로 영구 회귀 검증.
+
+---
+
+## [v5.6.15] - 2026-11-28 — 2차 5단계 전수검사 Phase 3: 타이포그래피 · 디자인 시스템 · `!important` 충돌 정리 · 찾기/바꾸기 · 모션 5건 해결
+
+### Fixed & Hardened
+- **[P0] 다크/라이트 테마 `!important`의 사용자 인라인 스타일 덮어쓰기 및 다크 카드 가독성 붕괴 해소 (`css/slides.css`)**:
+  - `.slide.theme-dark`의 `.bg-white`/`.bg-canvas` 규칙에 `:not([style*="background"])`를 추가해 다크 슬라이드에서도 카드·서브박스에 지정한 사용자 배경색이 덮어씌워지지 않도록 수정.
+  - `.slide.theme-light`의 `.text-white*`/`.text-sky-300`/버튼 규칙에 `:not([style*="color"])`를 추가해 라이트 테마 전환 후 직접 지정한 글자색을 온전히 존중하고, 라이트 슬라이드 위 `.card-theme-dark` 내부 `.text-white*` 텍스트가 검정으로 반전되던 가독성 결함 해결.
+- **[P0] 부분 드래그 서식 중첩/해제 정화 및 팝업 창 선택 통일 (`js/text-editor.js`)**:
+  - `cleanupEmptyInlineSpans()` 헬퍼를 신설해 색상·키워드·강조알약·링크 적용 시 경계 분할로 남는 빈 `<span>` 잔여물을 자동 제거하고, 중첩 `.text-pill-span` 및 비표준 중첩 `<a>` 태그 자동 언래핑 적용.
+  - `removeCoreKeyword()` 블록 해제 시 빈 `<span>` 잔류 제거, `clearAllTextFormatting()`에서 슬라이드 번호 자동 토큰(`[data-slide-number-token="true"]`) 보호, 해제/기호삽입 함수 5종을 `getActiveEditableSelectionWindow()` 기준으로 통일.
+- **[P0] 발표 모드 찾기/바꾸기 표 치환 실패 버그 및 합계 행 자동 재계산 (`js/find-replace.js`)**:
+  - 발표 모드에서 바로 `바꾸기` 실행 시 `toggleEditMode(true)`의 표 재렌더링으로 `textNode`가 분리되어 치환이 무음 실패하던 버그를 편집 모드 전환 직후 재수집으로 해결.
+  - 표 셀 치환 후 `recalculateTableSummaryRows()`(합계/평균 행) 자동 갱신, 슬라이드 번호 토큰 검색 제외, 검색 이동 시 인라인 span 대신 상위 편집 블록 선택으로 개선.
+- **[P1] 브랜드 키트·테마 일괄 적용 잠금 가드 정합화 (`js/theme.js`)**: `applyBrandKitPreset()`의 잠긴 슬라이드 검사를 전역 포인트/크롬바 변경 이전으로 앞당기고, 테마 일괄 전환 시 잠긴 카드(`data-layer-locked="true"`) 보호.
+- **[P1] 반응형 모션·스포트라이트 레이어 필터링 및 플로팅 카드 라우팅 (`js/effects.js`)**: `applySpotlightToSiblingGroup()`에 잠금 가드 및 배경·오버레이 레이어 제외 필터를 보강하고, 플로팅 카드 활성 상태(내부 미선택) 시 `applyReactiveEffectToSelected()`가 `#fcReactiveFxSelect`로 라우팅되도록 통일.
+- **[Testing] Playwright Chromium E2E `Test 23` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 23개 CI E2E 스위트로 영구 회귀 검증.
+
+---
+
+## [v5.6.14] - 2026-11-28 — 2차 5단계 전수검사 Phase 2: 캔버스 조작 · 2D 벤토 잠금 · 필름스트립 · 히스토리 · 스마트 가이드 6건 해결
+
+### Fixed & Hardened
+- **[P0] 2D 벤토 그리드 연동 리사이즈 및 빈 공간 자동 확장 시 잠긴 카드(`data-layer-locked="true"`) 보호 (`js/bento-grid.js`)**:
+  - 동/서/남/북 4방향 연동 경계선(Seam) 드래그에서 인접 그룹에 잠긴 카드가 포함된 경우 잠긴 카드의 크기·위치가 끌려 변경되지 않도록 차단하고, `fillVacatedBentoRect()` 확장 대상에서도 잠긴 카드를 제외.
+- **[P0] 필름스트립 드래그 재정렬·일괄 복제·일괄 삭제 상태 정합성 보강 (`js/filmstrip.js`)**:
+  - `onFilmstripDrop()`·`deleteSelectedFilmstripSlides()`에서 선택 인스펙터(`clearSelectionInspector()`) 및 다중 선택 셋을 초기화해 분리된 DOM 오버레이 잔류 방지.
+  - `duplicateSelectedFilmstripSlides()`에서 `data-slide-locked`, 3D 플립 편집 상태, 핫스팟 열림 상태 정화 추가 및 `toggleLeftFilmstrip()` 접기/펼치기 시 플로팅 카드 안전 영역 자동 재클램핑 연동.
+- **[P0] 상단 타이틀 바(`.slide-header-bar`) 자유 배치 분리 스타일 보존 및 레이어 순서 잠금 가드 보강 (`js/selection.js`)**:
+  - `detachElementToFreeLayer()`에서 `.slide-header-bar`도 `.slide-card`와 동일하게 `freeCard`로 승격해 다크 테마·배경색·배경 레이어 유실 차단.
+  - `changeSelectedLayerOrder()`에 슬라이드/레이어 잠금 가드 추가, `setElementLeftTopPx()` 0-나눗셈 방어, `getAlignableTargets()` 플로팅 카드 격리 및 `groupSelectedElements()` 상단 타이틀 바 오그룹화 방지.
+- **[P1] 슬라이드 복제 시 `data-group-id` 충돌 방지 및 잠금 해제 (`js/navigation.js`)**: `regenerateClonedSlideInternalIds()`가 그룹 ID를 슬라이드 전용 새 ID로 재매핑하고, 잠긴 슬라이드 복제 시 복제본은 즉시 편집 가능하도록 `data-slide-locked` 제거.
+- **[P1] 파라미터 포함 Base64 Data URI 히스토리 토큰화 지원 (`js/history.js`)**: `data:image/svg+xml;charset=utf-8;base64,...` 형식도 정상 토큰화되도록 정규식 확장.
+- **[P2] 스마트 가이드 마그네틱 스냅 확장 (`js/smart-guides.js`)**: `.slide-header-bar`와 눈금자 영구 가이드라인(`.ppt-persistent-guide`)까지 자석 스냅 후보로 통합.
+- **[Testing] Playwright Chromium E2E `Test 22` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 22개 CI E2E 스위트로 영구 회귀 검증.
+
+---
+
+## [v5.6.13] - 2026-11-28 — 2차 5단계 전수검사 Phase 1: 편집 UI · 다중 창 · 전역 드래그/타이머 안정화 6건 해결
+
+### Fixed & Hardened
+- **[P0] 전역 드래그·리사이즈 리스너 고착(Stuck Drag) 원천 차단 (`js/state.js`, `js/main.js`, `js/studio.js`, `js/floating-cards.js`, `js/navigation.js`, `js/charts.js`)**:
+  - 중앙 드래그 세션 관리자 `startManagedDragSession()` 및 `abortActiveDragSession()`을 도입해 총 24개 드래그·리사이즈 핸들러에 `window.blur`·`visibilitychange`·`Escape` 자동 해제 안전망 적용 (드래그 중 창 전환·외부 마우스 해제 시 리스너 잔류 0건).
+  - 마퀴 다중 선택(`onMarqueeUp`)에 비정상 종료 이벤트 방어 가드 추가.
+- **[P0] 상단 바 ↔ 플로팅 카드 패널 Z-Index 계층 역전 최종 해소 (`css/studio.css`, `index.html`)**:
+  - `#pptContextualTopBar` (`58 → 44`) < `#pptSmartGuidesLayer` (`47`) < `#floatingCardEditorModal` (`52 → 54`) < `#pptSelectionOverlay` (`56`) < `#pptMarqueeBox` (`58`) < `#pptStudioPopup` (`60`)으로 계층표 단일화.
+- **[P0] 플로팅 카드 편집 중 메인 스튜디오 상단 `Undo (↩)` / `Redo (↪)` 버튼 오작동 수정 (`js/history.js`, `js/floating-cards.js`, `js/state.js`)**:
+  - 플로팅 카드 활성 시 상단 Undo/Redo 버튼이 배경 슬라이드 대신 `fcUndoAction()`/`fcRedoAction()`으로 정확히 라우팅되고 버튼 활성 상태도 컨텍스트 전환 시 실시간 동기화.
+- **[P0] 다중 창(`window.open`) 수명주기 정리 및 팝업 리소스 누수 차단 (`js/main.js`, `js/studio.js`, `js/floating-cards.js`, `js/safe-events.js`)**:
+  - 메인 창 종료(`pagehide`) 시 분리된 스튜디오·플로팅 카드·발표자 뷰 팝업 창을 일괄 정리하고, 팝업 문서에 연결된 `safe-events.js` `MutationObserver`를 `pagehide` 시 자동 `disconnect()`.
+  - 외부 플로팅 카드 독립 창에 `Ctrl+Z`/`Ctrl+Y`/`Escape` 단축키 및 Safari 대응 `pagehide` 복귀 핸들러 추가.
+- **[P1] 자동 저장 타이머(`setInterval`) 핸들 추적 및 백그라운드 절전 (`js/main.js`)**: `window.__pptAutoSaveIntervalId`로 중복 생성을 차단하고 `document.hidden` 상태에서는 불필요한 폴링 생략.
+- **[P1] 플로팅 스튜디오 상단 헤더 가림 클램핑 및 리사이즈 중 오버레이/최대화 가드 보강 (`js/studio.js`)**.
+- **[Testing] Playwright Chromium E2E `Test 21` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 21개 CI E2E 스위트로 영구 회귀 검증.
+
+---
+
+## [v5.6.12] - 2026-11-28 — 플로팅 카드 스튜디오 상단 가림 완전 해결(안전 작업영역 자동 배치) 및 실사용 결함 6건 자체 수정
+
+### Fixed
+- **[P0] 플로팅 카드 스튜디오(`#fcEditorDialogPanel`) 상단 헤더 가림 및 좌/우/하단 겹침 완전 해결 (`js/floating-cards.js`, `js/studio.js`, `js/state.js`, `css/editor.css`)**:
+  - `getFloatingCardSafeWorkspaceRect()` 및 `fitFloatingCardPanelToSafeWorkspace()`를 신설해 상단 컨텍스트 바(`#pptContextualTopBar`, `z-58`) 하단, 하단 푸터 상단, 좌측 필름스트립 우측, 우측 도킹 스튜디오 좌측 사이의 정확한 안전 작업영역을 실시간 계산.
+  - 패널 열기·`⛶ 최대화`(`.fc-maximized`)·헤더 드래그·테두리 리사이즈·창 리사이즈·필름스트립 접기·스튜디오 폭 조절 모든 경로에서 헤더가 상단 바 뒤로 숨거나 패널이 겹치지 않도록 자동 클램핑.
+- **[P0] `clearFloatingCardBgImage()` 내부에 갇혀 있던 플로팅 카드 통합 선택·핫스팟 핀 드래그·스크롤 리스너 구출 (`js/floating-cards.js`)**:
+  - 기존 배경 사진 제거 함수 안에 잘못 들어가 있어 배경 제거를 누르기 전까지 바인딩되지 않던 `#fcRichBodyEditor`의 통합 `mousedown`(Shift+클릭 다중선택, 핫스팟 핀 드래그) 및 `scroll` 리스너를 `bindFloatingCardUnifiedCanvasListeners()`로 독립 분리해 `openFloatingCardEditor()`에서 즉시 활성화.
+- **[P1] 플로팅 카드 편집창 미선택 파란 모서리 사각형 숨김 & `360px` 높이 제한 해제 (`css/editor.css`, `js/floating-cards.js`)**:
+  - `.fc-item-resize-grip`을 hover/선택 시에만 표시되도록 통일하고, `applyFcPreviewSizeFromInputs()`의 `maxHeight = '360px'` 하드코딩을 해제해 넓은 편집창 하단 공백 낭비 제거.
+- **[P1] 플로팅 카드 외곽 스크롤 시 선택 오버레이(`#pptSelectionOverlay`) 동기화 및 이중 클리핑 (`js/floating-cards.js`, `js/selection.js`)**.
+- **[P1] 이미 연결된 플로팅 카드 재편집 시 중복 파란 버튼(`🪟`) 자동 생성 버그 차단 (`js/floating-cards.js`)**.
+- **[P1] 플로팅 카드 편집 중 배경 슬라이드 단축키(`←`/`→`/`Space`/`E`/`H`/`M`/`F`) 오작동 격리 (`js/main.js`)** 및 **좌측 필름스트립 활성 슬라이드 자동 스크롤 추가 (`js/filmstrip.js`)**.
+- **[Testing] Playwright Chromium CI `Test 20` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 20개 E2E 스위트로 안전 작업영역·최대화·통합 바인딩·키보드 격리·중복 버튼 방지를 영구 검증.
+
+---
+
 ## [v5.6.11] - 2026-11-24 — 플로팅 팝업 카드 PC 화면 가득 참(`w-full` 100% 폭발) 원인 완전 수정 & 크기 입력 동기화 개선
 
 ### Fixed

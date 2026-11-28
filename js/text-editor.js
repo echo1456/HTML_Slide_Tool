@@ -607,6 +607,7 @@ function applyTextColor(hexColor, isLiveInput) {
       });
       span.appendChild(extracted);
       range.insertNode(span);
+      cleanupEmptyInlineSpans(span.parentElement);
       activeLiveColorSpan = isLiveInput ? span : null;
       savedTextSelectionRange = null;
       if (usable.sel) usable.sel.removeAllRanges();
@@ -679,8 +680,14 @@ function applyHighlightSelection(customHex, isLiveInput) {
     span.style.backgroundColor = hlColor;
     try {
       const extracted = range.extractContents();
+      Array.from(extracted.querySelectorAll('.text-pill-span')).forEach(nested => {
+        const p = nested.parentNode;
+        while (nested.firstChild) p.insertBefore(nested.firstChild, nested);
+        p.removeChild(nested);
+      });
       span.appendChild(extracted);
       range.insertNode(span);
+      cleanupEmptyInlineSpans(span.parentElement);
       activeLiveHighlightSpan = isLiveInput ? span : null;
       savedTextSelectionRange = null;
       if (usable.sel) usable.sel.removeAllRanges();
@@ -730,6 +737,17 @@ function applyHighlightSelection(customHex, isLiveInput) {
   }
 }
 
+function cleanupEmptyInlineSpans(rootEl) {
+  if (!rootEl || !rootEl.querySelectorAll) return;
+  Array.from(rootEl.querySelectorAll('span.hl-mark, span.text-pill-span, span.kw, span.fx-text-span, span[style], a[data-inline-link]')).forEach(node => {
+    if (node.getAttribute('data-slide-number-token') === 'true') return;
+    if (node.children.length === 0 && node.textContent.length === 0) {
+      node.remove();
+    }
+  });
+  try { rootEl.normalize(); } catch (e) {}
+}
+
 function unwrapHighlightSpan(spanEl) {
   if (!spanEl || !spanEl.parentNode) return;
   const parent = spanEl.parentNode;
@@ -742,7 +760,7 @@ function unwrapHighlightSpan(spanEl) {
 
 function removeHighlightSelection() {
   if ((typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) || (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true')) return;
-  const sel = window.getSelection();
+  const sel = getActiveEditableSelectionWindow().getSelection();
   if (sel && sel.anchorNode && (!selectedElements || selectedElements.length <= 1)) {
     const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
     const hlSpan = node ? node.closest('.hl-mark') : null;
@@ -797,7 +815,7 @@ function designateCoreKeyword() {
       });
       span.appendChild(extracted);
       range.insertNode(span);
-      if (parentBlock) parentBlock.normalize();
+      if (parentBlock) cleanupEmptyInlineSpans(parentBlock);
       savedTextSelectionRange = null;
       if (usable.sel) usable.sel.removeAllRanges();
       saveHistorySnapshot();
@@ -817,7 +835,7 @@ function designateCoreKeyword() {
 
 function removeCoreKeyword() {
   if ((typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) || (selectedElement && selectedElement.getAttribute('data-layer-locked') === 'true')) return;
-  const sel = window.getSelection();
+  const sel = getActiveEditableSelectionWindow().getSelection();
   if (sel && sel.anchorNode && (!selectedElements || selectedElements.length <= 1)) {
     const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
     const kwEl = node ? node.closest('.kw') : null;
@@ -841,7 +859,16 @@ function removeCoreKeyword() {
   if (targets.length > 0) {
     targets.forEach(target => {
       target.classList.remove('kw');
-      target.querySelectorAll('.kw').forEach(k => k.classList.remove('kw'));
+      Array.from(target.querySelectorAll('.kw')).forEach(k => {
+        if (k.tagName === 'SPAN' && k.classList.length === 1 && !k.getAttribute('style') && k.parentNode) {
+          const p = k.parentNode;
+          while (k.firstChild) p.insertBefore(k.firstChild, k);
+          p.removeChild(k);
+        } else {
+          k.classList.remove('kw');
+        }
+      });
+      cleanupEmptyInlineSpans(target);
     });
     saveHistorySnapshot();
     showToast('핵심 키워드 지정이 해제되었습니다.');
@@ -1036,7 +1063,7 @@ function removeTextBackgroundBox() {
     p.removeChild(pillEl);
     p.normalize();
   };
-  const sel = window.getSelection();
+  const sel = getActiveEditableSelectionWindow().getSelection();
   if (sel && sel.anchorNode && (!selectedElements || selectedElements.length <= 1)) {
     const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
     const pill = node ? node.closest('.text-pill-span') : null;
@@ -1190,7 +1217,7 @@ function clearAllTextFormatting() {
   targets.forEach(target => {
     Array.from(target.querySelectorAll('span, b, strong, i, em, u, s, strike, font, sup, sub, a')).reverse().forEach(node => {
       if (node.closest('.card-edit-controls, .sub-box-del-btn, .iw-edit-bar, .iw-ba-badge, .iw-flip-cue, .iw-tab-btn, .iw-hs-pin, .ppt-chart-widget, .chart-scenario-bar, .ppt-slide-comment-badge')) return;
-      if (node.classList.contains('toc-num') || node.classList.contains('toc-sub') || node.classList.contains('toc-title')) return;
+      if (node.getAttribute('data-slide-number-token') === 'true' || node.classList.contains('toc-num') || node.classList.contains('toc-sub') || node.classList.contains('toc-title')) return;
       const p = node.parentNode; if (!p) return;
       while (node.firstChild) p.insertBefore(node.firstChild, node); p.removeChild(node);
     });
@@ -1301,8 +1328,15 @@ function applyInlineTextLink() {
   const a = document.createElement('a'); a.href = hrefVal; a.setAttribute('data-inline-link', 'true'); a.className = 'ppt-inline-link';
   if (/^https?:\/\//i.test(hrefVal)) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
   try {
-    a.appendChild(usable.range.extractContents());
+    const extractedLink = usable.range.extractContents();
+    Array.from(extractedLink.querySelectorAll('a')).forEach(nestedA => {
+      const p = nestedA.parentNode;
+      while (nestedA.firstChild) p.insertBefore(nestedA.firstChild, nestedA);
+      p.removeChild(nestedA);
+    });
+    a.appendChild(extractedLink);
     usable.range.insertNode(a);
+    cleanupEmptyInlineSpans(a.parentElement);
     savedTextSelectionRange = null;
     if (usable.sel) usable.sel.removeAllRanges();
     if (inp) inp.value = '';
@@ -1315,7 +1349,7 @@ function applyInlineTextLink() {
 function removeInlineTextLink() {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
 
-  const sel = window.getSelection();
+  const sel = getActiveEditableSelectionWindow().getSelection();
   let anchor = sel && sel.anchorNode ? (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode) : null;
   if (!anchor && lastFocusedEditable) anchor = lastFocusedEditable;
   const linkEl = anchor ? anchor.closest('a[data-inline-link], a') : null;
@@ -1326,7 +1360,7 @@ function removeInlineTextLink() {
 function insertSymbolAtCursor(sym) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
 
-  if (!sym) return; const sel = window.getSelection();
+  if (!sym) return; const sel = getActiveEditableSelectionWindow().getSelection();
   if (sel && sel.rangeCount > 0) { const r = sel.getRangeAt(0), anc = r.commonAncestorContainer.nodeType === 3 ? r.commonAncestorContainer.parentElement : r.commonAncestorContainer; if (anc && anc.closest('#slideStage')) { r.deleteContents(); const tn = document.createTextNode(sym); r.insertNode(tn); const nextR = document.createRange(); nextR.setStartAfter(tn); nextR.collapse(true); sel.removeAllRanges(); sel.addRange(nextR); if (typeof markUnsavedChanges === 'function') markUnsavedChanges(); updateTextCharCounter(); saveHistorySnapshot(`기호 삽입 (${sym})`); return; } }
   const target = getTargetTextEl(); if (target) { target.appendChild(document.createTextNode(sym)); updateTextCharCounter(target); saveHistorySnapshot(`기호 삽입 (${sym})`); }
 }

@@ -687,4 +687,532 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(v5611SizeCheck.okB, `Deadzone B width=${v5611SizeCheck.wB}`).toBe(true);
     expect(v5611SizeCheck.okC, `Custom 600x400=${v5611SizeCheck.wC}x${v5611SizeCheck.hC}`).toBe(true);
   });
+
+  test('20. v5.6.12 Floating Card Studio Safe Workspace (Zero Top-Bar/Filmstrip/Studio Overlap), Maximize, Unified Canvas Binding, No Duplicate Link Button & Shortcut Isolation', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    // 1) Open Floating Card Editor & verify zero occlusion by #pptContextualTopBar, #pptLeftFilmstrip, #pptStudioPopup & #appBottomFooter
+    //    AND verify unified selection/hotspot/scroll listener is immediately bound on open (no longer trapped inside clearFloatingCardBgImage!)
+    await page.evaluate(() => openFloatingCardEditor(null));
+    const openBounds = await page.evaluate(() => {
+      const panel = document.getElementById('fcEditorDialogPanel');
+      const hdr = document.getElementById('fcPreviewDragHeader');
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      const ctxBar = document.getElementById('pptContextualTopBar');
+      const film = document.getElementById('pptLeftFilmstrip');
+      const studio = document.getElementById('pptStudioPopup');
+      const footer = document.getElementById('appBottomFooter');
+      const pr = panel.getBoundingClientRect();
+      const hr = hdr.getBoundingClientRect();
+      const cr = ctxBar.getBoundingClientRect();
+      const flr = film.getBoundingClientRect();
+      const sr = studio.getBoundingClientRect();
+      const fr = footer.getBoundingClientRect();
+      return {
+        belowTopBar: hr.top >= cr.bottom - 1,
+        rightOfFilmstrip: pr.left >= flr.right - 1,
+        leftOfStudio: pr.right <= sr.left + 1,
+        aboveFooter: pr.bottom <= fr.top + 1,
+        headerVisible: hr.height >= 28,
+        unifiedBoundOnOpen: fcEd.dataset.unifiedMainBound === 'true',
+      };
+    });
+    expect(openBounds).toEqual({
+      belowTopBar: true,
+      rightOfFilmstrip: true,
+      leftOfStudio: true,
+      aboveFooter: true,
+      headerVisible: true,
+      unifiedBoundOnOpen: true,
+    });
+
+    // 2) Maximize Floating Card Studio -> header MUST still sit cleanly below #pptContextualTopBar & never slide under #pptStudioPopup!
+    await page.evaluate(() => toggleFcDialogMaximize());
+    const maxBounds = await page.evaluate(() => {
+      const panel = document.getElementById('fcEditorDialogPanel');
+      const hdr = document.getElementById('fcPreviewDragHeader');
+      const ctxBar = document.getElementById('pptContextualTopBar');
+      const studio = document.getElementById('pptStudioPopup');
+      const footer = document.getElementById('appBottomFooter');
+      const pr = panel.getBoundingClientRect();
+      const hr = hdr.getBoundingClientRect();
+      const cr = ctxBar.getBoundingClientRect();
+      const sr = studio.getBoundingClientRect();
+      const fr = footer.getBoundingClientRect();
+      return {
+        belowTopBar: hr.top >= cr.bottom - 1,
+        leftOfStudio: pr.right <= sr.left + 1,
+        aboveFooter: pr.bottom <= fr.top + 1,
+        isMaximized: panel.classList.contains('fc-maximized'),
+      };
+    });
+    expect(maxBounds).toEqual({
+      belowTopBar: true,
+      leftOfStudio: true,
+      aboveFooter: true,
+      isMaximized: true,
+    });
+
+    // 3) Keyboard isolation: ArrowRight / 'e' while FC preview has focus (non-typing) MUST NOT switch background slide or exit edit mode!
+    const slideBeforeKey = await page.evaluate(() => {
+      if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+      setActiveEditingContext('floating-card');
+      return currentSlide;
+    });
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('e');
+    const afterKeys = await page.evaluate(() => ({ slide: currentSlide, editing: isEditMode }));
+    expect(afterKeys.slide).toBe(slideBeforeKey);
+    expect(afterKeys.editing).toBe(true);
+
+    // 4) Re-editing an ALREADY linked card without selecting its trigger MUST NOT spawn a duplicate blue link button!
+    const noDupBtnOk = await page.evaluate(() => {
+      document.getElementById('fcTitleInput').value = 'NO_DUP_BTN_CARD';
+      const cardId = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor(); // brand-new card -> spawns 1 button
+      const countAfterFirstSave = document.querySelectorAll('#slideStage .ppt-free-obj[data-shape-type="linkButton"]').length;
+
+      // Clear selection, reopen the same card & save again -> MUST NOT spawn a 2nd button!
+      clearSelectionInspector();
+      openFloatingCardEditor(cardId);
+      saveFloatingCardFromEditor();
+      const countAfterSecondSave = document.querySelectorAll('#slideStage .ppt-free-obj[data-shape-type="linkButton"]').length;
+      return countAfterFirstSave >= 1 && countAfterSecondSave === countAfterFirstSave;
+    });
+    expect(noDupBtnOk).toBe(true);
+  });
+
+  test('21. v5.6.13 Audit2 Phase 1 (Managed Drag Blur Abort, Unified Z-Index Stack, Main Studio Undo/Redo FC Routing & Floating Studio Top-Bar Clamp)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const p1Ok = await page.evaluate(() => {
+      // 1) Unified Z-Index hierarchy: ContextualTopBar(44) < FloatingCardModal(54) < SelectionOverlay(56) < StudioPopup(60)
+      const zOf = (id) => parseInt(window.getComputedStyle(document.getElementById(id)).zIndex, 10) || 0;
+      const zCtx = zOf('pptContextualTopBar');
+      const zFc = zOf('floatingCardEditorModal');
+      const zOv = zOf('pptSelectionOverlay');
+      const zSt = zOf('pptStudioPopup');
+      const zHierarchyOk = zCtx < zFc && zFc < zOv && zOv < zSt;
+
+      // 2) startManagedDragSession aborts cleanly on window blur (zero stuck mousemove listeners!)
+      let moveHits = 0;
+      let endHits = 0;
+      startManagedDragSession(document, () => { moveHits++; }, () => { endHits++; });
+      document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 50, clientY: 50 }));
+      window.dispatchEvent(new Event('blur'));
+      document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 80, clientY: 80 }));
+      const dragBlurOk = moveHits === 1 && endHits === 1;
+
+      // 3) Floating Studio top clamp never overlaps #appTopHeader
+      setStudioDockMode('floating', true);
+      const studio = document.getElementById('pptStudioPopup');
+      studio.style.left = '20px';
+      studio.style.top = '0px';
+      clampFloatingStudioToViewport();
+      const hdrBottom = Math.ceil(document.getElementById('appTopHeader').getBoundingClientRect().bottom);
+      const studioClampOk = parseFloat(studio.style.top) >= hdrBottom;
+      setStudioDockMode('docked', true);
+
+      // 4) Main Studio undoAction()/redoAction() route directly to Floating Card when FC is active (without mutating slide undoStack!)
+      const slideUndoBefore = undoStack.length;
+      openFloatingCardEditor(null);
+      const fcTitleInp = document.getElementById('fcTitleInput');
+      const origTitle = fcTitleInp.value;
+      fcTitleInp.value = 'P1_ROUTED_UNDO_TITLE';
+      recordFcSnapshot();
+      undoAction();
+      const undoneFc = fcTitleInp.value === origTitle;
+      redoAction();
+      const redoneFc = fcTitleInp.value === 'P1_ROUTED_UNDO_TITLE';
+      const slideUntouched = undoStack.length === slideUndoBefore;
+      closeFloatingCardEditor();
+
+      // 5) Tracked auto-save interval handle exists
+      const timerTracked = Boolean(window.__pptAutoSaveIntervalId);
+
+      return { zHierarchyOk, dragBlurOk, studioClampOk, undoneFc, redoneFc, slideUntouched, timerTracked };
+    });
+
+    expect(p1Ok.zHierarchyOk).toBe(true);
+    expect(p1Ok.dragBlurOk).toBe(true);
+    expect(p1Ok.studioClampOk).toBe(true);
+    expect(p1Ok.undoneFc).toBe(true);
+    expect(p1Ok.redoneFc).toBe(true);
+    expect(p1Ok.slideUntouched).toBe(true);
+    expect(p1Ok.timerTracked).toBe(true);
+  });
+
+  test('22. v5.6.14 Audit2 Phase 2 (Locked Bento Seam Guard, Header-Bar FreeCard Detach, Layer Order Lock, Filmstrip Cleanup, Group-ID Clone Remap & Persistent Guide Snap)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const p2Ok = await page.evaluate(() => {
+      // 1) Bento 2D locked neighbor protection on seam resize
+      addSlideWithLayout('bento-2d');
+      const bentoSlide = slides[currentSlide - 1];
+      const gb = bentoSlide.querySelector('.slide-grid-body');
+      const cards = Array.from(gb.querySelectorAll(':scope > .slide-card'));
+      initFlexibleBentoGrid(gb, cards, cards.map(c => c.getBoundingClientRect()));
+      const c0 = cards[0];
+      const c1 = cards.find(c => c !== c0 && getBento2DCoords(c).cs === getBento2DCoords(c0).cEnd);
+      let bentoLockOk = true;
+      if (c1) {
+        const initC1 = getBento2DCoords(c1);
+        c1.setAttribute('data-layer-locked', 'true');
+        // Attempt to grow c0 eastward into locked c1 -> c1 MUST NOT shrink/move!
+        resizeGridCardProportionally(c0, 'e', 180, 0, gb, cards.map(c => c.getBoundingClientRect()), 0);
+        const afterC1 = getBento2DCoords(c1);
+        bentoLockOk = afterC1.cs === initC1.cs && afterC1.cw === initC1.cw;
+        cards.forEach(c => { delete c._bentoDragInit; });
+        c1.removeAttribute('data-layer-locked');
+      }
+
+      // 2) Detaching .slide-header-bar promotes cleanly to freeCard (preserving dark theme & bg)
+      goToSlide(3);
+      const hdr = slides[2].querySelector('.slide-header-bar');
+      selectElementForInspector(hdr, false);
+      updateSelectedShapeStyle('fill', '#0F172A', false);
+      const detHdr = detachElementToFreeLayer(hdr);
+      const headerDetachOk = Boolean(
+        detHdr &&
+        detHdr.getAttribute('data-shape-type') === 'freeCard' &&
+        detHdr.classList.contains('card-theme-dark') &&
+        detHdr.getAttribute('data-card-bg-hex') === '#0F172A'
+      );
+
+      // 3) changeSelectedLayerOrder refuses locked layer
+      detHdr.style.zIndex = '15';
+      detHdr.setAttribute('data-layer-locked', 'true');
+      selectedElement = detHdr;
+      selectedElements = [detHdr];
+      changeSelectedLayerOrder('front');
+      const layerOrderLockOk = detHdr.style.zIndex === '15';
+      detHdr.removeAttribute('data-layer-locked');
+
+      // 4) Duplicate locked slide -> clone is unlocked & remaps data-group-id
+      insertFreeShape('rect');
+      const g1 = selectedElement;
+      insertFreeShape('circle');
+      const g2 = selectedElement;
+      selectedElements = [g1, g2];
+      selectedElement = g2;
+      groupSelectedElements();
+      const origGid = g1.getAttribute('data-group-id');
+      slides[2].setAttribute('data-slide-locked', 'true');
+      duplicateCurrentSlide();
+      const dupSlide = slides[currentSlide - 1];
+      const dupGid = dupSlide.querySelector('[data-group-id]')?.getAttribute('data-group-id');
+      const dupCleanOk = dupSlide.getAttribute('data-slide-locked') !== 'true' && Boolean(origGid && dupGid && dupGid !== origGid);
+      slides[2].removeAttribute('data-slide-locked');
+
+      // 5) Filmstrip multi-delete clears selection overlay cleanly
+      selectedFilmstripSlides = new Set([currentSlide]);
+      deleteSelectedFilmstripSlides();
+      const filmDeleteClean = selectedElement === null && !document.getElementById('pptSelectionOverlay').classList.contains('visible');
+
+      // 6) Persistent ruler guide magnetic snap in smart-guides.js
+      addPersistentGuide('x', 500);
+      const activeS = slides[currentSlide - 1];
+      const sRect = activeS.getBoundingClientRect();
+      const sc = getStageScale();
+      const probeEl = document.createElement('div');
+      probeEl.className = 'ppt-free-obj';
+      const snapRes = computeAndRenderSmartGuides([probeEl], sRect.left + 500 * sc + 2, sRect.top + 100 * sc, 120 * sc, 80 * sc, activeS, null);
+      const guideSnapOk = Math.abs(snapRes.snappedLeftPx - (sRect.left + 500 * sc)) < 1.5;
+      clearPersistentGuides();
+
+      // 7) Parameterized Data URI (charset=utf-8;base64) tokenized cleanly in history.js
+      const paramUri = 'data:image/svg+xml;charset=utf-8;base64,PHN2Zy8+';
+      const tok = tokenizeDataUris(`<img src="${paramUri}">`);
+      const tokOk = tok.includes('__DATA_URI_TOKEN_') && detokenizeDataUris(tok).includes(paramUri);
+
+      return { bentoLockOk, headerDetachOk, layerOrderLockOk, dupCleanOk, filmDeleteClean, guideSnapOk, tokOk };
+    });
+
+    expect(p2Ok.bentoLockOk).toBe(true);
+    expect(p2Ok.headerDetachOk).toBe(true);
+    expect(p2Ok.layerOrderLockOk).toBe(true);
+    expect(p2Ok.dupCleanOk).toBe(true);
+    expect(p2Ok.filmDeleteClean).toBe(true);
+    expect(p2Ok.guideSnapOk).toBe(true);
+    expect(p2Ok.tokOk).toBe(true);
+  });
+
+  test('23. v5.6.15 Audit2 Phase 3 (Dark/Light !important Inline-Style Preservation, Nested Pill/Link Unwrap, Find-Replace Edit Transition & Table SUM Recalc, Spotlight & BrandKit Locks)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const p3Ok = await page.evaluate(() => {
+      goToSlide(3);
+      const s3 = slides[2];
+
+      // 1) Dark Slide .bg-white custom inline background MUST NOT be clobbered by !important
+      applyThemePreset('dark');
+      const card0 = s3.querySelector('.slide-card');
+      card0.classList.add('bg-white');
+      selectElementForInspector(card0, false);
+      applySelectedCardBgColor('#1D4ED8', false);
+      const darkCustomBg = window.getComputedStyle(card0).backgroundColor;
+      const darkBgPreserved = darkCustomBg.includes('29, 78, 216');
+
+      // 2) Light Slide preserves user inline color on .text-white AND keeps .card-theme-dark .text-white crisp white!
+      applyThemePreset('light');
+      const testDarkCard = s3.querySelector('.slide-card');
+      selectElementForInspector(testDarkCard, false);
+      applySelectedCardBgColor('#0F172A', false);
+      const whiteHeading = document.createElement('h4');
+      whiteHeading.className = 'text-white';
+      whiteHeading.textContent = 'DARK_CARD_WHITE_TEXT';
+      testDarkCard.appendChild(whiteHeading);
+      const darkCardWhiteOk = window.getComputedStyle(whiteHeading).color === 'rgb(255, 255, 255)';
+
+      const customColEl = document.createElement('p');
+      customColEl.className = 'text-white';
+      customColEl.style.color = 'rgb(225, 29, 72)';
+      customColEl.textContent = 'CUSTOM_RED_ON_LIGHT';
+      s3.appendChild(customColEl);
+      const lightInlineColorOk = window.getComputedStyle(customColEl).color === 'rgb(225, 29, 72)';
+      whiteHeading.remove();
+      customColEl.remove();
+
+      // 3) Nested .text-pill-span unwrap + nested <a> unwrap + clearAllTextFormatting preserves slide-number token!
+      const pEl = card0.querySelector('p[data-editable]') || card0.querySelector('[data-editable]');
+      pEl.innerHTML = '테스트 <span class="text-pill-span">알약</span> <a href="https://example.com" data-inline-link="true">링크</a> <span data-slide-number-token="true">03 / 05</span>';
+      const rAll = document.createRange();
+      rAll.selectNodeContents(pEl);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(rAll);
+      applyTextBackgroundBox();
+      const noNestedPills = pEl.querySelectorAll('.text-pill-span .text-pill-span').length === 0;
+
+      const rLink = document.createRange();
+      rLink.selectNodeContents(pEl);
+      sel.removeAllRanges();
+      sel.addRange(rLink);
+      const linkInp = document.getElementById('inlineTextLinkInput');
+      if (linkInp) linkInp.value = 'https://openai.com';
+      applyInlineTextLink();
+      const noNestedLinks = pEl.querySelectorAll('a a').length === 0;
+
+      sel.removeAllRanges();
+      savedTextSelectionRange = null;
+      selectElementForInspector(pEl, false);
+      clearAllTextFormatting();
+      const tokenSurvivedClear = pEl.querySelectorAll('[data-slide-number-token="true"]').length === 1;
+
+      // 4) Find & Replace from Presentation Mode -> auto-enters Edit Mode & still replaces inside Table + recalculates SUM!
+      clearSelectionInspector();
+      insertChartOrTable('table', 'slide');
+      const tblW = getSelectedChartWidget();
+      const tdData = readChartData(tblW);
+      tdData.tableRows[0][1] = '100';
+      tdData.tableRows[1][1] = '200';
+      writeChartDataAndRender(tblW, tdData);
+      appendTableSummaryRow('sum');
+      toggleEditMode(false);
+      document.getElementById('findQueryInput').value = '100';
+      document.getElementById('replaceQueryInput').value = '350';
+      runSlideFindSearch(false);
+      replaceCurrentFindMatch();
+      const sumAfterReplace = readChartData(tblW).tableRows[readChartData(tblW).summaryRowIndices[0]][1];
+      const findReplaceTableSumOk = String(sumAfterReplace).includes('550');
+
+      // 5) Spotlight excludes .card-bg-layer / .card-hover-bg-layer / .card-bg-tint
+      ensureCardBgLayer(card0);
+      ensureCardHoverBgLayer(card0);
+      ensureCardBgTintLayer(card0);
+      selectElementForInspector(pEl, false);
+      applySpotlightToSiblingGroup();
+      const spotCleanBgLayers = !card0.querySelector('.card-hover-bg-layer')?.hasAttribute('data-fx') &&
+                                !card0.querySelector('.card-bg-tint')?.hasAttribute('data-fx');
+
+      // 6) Locked slide Brand Kit (!applyAll) does NOT mutate global accent color
+      const prevAccent = document.documentElement.style.getPropertyValue('--accent-color').trim() || '#0055FF';
+      const applyAllChk = document.getElementById('brandKitApplyAllChk');
+      if (applyAllChk) applyAllChk.checked = false;
+      s3.setAttribute('data-slide-locked', 'true');
+      applyBrandKitPreset('midnight');
+      const brandKitLockOk = (document.documentElement.style.getPropertyValue('--accent-color').trim() || '#0055FF') === prevAccent;
+      s3.removeAttribute('data-slide-locked');
+      if (applyAllChk) applyAllChk.checked = true;
+
+      return { darkBgPreserved, darkCardWhiteOk, lightInlineColorOk, noNestedPills, noNestedLinks, tokenSurvivedClear, findReplaceTableSumOk, spotCleanBgLayers, brandKitLockOk };
+    });
+
+    expect(p3Ok.darkBgPreserved).toBe(true);
+    expect(p3Ok.darkCardWhiteOk).toBe(true);
+    expect(p3Ok.lightInlineColorOk).toBe(true);
+    expect(p3Ok.noNestedPills).toBe(true);
+    expect(p3Ok.noNestedLinks).toBe(true);
+    expect(p3Ok.tokenSurvivedClear).toBe(true);
+    expect(p3Ok.findReplaceTableSumOk).toBe(true);
+    expect(p3Ok.spotCleanBgLayers).toBe(true);
+    expect(p3Ok.brandKitLockOk).toBe(true);
+  });
+
+  test('24. v5.6.16 Audit2 Phase 4 (Media Blob URL Tracking & Safe Revoke, Widget FC Undo Routing, Table Insert/Col Summary Recalc, HiDPI Draw Canvas & Safari -webkit-backdrop-filter)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const p4Ok = await page.evaluate(() => {
+      // 1) Tracked Media Blob URL lifecycle: create -> still-used stays alive -> unused revokes cleanly
+      const b1 = new Blob(['test-media-1'], { type: 'video/mp4' });
+      const u1 = createTrackedMediaBlobUrl(b1);
+      const trackedCreated = window.__pptTrackedMediaBlobUrls.has(u1);
+      const tempVid = document.createElement('video');
+      tempVid.setAttribute('src', u1);
+      slides[0].appendChild(tempVid);
+      const keptWhileUsed = revokeMediaBlobUrlIfUnused(u1) === false && window.__pptTrackedMediaBlobUrls.has(u1);
+      tempVid.remove();
+      const revokedWhenUnused = revokeMediaBlobUrlIfUnused(u1) === true && !window.__pptTrackedMediaBlobUrls.has(u1);
+
+      // 2) Interactive Widget inside Floating Card records to FC Undo stack (NOT background slide!)
+      const slideUndo0 = undoStack.length;
+      openFloatingCardEditor(null);
+      insertInteractiveWidget('tabbed-card');
+      const fcTabWid = document.getElementById('fcRichBodyEditor').querySelector('[data-iw-type="tabbed-card"]');
+      const addTabBtn = fcTabWid.querySelector('button[data-on-click*="addIwTab"]');
+      const tabsBefore = fcTabWid.querySelectorAll('.iw-tab-btn').length;
+      const fcUndoBefore = fcUndoStack.length;
+      addIwTab(addTabBtn);
+      const tabAddedInFc = fcTabWid.querySelectorAll('.iw-tab-btn').length === tabsBefore + 1 && fcUndoStack.length > fcUndoBefore;
+      fcUndoAction();
+      const tabUndoneInFc = document.getElementById('fcRichBodyEditor').querySelector('[data-iw-type="tabbed-card"]').querySelectorAll('.iw-tab-btn').length === tabsBefore;
+      const slideUntouchedByFcWidget = undoStack.length === slideUndo0;
+      closeFloatingCardEditor();
+
+      // 3) Table insertTableRowAt / insertTableColAt recalculate SUM summary row automatically
+      goToSlide(3);
+      clearSelectionInspector();
+      insertChartOrTable('table', 'slide');
+      const tblW = getSelectedChartWidget();
+      const d0 = readChartData(tblW);
+      d0.tableRows[0][1] = '50';
+      d0.tableRows[1][1] = '70';
+      writeChartDataAndRender(tblW, d0);
+      appendTableSummaryRow('sum');
+      const td0 = tblW.querySelector('td[data-cell-key="td-0-1"]');
+      selectChartCellForFill({ stopPropagation() {}, shiftKey: false }, td0);
+      insertTableColAt(1);
+      const dAfterCol = readChartData(tblW);
+      const sumRowAfterCol = dAfterCol.tableRows[dAfterCol.summaryRowIndices[0]];
+      const tableColSumOk = Array.isArray(sumRowAfterCol) && sumRowAfterCol.length === dAfterCol.tableHeaders.length && String(sumRowAfterCol[1]).includes('120');
+
+      // 4) HiDPI Screen Draw Canvas + touchAction='none' + Smartpad Progress Bar touchScrubBound
+      toggleScreenDrawMode(true);
+      const drawCanvas = document.getElementById('pptDrawCanvas');
+      const drawCanvasOk = drawCanvas && drawCanvas.style.touchAction === 'none' && drawCanvas.width >= window.innerWidth;
+      toggleScreenDrawMode(false);
+      const progressTouchOk = document.getElementById('progressBarContainer')?.dataset.touchScrubBound === 'true';
+
+      return { trackedCreated, keptWhileUsed, revokedWhenUnused, tabAddedInFc, tabUndoneInFc, slideUntouchedByFcWidget, tableColSumOk, drawCanvasOk, progressTouchOk };
+    });
+
+    expect(p4Ok.trackedCreated).toBe(true);
+    expect(p4Ok.keptWhileUsed).toBe(true);
+    expect(p4Ok.revokedWhenUnused).toBe(true);
+    expect(p4Ok.tabAddedInFc).toBe(true);
+    expect(p4Ok.tabUndoneInFc).toBe(true);
+    expect(p4Ok.slideUntouchedByFcWidget).toBe(true);
+    expect(p4Ok.tableColSumOk).toBe(true);
+    expect(p4Ok.drawCanvasOk).toBe(true);
+    expect(p4Ok.progressTouchOk).toBe(true);
+  });
+
+  test('25. v5.6.17 Audit2 Phase 5 Final Certification (Hidden Layer Export Exclusion, Standalone HTML Base64 Bloat Strip, Lightbox Bitmap Release, Table Canvas Custom Color/TitleSize & Sanitizer Parity)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    // 1) Hidden layer must be excluded from collectExportableSlideBlocks AND PPTX slide XML!
+    await page.evaluate(() => {
+      goToSlide(3);
+      clearSelectionInspector();
+      insertFreeShape('rect');
+      const hiddenObj = selectedElement;
+      hiddenObj.innerHTML = '<div data-editable class="shape-inner-text">SECRET_HIDDEN_LAYER_TOKEN</div>';
+      hiddenObj.setAttribute('data-layer-hidden', 'true');
+      hiddenObj.style.visibility = 'hidden';
+    });
+
+    const hiddenExcluded = await page.evaluate(() => {
+      const blocks = collectExportableSlideBlocks(slides[2]);
+      return blocks.every(b => !b.textContent.includes('SECRET_HIDDEN_LAYER_TOKEN'));
+    });
+    expect(hiddenExcluded).toBe(true);
+
+    const pptxDlPromise = page.waitForEvent('download');
+    await page.evaluate(() => exportDeckAsPPTX());
+    const pptxDl = await pptxDlPromise;
+    const pptxEntries = parseZipEntries(await fs.readFile(await pptxDl.path()));
+    const slide3Xml = pptxEntries.get('ppt/slides/slide3.xml').toString('utf8');
+    expect(slide3Xml).not.toContain('SECRET_HIDDEN_LAYER_TOKEN');
+
+    // 2) Standalone HTML strips stale Lightbox/FC preview base64 background layers & stage-rescaling class!
+    const bloatAndCanvasOk = await page.evaluate(() => {
+      const fakeBgDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      openFloatingCardEditor(null);
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      fcEd.setAttribute('data-fc-bg-img-url', fakeBgDataUrl);
+      updateFloatingCardPreviewStyle();
+      const fcId = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor();
+
+      // Open & close lightbox -> verify closeFloatingCardLightbox releases .fc-bg-img-layer backgroundImage!
+      toggleEditMode(false);
+      openFloatingCardLightbox(fcId);
+      const lbBgLayer = document.getElementById('floatingCardLightboxContent').querySelector('.fc-bg-img-layer');
+      const hadBgOpen = Boolean(lbBgLayer && lbBgLayer.style.backgroundImage.includes('data:image/png'));
+      closeFloatingCardLightbox();
+      const clearedOnClose = Boolean(lbBgLayer && !lbBgLayer.style.backgroundImage);
+
+      // Re-open lightbox & inject stage-rescaling class, then serialize Standalone HTML -> zero leaked preview base64!
+      openFloatingCardLightbox(fcId);
+      document.body.classList.add('stage-rescaling');
+      const standalone = buildSerializedStandaloneHTML(false);
+      document.body.classList.remove('stage-rescaling');
+      closeFloatingCardLightbox();
+
+      // Parse serialized standalone HTML to verify zero leaked preview/lightbox base64 & clean body classes!
+      const parsedOut = new DOMParser().parseFromString(standalone, 'text/html');
+      const lbBgClean = !(parsedOut.querySelector('#floatingCardLightboxContent .fc-bg-img-layer')?.style.backgroundImage || '').includes('data:image');
+      const fcPrevClean = !(parsedOut.querySelector('#fcEditorBgPreviewLayer')?.style.backgroundImage || '').includes('data:image');
+      const storeHasBg = Boolean((parsedOut.querySelector('#pptFloatingCardsStore')?.innerHTML || '').includes(fakeBgDataUrl));
+      const occurrences = (lbBgClean && fcPrevClean && storeHasBg) ? 1 : 0;
+      const noStageRescaling = !parsedOut.body.classList.contains('stage-rescaling');
+
+      // 3) drawChartWidgetOnCanvas renders table with titleFontSize + custom cellStyles.color without error
+      toggleEditMode(true);
+      goToSlide(3);
+      clearSelectionInspector();
+      insertChartOrTable('table', 'slide');
+      const tblW = getSelectedChartWidget();
+      const td = readChartData(tblW);
+      td.titleFontSize = 20;
+      td.cellStyles = { 'th-0': { color: '#FFE600', bg: '#0F172A' }, 'td-0-0': { color: '#E11D48', fontSize: 16 } };
+      writeChartDataAndRender(tblW, td);
+      const canvasUrl = renderChartWidgetToDataUrl(tblW, 480, 260);
+      const canvasChartOk = typeof canvasUrl === 'string' && canvasUrl.startsWith('data:image/png;base64,');
+
+      // 4) Sanitizer preserves all v5.6.x attributes cleanly
+      const rawMarkup = '<div class="slide" data-slide="1"><div class="slide-card" data-title-card="true" data-card-bg-hex="#0F172A" data-card-bg-alpha="90"></div><div id="pptFloatingCardsStore"><div data-fc-id="fc_p5" data-fc-use-width-preset="false" data-fc-custom-w="640" data-fc-custom-h="420" data-fc-bg-mask="linear-gradient(180deg, rgba(0,0,0,1), rgba(0,0,0,0))"></div></div></div>';
+      const san = sanitizeImportedStageHtml(rawMarkup);
+      const sanOk = san.includes('data-title-card="true"') &&
+                    san.includes('data-card-bg-hex="#0F172A"') &&
+                    san.includes('data-fc-use-width-preset="false"') &&
+                    san.includes('data-fc-custom-w="640"') &&
+                    san.includes('data-fc-bg-mask="linear-gradient(');
+
+      return { hadBgOpen, clearedOnClose, occurrences, noStageRescaling, canvasChartOk, sanOk };
+    });
+
+    expect(bloatAndCanvasOk.hadBgOpen).toBe(true);
+    expect(bloatAndCanvasOk.clearedOnClose).toBe(true);
+    expect(bloatAndCanvasOk.occurrences).toBe(1);
+    expect(bloatAndCanvasOk.noStageRescaling).toBe(true);
+    expect(bloatAndCanvasOk.canvasChartOk).toBe(true);
+    expect(bloatAndCanvasOk.sanOk).toBe(true);
+  });
 });

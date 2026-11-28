@@ -3,19 +3,32 @@ const STUDIO_DOCK_MODE_STORAGE_KEY = 'ppt_studio_dock_mode_v1';
 const STUDIO_DOCK_WIDTH_STORAGE_KEY = 'ppt_studio_docked_width_v1';
 let studioDockMode = 'docked'; // 'docked' (default 3-pane) | 'floating'
 
+function getFloatingStudioMinTopPx() {
+  const hdr = document.getElementById('appTopHeader');
+  if (hdr) {
+    const cs = window.getComputedStyle(hdr);
+    if (cs.display !== 'none' && cs.visibility !== 'hidden') {
+      const r = hdr.getBoundingClientRect();
+      if (r.height > 0 && r.bottom > 0) return Math.ceil(r.bottom) + 4;
+    }
+  }
+  return 8;
+}
+
 function clampFloatingStudioToViewport() {
   if (studioPopupWin && !studioPopupWin.closed) return;
   const popup = document.getElementById('pptStudioPopup');
   if (!popup || !popup.classList.contains('studio-floating') || !popup.classList.contains('open')) return;
   const r = popup.getBoundingClientRect();
   if (r.width <= 0) return;
+  const minT = getFloatingStudioMinTopPx();
   const maxL = Math.max(8, window.innerWidth - Math.min(r.width, window.innerWidth - 16) - 8);
-  const maxT = Math.max(8, window.innerHeight - 56);
+  const maxT = Math.max(minT, window.innerHeight - 56);
   if (popup.style.left && popup.style.left !== 'auto') {
     const curL = parseFloat(popup.style.left) || 8;
-    const curT = parseFloat(popup.style.top) || 106;
+    const curT = parseFloat(popup.style.top) || Math.max(106, minT);
     popup.style.left = Math.max(8, Math.min(maxL, curL)) + 'px';
-    popup.style.top = Math.max(8, Math.min(maxT, curT)) + 'px';
+    popup.style.top = Math.max(minT, Math.min(maxT, curT)) + 'px';
   }
 }
 window.addEventListener('resize', clampFloatingStudioToViewport);
@@ -210,9 +223,14 @@ function openExternalStudioWindow(silentFallback) {
       pasteCopiedElements();
     }
   });
-  win.addEventListener('beforeunload', () => {
+  let studioDockedOnce = false;
+  const dockOnce = () => {
+    if (studioDockedOnce) return;
+    studioDockedOnce = true;
     dockStudioBackToMain(true);
-  });
+  };
+  win.addEventListener('beforeunload', dockOnce);
+  win.addEventListener('pagehide', dockOnce);
 
   syncWorkspaceLayoutAfterStudioChange();
   if (!silentFallback) {
@@ -257,7 +275,8 @@ function bindStudioPopupDrag() {
         popup.style.right = 'auto';
       }
       const nextL = Math.max(8, Math.min(window.innerWidth - popup.offsetWidth - 8, me.clientX - offsetX));
-      const nextT = Math.max(8, Math.min(window.innerHeight - 48, me.clientY - offsetY));
+      const minT = getFloatingStudioMinTopPx();
+      const nextT = Math.max(minT, Math.min(window.innerHeight - 48, me.clientY - offsetY));
       popup.style.left = nextL + 'px';
       popup.style.top = nextT + 'px';
     };
@@ -265,8 +284,7 @@ function bindStudioPopupDrag() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    startManagedDragSession(document, onMove, onUp);
   });
 }
 
@@ -400,6 +418,7 @@ function startResizablePanelDrag(e, panelId, dir) {
     : ((panelId === 'fcEditorDialogPanel' && fcStudioPopupWin && !fcStudioPopupWin.closed) ? fcStudioPopupWin.document : document);
   const panel = doc.getElementById(panelId);
   if (!panel) return;
+  if (panelId === 'fcEditorDialogPanel' && panel.classList.contains('fc-maximized') && (!fcStudioPopupWin || fcStudioPopupWin.closed)) return;
 
   const targetWin = doc.defaultView || window;
   const rect = panel.getBoundingClientRect();
@@ -424,26 +443,37 @@ function startResizablePanelDrag(e, panelId, dir) {
         panel.style.width = nextW + 'px';
         try { localStorage.setItem(STUDIO_DOCK_WIDTH_STORAGE_KEY, String(nextW)); } catch (err) {}
         if (typeof updateStageViewportScale === 'function') updateStageViewportScale();
+        if (typeof fitFloatingCardPanelToSafeWorkspace === 'function') fitFloatingCardPanelToSafeWorkspace('clamp');
         if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
       }
       return;
     }
+    const fcSafe = (panelId === 'fcEditorDialogPanel' && (!fcStudioPopupWin || fcStudioPopupWin.closed) && typeof getFloatingCardSafeWorkspaceRect === 'function')
+      ? getFloatingCardSafeWorkspaceRect()
+      : null;
     if (dir.includes('e')) {
-      const nextW = Math.max(340, Math.min(targetWin.innerWidth - 24, Math.round(initW + dx)));
+      const maxW = fcSafe ? Math.max(340, fcSafe.right - rect.left) : (targetWin.innerWidth - 24);
+      const nextW = Math.max(340, Math.min(maxW, Math.round(initW + dx)));
       panel.style.width = nextW + 'px';
     }
     if (dir.includes('w')) {
-      const nextW = Math.max(340, Math.min(targetWin.innerWidth - 24, Math.round(initW - dx)));
+      const minL = fcSafe ? fcSafe.left : 8;
+      const maxW = fcSafe ? Math.max(340, rect.right - minL) : (targetWin.innerWidth - 24);
+      const nextW = Math.max(340, Math.min(maxW, Math.round(initW - dx)));
       const appliedDelta = initW - nextW;
       panel.style.width = nextW + 'px';
-      if (panelId === 'pptStudioPopup') {
-        panel.style.left = Math.max(8, Math.round(initL + appliedDelta)) + 'px';
+      if (panelId === 'pptStudioPopup' || panelId === 'fcEditorDialogPanel') {
+        panel.style.left = Math.max(minL, Math.round(initL + appliedDelta)) + 'px';
       }
     }
     if (dir.includes('s')) {
-      const nextH = Math.max(260, Math.min(targetWin.innerHeight - 24, Math.round(initH + dy)));
+      const maxH = fcSafe ? Math.max(260, fcSafe.bottom - rect.top) : (targetWin.innerHeight - 24);
+      const nextH = Math.max(260, Math.min(maxH, Math.round(initH + dy)));
       panel.style.height = nextH + 'px';
-      panel.style.maxHeight = 'none';
+      panel.style.maxHeight = fcSafe ? (fcSafe.height + 'px') : 'none';
+    }
+    if (fcSafe && typeof positionSelectionOverlay === 'function' && selectedElement && panel.contains(selectedElement)) {
+      positionSelectionOverlay();
     }
   };
 
@@ -456,8 +486,7 @@ function startResizablePanelDrag(e, panelId, dir) {
     if (isDockedStudio) syncWorkspaceLayoutAfterStudioChange();
   };
 
-  doc.addEventListener('mousemove', onMove);
-  doc.addEventListener('mouseup', onUp);
+  startManagedDragSession(doc, onMove, onUp);
 }
 
 /* ==================== CONTEXT-AWARE COLLAPSIBLE ACCORDION SECTIONS (v4.6.0) ==================== */

@@ -1,4 +1,4 @@
-window.PPTStudio = window.PPTStudio || { version: 'v5.6.11', offlineRuntimeRules: new Set() };
+window.PPTStudio = window.PPTStudio || { version: 'v5.6.17', offlineRuntimeRules: new Set() };
 
 function openModalSafe(elOrId) {
   const modal = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -91,7 +91,44 @@ function setActiveEditingContext(ctx) {
     panel.classList.toggle('ring-2', activeEditingContext === 'floating-card');
     panel.classList.toggle('ring-gopro', activeEditingContext === 'floating-card');
   }
+  if (typeof updateHistoryButtons === 'function') updateHistoryButtons();
 }
+
+let __activeManagedDragCleanup = null;
+
+function abortActiveDragSession(evt) {
+  if (typeof __activeManagedDragCleanup === 'function') {
+    const cleanup = __activeManagedDragCleanup;
+    __activeManagedDragCleanup = null;
+    try { cleanup(evt); } catch (err) {}
+  }
+}
+
+function startManagedDragSession(targetDoc, onMove, onEnd) {
+  abortActiveDragSession();
+  const doc = targetDoc || document;
+  const win = doc.defaultView || window;
+  let finished = false;
+  const finish = (ev) => {
+    if (finished) return;
+    finished = true;
+    if (__activeManagedDragCleanup === finish) __activeManagedDragCleanup = null;
+    try { doc.removeEventListener('mousemove', onMove); } catch (e) {}
+    try { doc.removeEventListener('mouseup', finish); } catch (e) {}
+    try { win.removeEventListener('blur', onBlurAbort); } catch (e) {}
+    try { doc.removeEventListener('visibilitychange', onVisAbort); } catch (e) {}
+    if (typeof onEnd === 'function') onEnd(ev);
+  };
+  const onBlurAbort = (ev) => finish(ev);
+  const onVisAbort = (ev) => { if (doc.hidden) finish(ev); };
+  __activeManagedDragCleanup = finish;
+  doc.addEventListener('mousemove', onMove);
+  doc.addEventListener('mouseup', finish);
+  win.addEventListener('blur', onBlurAbort);
+  doc.addEventListener('visibilitychange', onVisAbort);
+  return finish;
+}
+
 let triggerSourceBtnEl = null;
 let toastTimer = null;
 let touchStartX = 0;
@@ -370,6 +407,7 @@ function updateStageViewportScale() {
   if (typeof renderRulerTicks === 'function') renderRulerTicks();
   if (typeof updateSlideConnectors === 'function') updateSlideConnectors();
   if (typeof syncFloatingCardLightboxScale === 'function') syncFloatingCardLightboxScale();
+  if (typeof fitFloatingCardPanelToSafeWorkspace === 'function') fitFloatingCardPanelToSafeWorkspace('clamp');
 
   const activeSlide = slides[currentSlide - 1] || document.querySelector('.slide.active');
   if (activeSlide) {

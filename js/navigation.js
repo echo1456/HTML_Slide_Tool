@@ -34,8 +34,7 @@ function startProgressBarScrub(e, containerEl) {
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
   };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
+  startManagedDragSession(document, onMove, onUp);
 }
 
 function buildModalGrid() {
@@ -1015,6 +1014,13 @@ function regenerateClonedSlideInternalIds(slideEl) {
     const tgt = el.getAttribute('data-trigger-target');
     if (tgt && trigMap.has(tgt)) el.setAttribute('data-trigger-target', trigMap.get(tgt));
   });
+  const groupMap = new Map();
+  slideEl.querySelectorAll('[data-group-id]').forEach(el => {
+    const oldGid = el.getAttribute('data-group-id');
+    if (!oldGid) return;
+    if (!groupMap.has(oldGid)) groupMap.set(oldGid, 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+    el.setAttribute('data-group-id', groupMap.get(oldGid));
+  });
 }
 
 function duplicateCurrentSlide() {
@@ -1022,6 +1028,7 @@ function duplicateCurrentSlide() {
   if (!activeSlideEl) return;
   const clone = activeSlideEl.cloneNode(true);
   clone.classList.remove('active', 'ppt-multi-selected', 'is-selected');
+  clone.removeAttribute('data-slide-locked');
   clone.querySelectorAll('.ppt-multi-selected, .is-selected').forEach(el => el.classList.remove('ppt-multi-selected', 'is-selected'));
   clone.querySelectorAll('.iw-flip-scene').forEach(el => el.classList.remove('is-editing-back', 'is-flipped'));
   clone.querySelectorAll('.iw-hs-pin.is-open').forEach(el => el.classList.remove('is-open'));

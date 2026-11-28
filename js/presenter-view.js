@@ -292,6 +292,12 @@ function openPresenterViewWindow() {
     else if (ke.key === 'ArrowLeft') { ke.preventDefault(); prevSlide(); }
     else if (ke.key === 'b' || ke.key === 'B') { toggleScreenBlackout('black'); }
   });
+  const cleanupPresenterPopup = () => {
+    try { w.clearInterval(timerInterval); } catch (e) {}
+    if (presenterPopupWin === w) presenterPopupWin = null;
+  };
+  w.addEventListener('beforeunload', cleanupPresenterPopup, { once: true });
+  w.addEventListener('pagehide', cleanupPresenterPopup, { once: true });
   applyPvLayout(false);
   syncPresenterWindowState();
 }
@@ -377,29 +383,82 @@ function toggleScreenBlackout(mode) {
   else { ov.classList.remove('hidden'); ov.classList.add('flex'); ov.style.display = 'flex'; }
   if (typeof syncPresenterWindowState === 'function') syncPresenterWindowState();
 }
-let isLaserPointerEnabled = false, __laserMoveHandler = null;
+let isLaserPointerEnabled = false, __laserMoveHandler = null, __laserTouchHandler = null;
 function toggleLaserPointer(forceState) {
   const nextState = forceState !== undefined ? Boolean(forceState) : !isLaserPointerEnabled; isLaserPointerEnabled = nextState;
   let dot = document.getElementById('pptLaserDot');
-  if (nextState) { if (!dot) { dot = document.createElement('div'); dot.id = 'pptLaserDot'; document.body.appendChild(dot); } dot.classList.remove('hidden'); if (!__laserMoveHandler) { __laserMoveHandler = (e) => { const d = document.getElementById('pptLaserDot'); if (d) { d.style.left = e.clientX + 'px'; d.style.top = e.clientY + 'px'; } }; document.addEventListener('mousemove', __laserMoveHandler); } }
-  else { if (dot) dot.classList.add('hidden'); if (__laserMoveHandler) { document.removeEventListener('mousemove', __laserMoveHandler); __laserMoveHandler = null; } }
+  if (nextState) {
+    if (!dot) { dot = document.createElement('div'); dot.id = 'pptLaserDot'; document.body.appendChild(dot); }
+    dot.classList.remove('hidden');
+    if (!__laserMoveHandler) {
+      __laserMoveHandler = (e) => { const d = document.getElementById('pptLaserDot'); if (d) { d.style.left = e.clientX + 'px'; d.style.top = e.clientY + 'px'; } };
+      document.addEventListener('mousemove', __laserMoveHandler);
+    }
+    if (!__laserTouchHandler) {
+      __laserTouchHandler = (e) => { const t = e.touches && e.touches[0]; const d = document.getElementById('pptLaserDot'); if (t && d) { d.style.left = t.clientX + 'px'; d.style.top = t.clientY + 'px'; } };
+      document.addEventListener('touchmove', __laserTouchHandler, { passive: true });
+    }
+  } else {
+    if (dot) dot.classList.add('hidden');
+    if (__laserMoveHandler) { document.removeEventListener('mousemove', __laserMoveHandler); __laserMoveHandler = null; }
+    if (__laserTouchHandler) { document.removeEventListener('touchmove', __laserTouchHandler); __laserTouchHandler = null; }
+  }
 }
 let isScreenDrawMode = false, activeScreenDrawColor = '#EF4444';
 function toggleScreenDrawMode(forceState) {
   const nextState = forceState !== undefined ? Boolean(forceState) : !isScreenDrawMode; isScreenDrawMode = nextState;
   const canvas = document.getElementById('pptDrawCanvas'), toolbar = document.getElementById('pptDrawToolbar');
   if (!canvas) return;
-  if (nextState) { if ((typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode) && typeof toggleEditMode === 'function') toggleEditMode(false); canvas.width = window.innerWidth; canvas.height = window.innerHeight; canvas.classList.remove('hidden'); if (toolbar) toolbar.classList.remove('hidden'); bindScreenDrawCanvas(canvas); }
-  else { canvas.classList.add('hidden'); if (toolbar) toolbar.classList.add('hidden'); }
+  if (nextState) {
+    if ((typeof isActiveEditing === 'function' ? isActiveEditing() : isEditMode) && typeof toggleEditMode === 'function') toggleEditMode(false);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(window.innerWidth * dpr);
+    canvas.height = Math.round(window.innerHeight * dpr);
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    canvas.style.touchAction = 'none';
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    canvas.classList.remove('hidden');
+    if (toolbar) toolbar.classList.remove('hidden');
+    bindScreenDrawCanvas(canvas);
+  } else {
+    canvas.classList.add('hidden');
+    if (toolbar) toolbar.classList.add('hidden');
+  }
 }
 function setScreenDrawColor(hex) { activeScreenDrawColor = hex || '#EF4444'; }
-function clearScreenDrawing(silent) { const c = document.getElementById('pptDrawCanvas'); if (c) { const ctx = c.getContext('2d'); if (ctx) ctx.clearRect(0, 0, c.width, c.height); } }
+function clearScreenDrawing(silent) {
+  const c = document.getElementById('pptDrawCanvas');
+  if (c) {
+    const ctx = c.getContext('2d');
+    if (ctx) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.restore();
+    }
+  }
+}
 function bindScreenDrawCanvas(canvas) {
   if (canvas.dataset.bound === 'true') return; canvas.dataset.bound = 'true'; let drawing = false; const ctx = canvas.getContext('2d');
-  canvas.addEventListener('mousedown', (e) => { if (!isScreenDrawMode) return; drawing = true; ctx.strokeStyle = activeScreenDrawColor; ctx.lineWidth = activeScreenDrawColor === '#FFE600' ? 14 : 4; ctx.globalAlpha = activeScreenDrawColor === '#FFE600' ? 0.45 : 0.95; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(e.clientX, e.clientY); });
+  const startAt = (x, y) => {
+    drawing = true;
+    ctx.strokeStyle = activeScreenDrawColor;
+    ctx.lineWidth = activeScreenDrawColor === '#FFE600' ? 14 : 4;
+    ctx.globalAlpha = activeScreenDrawColor === '#FFE600' ? 0.45 : 0.95;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+  canvas.addEventListener('mousedown', (e) => { if (!isScreenDrawMode) return; startAt(e.clientX, e.clientY); });
   canvas.addEventListener('mousemove', (e) => { if (!drawing || !isScreenDrawMode) return; ctx.lineTo(e.clientX, e.clientY); ctx.stroke(); });
-  const stopDraw = () => { drawing = false; }; canvas.addEventListener('mouseup', stopDraw); canvas.addEventListener('mouseleave', stopDraw);
-  canvas.addEventListener('touchstart', (e) => { if (!isScreenDrawMode || !e.touches[0]) return; e.preventDefault(); const t = e.touches[0]; drawing = true; ctx.strokeStyle = activeScreenDrawColor; ctx.lineWidth = activeScreenDrawColor === '#FFE600' ? 14 : 4; ctx.globalAlpha = activeScreenDrawColor === '#FFE600' ? 0.45 : 0.95; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(t.clientX, t.clientY); }, { passive: false });
-  canvas.addEventListener('touchmove', (e) => { if (!drawing || !isScreenDrawMode || !e.touches[0]) return; e.preventDefault(); const t = e.touches[0]; ctx.lineTo(t.clientX, t.clientY); ctx.stroke(); }, { passive: false });
+  const stopDraw = () => { drawing = false; };
+  canvas.addEventListener('mouseup', stopDraw);
+  canvas.addEventListener('mouseleave', stopDraw);
+  canvas.addEventListener('touchstart', (e) => { if (!isScreenDrawMode || !e.touches[0]) return; e.preventDefault(); startAt(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  canvas.addEventListener('touchmove', (e) => { if (!drawing || !isScreenDrawMode || !e.touches[0]) return; e.preventDefault(); ctx.lineTo(e.touches[0].clientX, e.touches[0].clientY); ctx.stroke(); }, { passive: false });
   canvas.addEventListener('touchend', stopDraw);
+  canvas.addEventListener('touchcancel', stopDraw);
 }

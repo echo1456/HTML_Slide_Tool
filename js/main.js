@@ -104,8 +104,7 @@ function bindGlobalEditorListeners() {
           saveHistorySnapshot();
         };
 
-        document.addEventListener('mousemove', onMultiCardMove);
-        document.addEventListener('mouseup', onMultiCardUp);
+        startManagedDragSession(document, onMultiCardMove, onMultiCardUp);
         return;
       }
 
@@ -163,8 +162,7 @@ function bindGlobalEditorListeners() {
         saveHistorySnapshot();
       };
 
-      document.addEventListener('mousemove', onGroupMove);
-      document.addEventListener('mouseup', onGroupUp);
+      startManagedDragSession(document, onGroupMove, onGroupUp);
       return;
     }
 
@@ -194,8 +192,7 @@ function bindGlobalEditorListeners() {
         saveHistorySnapshot();
       };
 
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      startManagedDragSession(document, onMove, onUp);
       return;
     }
 
@@ -259,8 +256,7 @@ function bindGlobalEditorListeners() {
         saveHistorySnapshot();
       };
 
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      startManagedDragSession(document, onMove, onUp);
       return;
     }
 
@@ -338,8 +334,7 @@ function bindGlobalEditorListeners() {
         saveHistorySnapshot();
       };
 
-      document.addEventListener('mousemove', onMediaMove);
-      document.addEventListener('mouseup', onMediaUp);
+      startManagedDragSession(document, onMediaMove, onMediaUp);
       return;
     }
 
@@ -440,8 +435,7 @@ function bindGlobalEditorListeners() {
         saveHistorySnapshot();
       };
 
-      document.addEventListener('mousemove', onInnerResizeMove);
-      document.addEventListener('mouseup', onInnerResizeUp);
+      startManagedDragSession(document, onInnerResizeMove, onInnerResizeUp);
     }
   });
 
@@ -514,8 +508,7 @@ function bindGlobalEditorListeners() {
           saveHistorySnapshot();
         };
 
-        document.addEventListener('mousemove', onGroupDrag);
-        document.addEventListener('mouseup', onGroupDragUp);
+        startManagedDragSession(document, onGroupDrag, onGroupDragUp);
         return;
       }
 
@@ -632,8 +625,7 @@ function bindGlobalEditorListeners() {
           showToast('2D 벤토 카드 레이아웃이 재배치되었습니다.');
         };
 
-        document.addEventListener('mousemove', onBentoCardMove);
-        document.addEventListener('mouseup', onBentoCardUp);
+        startManagedDragSession(document, onBentoCardMove, onBentoCardUp);
         return;
       }
 
@@ -663,8 +655,7 @@ function bindGlobalEditorListeners() {
           document.removeEventListener('mouseup', onUpInner);
           saveHistorySnapshot();
         };
-        document.addEventListener('mousemove', onMoveInner);
-        document.addEventListener('mouseup', onUpInner);
+        startManagedDragSession(document, onMoveInner, onUpInner);
         return;
       }
 
@@ -702,8 +693,7 @@ function bindGlobalEditorListeners() {
         saveHistorySnapshot();
       };
 
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      startManagedDragSession(document, onMove, onUp);
     });
   }
 
@@ -980,7 +970,7 @@ function bindGlobalEditorListeners() {
       const startX = e.clientX, startY = e.clientY, initPanX = stagePanX, initPanY = stagePanY;
       const onPanMove = (me) => { stagePanX = initPanX + (me.clientX - startX); stagePanY = initPanY + (me.clientY - startY); updateStageViewportScale(); };
       const onPanUp = () => { document.body.classList.remove('space-pan-dragging'); document.removeEventListener('mousemove', onPanMove); document.removeEventListener('mouseup', onPanUp); };
-      document.addEventListener('mousemove', onPanMove); document.addEventListener('mouseup', onPanUp); return;
+      startManagedDragSession(document, onPanMove, onPanUp); return;
     }
     // Before/After Slider Drag (Presentation & Live Test Mode — Full 0%..100% Window-Wide Tracking)
     const baStage = e.target.closest('.iw-ba-stage');
@@ -1037,8 +1027,7 @@ function bindGlobalEditorListeners() {
           if (dragged) saveHistorySnapshot('핫스팟 핀 위치 이동');
           else if (typeof toggleHotspotPin === 'function') toggleHotspotPin(pinEl);
         };
-        document.addEventListener('mousemove', onPinMove);
-        document.addEventListener('mouseup', onPinUp);
+        startManagedDragSession(document, onPinMove, onPinUp);
       }
       return;
     }
@@ -1124,8 +1113,7 @@ function bindGlobalEditorListeners() {
           document.removeEventListener('mouseup', onUp);
           if (moved) saveHistorySnapshot();
         };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        startManagedDragSession(document, onMove, onUp);
       }
       return;
     }
@@ -1169,8 +1157,7 @@ function bindGlobalEditorListeners() {
         document.removeEventListener('mouseup', onChildUp);
         if (moved) saveHistorySnapshot();
       };
-      document.addEventListener('mousemove', onChildMove);
-      document.addEventListener('mouseup', onChildUp);
+      startManagedDragSession(document, onChildMove, onChildUp);
     };
 
     const inlineMedia = e.target.closest('.card-inline-media');
@@ -1266,8 +1253,7 @@ function bindGlobalEditorListeners() {
           document.removeEventListener('mouseup', onAltUp);
           saveHistorySnapshot();
         };
-        document.addEventListener('mousemove', onAltMove);
-        document.addEventListener('mouseup', onAltUp);
+        startManagedDragSession(document, onAltMove, onAltUp);
       }
       return;
     }
@@ -1318,6 +1304,7 @@ function bindGlobalEditorListeners() {
         document.removeEventListener('mousemove', onMarqueeMove);
         document.removeEventListener('mouseup', onMarqueeUp);
         marqueeBox.style.display = 'none';
+        if (!me || typeof me.clientX !== 'number' || typeof me.clientY !== 'number') return;
         if (!isMarqueeDragging) {
           if (!isShift) clearSelectionInspector();
           return;
@@ -1347,8 +1334,7 @@ function bindGlobalEditorListeners() {
         }
       };
 
-      document.addEventListener('mousemove', onMarqueeMove);
-      document.addEventListener('mouseup', onMarqueeUp);
+      startManagedDragSession(document, onMarqueeMove, onMarqueeUp);
     }
   });
 }
@@ -1555,7 +1541,8 @@ function bindKeyboardAndTouchListeners() {
       }
     }
     if (isTyping) {
-      if (e.key === 'Escape') { activeEl.blur(); return; }
+      if (e.key === 'Escape') {
+      if (typeof abortActiveDragSession === 'function') abortActiveDragSession(); activeEl.blur(); return; }
       if (isContentEd && e.key === 'Tab' && !mod && !e.isComposing) { if (typeof adjustListIndent === 'function') { e.preventDefault(); adjustListIndent(e.shiftKey ? -1 : 1); return; } }
       if (isContentEd && e.key === 'Enter' && !mod && !e.isComposing) {
         if (activeEl.closest('.iw-tab-btn')) { e.preventDefault(); activeEl.blur(); return; }
@@ -1601,6 +1588,13 @@ function bindKeyboardAndTouchListeners() {
         if (typeof closeFloatingCardLightbox === 'function') closeFloatingCardLightbox();
       }
       return;
+    }
+
+    // When Floating Card Preview Panel is active (not typing), block background slide navigation & mode-exit keys (allow Escape!)
+    if (isFcFocused && !mod && e.key !== 'Escape') {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageUp' || e.key === 'PageDown' || isKey('e', 'KeyE') || isKey('h', 'KeyH') || isKey('m', 'KeyM') || isKey('f', 'KeyF')) {
+        return;
+      }
     }
 
     // Core Keyword Highlight Shortcut: [H] or [Alt+H] (supports Korean IME via e.code)
@@ -1686,10 +1680,59 @@ function bindKeyboardAndTouchListeners() {
     }
   });
 
+  // Smartpad / Touch Progress Bar Scrubbing
+  const progressBarEl = document.getElementById('progressBarContainer');
+  if (progressBarEl && !progressBarEl.dataset.touchScrubBound) {
+    progressBarEl.dataset.touchScrubBound = 'true';
+    progressBarEl.style.touchAction = 'none';
+    const scrubFromTouchX = (tx) => {
+      const track = progressBarEl.querySelector('div') || progressBarEl;
+      const rect = track.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const ratio = Math.max(0, Math.min(0.9999, (tx - rect.left) / rect.width));
+      const targetPage = Math.max(1, Math.min(totalSlides, Math.floor(ratio * totalSlides) + 1));
+      if (targetPage !== currentSlide && typeof goToSlide === 'function') goToSlide(targetPage);
+    };
+    progressBarEl.addEventListener('touchstart', (te) => {
+      if (!te.touches[0]) return;
+      te.preventDefault();
+      scrubFromTouchX(te.touches[0].clientX);
+    }, { passive: false });
+    progressBarEl.addEventListener('touchmove', (te) => {
+      if (!te.touches[0]) return;
+      te.preventDefault();
+      scrubFromTouchX(te.touches[0].clientX);
+    }, { passive: false });
+  }
+
+  // Smartpad / Mobile Horizontal Swipe inside Paged Floating Card Lightbox (1/N)
+  const fcLbSwipe = document.getElementById('floatingCardLightbox');
+  if (fcLbSwipe && !fcLbSwipe.dataset.touchSwipeBound) {
+    fcLbSwipe.dataset.touchSwipeBound = 'true';
+    let fcTouchStartX = 0, fcTouchStartY = 0, fcIgnoreSwipe = true;
+    fcLbSwipe.addEventListener('touchstart', (te) => {
+      const tgt = te.target && te.target.nodeType === 1 ? te.target : null;
+      fcIgnoreSwipe = !te.changedTouches[0] || Boolean(tgt && tgt.closest('.iw-ba-stage, .ppt-interactive-widget, input, textarea, select'));
+      if (!fcIgnoreSwipe) {
+        fcTouchStartX = te.changedTouches[0].screenX;
+        fcTouchStartY = te.changedTouches[0].screenY;
+      }
+    }, { passive: true });
+    fcLbSwipe.addEventListener('touchend', (te) => {
+      if (fcIgnoreSwipe || !te.changedTouches[0] || !fcLbSwipe.classList.contains('open')) return;
+      if (typeof __activeLightboxDisplayMode === 'undefined' || __activeLightboxDisplayMode !== 'paged' || !Array.isArray(__activeLightboxCardIds) || __activeLightboxCardIds.length <= 1) return;
+      const dx = fcTouchStartX - te.changedTouches[0].screenX;
+      const dy = Math.abs(fcTouchStartY - te.changedTouches[0].screenY);
+      if (Math.abs(dx) > 55 && Math.abs(dx) > dy * 1.4 && typeof switchFloatingCardLightboxIndex === 'function') {
+        switchFloatingCardLightboxIndex(__activeLightboxCardIdx + (dx > 0 ? 1 : -1));
+      }
+    }, { passive: true });
+  }
+
   let __ignoreSwipeGesture = false;
   document.addEventListener('touchstart', (e) => {
     const tgt = e.target && e.target.nodeType === 1 ? e.target : null;
-    __ignoreSwipeGesture = Boolean(tgt && tgt.closest('.iw-ba-stage, #floatingCardLightbox.open, #pptDrawCanvas, .ppt-interactive-widget, input, textarea, select'));
+    __ignoreSwipeGesture = Boolean(tgt && tgt.closest('.iw-ba-stage, #floatingCardLightbox.open, #pptDrawCanvas, #progressBarContainer, .ppt-interactive-widget, input, textarea, select'));
     touchStartX = e.changedTouches[0].screenX;
   }, { passive: true });
 
@@ -1748,8 +1791,9 @@ function init() {
     if (typeof maybeShowOnboardingGuide === 'function') {
       maybeShowOnboardingGuide();
     }
-    setInterval(() => {
-      if (hasUnsavedChanges) {
+    if (window.__pptAutoSaveIntervalId) clearInterval(window.__pptAutoSaveIntervalId);
+    window.__pptAutoSaveIntervalId = setInterval(() => {
+      if (!document.hidden && hasUnsavedChanges) {
         writeAutoSaveToIndexedDB(true);
       }
     }, 20000);
@@ -1803,7 +1847,17 @@ function insertFreeTextboxAtClientPoint(clientX, clientY) {
   if (typeof refreshLayerList === 'function') refreshLayerList(); saveHistorySnapshot('텍스트 박스 생성');
 }
 document.addEventListener('keyup', (e) => { if (e.code === 'Space' && isSpacePanningMode) { isSpacePanningMode = false; document.body.classList.remove('space-pan-ready', 'space-pan-dragging'); } });
-window.addEventListener('blur', () => { if (isSpacePanningMode) { isSpacePanningMode = false; document.body.classList.remove('space-pan-ready', 'space-pan-dragging'); } });
+window.addEventListener('blur', () => {
+  if (typeof abortActiveDragSession === 'function') abortActiveDragSession();
+  if (isSpacePanningMode) { isSpacePanningMode = false; document.body.classList.remove('space-pan-ready', 'space-pan-dragging'); }
+});
+window.addEventListener('pagehide', () => {
+  if (window.__pptAutoSaveIntervalId) { clearInterval(window.__pptAutoSaveIntervalId); window.__pptAutoSaveIntervalId = null; }
+  if (typeof revokeAllTrackedMediaBlobUrls === 'function') revokeAllTrackedMediaBlobUrls();
+  try { if (typeof studioPopupWin !== 'undefined' && studioPopupWin && !studioPopupWin.closed) studioPopupWin.close(); } catch (e) {}
+  try { if (typeof fcStudioPopupWin !== 'undefined' && fcStudioPopupWin && !fcStudioPopupWin.closed) fcStudioPopupWin.close(); } catch (e) {}
+  try { if (typeof presenterPopupWin !== 'undefined' && presenterPopupWin && !presenterPopupWin.closed) presenterPopupWin.close(); } catch (e) {}
+});
 document.addEventListener('mousedown', (e) => { if (!e.target.closest('#pptContextMenu')) closeStageContextMenu(); if (!e.target.closest('#historyDropdownWrap') && typeof toggleHistoryDropdown === 'function') toggleHistoryDropdown(false); });
 
 window.addEventListener('DOMContentLoaded', init);

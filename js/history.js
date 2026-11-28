@@ -13,7 +13,7 @@ function cleanupUnusedDataUriTokens() {
 }
 function tokenizeDataUris(html) {
   if (!html) return '';
-  return html.replace(/data:[a-zA-Z0-9.+/-]+;base64,[A-Za-z0-9+/=]+/g, (uri) => {
+  return html.replace(/data:[a-zA-Z0-9.+/-]+(?:;[a-zA-Z0-9=_-]+)*;base64,[A-Za-z0-9+/=]+/g, (uri) => {
     let token = dataUriToToken.get(uri);
     if (!token) { token = `__DATA_URI_TOKEN_${nextDataUriTokenId++}__`; dataUriToToken.set(uri, token); tokenToDataUri.set(token, uri); }
     return token;
@@ -129,6 +129,10 @@ function saveHistorySnapshot(explicitLabel, forceFull) {
   if (isInitialSnapshotDone) markUnsavedChanges();
 }
 function undoAction() {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive() && typeof fcUndoAction === 'function') {
+    fcUndoAction();
+    return;
+  }
   if (undoStack.length <= 1) { showToast('더 이상 실행 취소할 내역이 없습니다.'); return; }
   const current = undoStack.pop();
   redoStack.push(current);
@@ -140,6 +144,10 @@ function undoAction() {
   showToast(`실행 취소 (Undo) · ${targetEntry && targetEntry.label ? targetEntry.label : ''}`);
 }
 function redoAction() {
+  if (typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive() && typeof fcRedoAction === 'function') {
+    fcRedoAction();
+    return;
+  }
   if (redoStack.length === 0) { showToast('다시 실행할 내역이 없습니다.'); return; }
   const next = redoStack.pop();
   undoStack.push(next);
@@ -234,8 +242,9 @@ function restoreStageHtml(entryOrHtml, fromHistory) {
 function updateHistoryButtons() {
   const u = $studio('undoBtn');
   const r = $studio('redoBtn');
-  if (u) u.disabled = undoStack.length <= 1;
-  if (r) r.disabled = redoStack.length === 0;
+  const isFcCtx = typeof isFloatingCardCanvasActive === 'function' && isFloatingCardCanvasActive();
+  if (u) u.disabled = isFcCtx ? (typeof fcUndoStack !== 'undefined' ? fcUndoStack.length <= 1 : true) : (undoStack.length <= 1);
+  if (r) r.disabled = isFcCtx ? (typeof fcRedoStack !== 'undefined' ? fcRedoStack.length === 0 : true) : (redoStack.length === 0);
   const menu = $studio('historyDropdownMenu');
   if (menu && !menu.classList.contains('hidden')) renderHistoryDropdownMenu();
 }

@@ -1,3 +1,32 @@
+window.__pptTrackedMediaBlobUrls = window.__pptTrackedMediaBlobUrls instanceof Set ? window.__pptTrackedMediaBlobUrls : new Set();
+
+function createTrackedMediaBlobUrl(blob) {
+  if (!blob) return '';
+  const url = URL.createObjectURL(blob);
+  window.__pptTrackedMediaBlobUrls.add(url);
+  return url;
+}
+
+function revokeMediaBlobUrlIfUnused(url, ignoreEl) {
+  if (!url || typeof url !== 'string' || !url.startsWith('blob:')) return false;
+  const stillUsed = Array.from(document.querySelectorAll('#slideStage video, #slideStage audio, #fcRichBodyEditor video, #fcRichBodyEditor audio')).some(el => {
+    if (el === ignoreEl) return false;
+    return el.getAttribute('src') === url || el.currentSrc === url;
+  });
+  if (stillUsed) return false;
+  try { URL.revokeObjectURL(url); } catch (e) {}
+  window.__pptTrackedMediaBlobUrls.delete(url);
+  return true;
+}
+
+function revokeAllTrackedMediaBlobUrls() {
+  if (!(window.__pptTrackedMediaBlobUrls instanceof Set)) return;
+  window.__pptTrackedMediaBlobUrls.forEach(url => {
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  });
+  window.__pptTrackedMediaBlobUrls.clear();
+}
+
 /* ==================== CARD INLINE RESIZABLE & MOVABLE MEDIA (IMAGE / VIDEO) ==================== */
 function buildCleanCardMediaHtml(captionText) {
   return `
@@ -186,6 +215,7 @@ function toggleCardInlineMediaFit(mediaBox) {
 
 function uploadCardInlineMedia(mediaBox, kind) {
   if (!isActiveEditing() || !mediaBox) return;
+  if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = kind === 'video' ? 'video/*' : 'image/*';
@@ -193,11 +223,15 @@ function uploadCardInlineMedia(mediaBox, kind) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const placeholder = mediaBox.querySelector('.card-media-placeholder');
-    mediaBox.querySelectorAll('img.inline-media-el, video.inline-media-el').forEach(el => el.remove());
+    mediaBox.querySelectorAll('img.inline-media-el, video.inline-media-el').forEach(el => {
+      const oldSrc = el.getAttribute('src') || '';
+      el.remove();
+      if (oldSrc.startsWith('blob:')) revokeMediaBlobUrlIfUnused(oldSrc);
+    });
 
     if (kind === 'video') {
       if (window.__pptSessionMediaBlobs instanceof Map) window.__pptSessionMediaBlobs.set(file.name, file);
-      const url = URL.createObjectURL(file);
+      const url = createTrackedMediaBlobUrl(file);
       const vid = document.createElement('video');
       vid.src = url;
       vid.setAttribute('data-media-name', file.name);
@@ -711,7 +745,7 @@ function applyVideoSourcePathFromStudio() {
 function insertDirectVideoFile(file) {
   if (typeof isCurrentSlideLocked === 'function' && isCurrentSlideLocked(true)) return;
   if (file && window.__pptSessionMediaBlobs instanceof Map) window.__pptSessionMediaBlobs.set(file.name, file);
-  const videoUrl = URL.createObjectURL(file);
+  const videoUrl = createTrackedMediaBlobUrl(file);
   const probe = document.createElement('video');
   probe.preload = 'metadata';
   probe.onloadedmetadata = function () {
@@ -777,6 +811,10 @@ function insertDirectVideoFile(file) {
     saveHistorySnapshot();
     showToast('저장 후 HTML과 같은 폴더의 media/ 에 파일을 두세요.');
   };
+  probe.onerror = function () {
+    revokeMediaBlobUrlIfUnused(videoUrl);
+    showToast('동영상 메타데이터를 읽을 수 없습니다. 브라우저가 지원하는 MP4(H.264)/WebM 형식인지 확인해 주세요.');
+  };
   probe.src = videoUrl;
 }
 
@@ -813,14 +851,18 @@ function handleImageDrop(e, slotEl) {
 
 function applyVideoToSlot(slotEl, file) {
   if (file && window.__pptSessionMediaBlobs instanceof Map) window.__pptSessionMediaBlobs.set(file.name, file);
-  const videoUrl = URL.createObjectURL(file);
+  const videoUrl = createTrackedMediaBlobUrl(file);
   const placeholder = slotEl.querySelector('.slot-placeholder');
   const imgEl = slotEl.querySelector('.slot-img');
   if (imgEl) {
     imgEl.src = '';
     imgEl.classList.add('hidden');
   }
-  slotEl.querySelectorAll('video.slot-video').forEach(v => v.remove());
+  slotEl.querySelectorAll('video.slot-video').forEach(v => {
+    const oldSrc = v.getAttribute('src') || '';
+    v.remove();
+    if (oldSrc.startsWith('blob:')) revokeMediaBlobUrlIfUnused(oldSrc);
+  });
 
   const vid = document.createElement('video');
   vid.src = videoUrl;
@@ -947,7 +989,11 @@ function clearImageSlot(slotEl) {
     imgEl.src = '';
     imgEl.classList.add('hidden');
   }
-  slotEl.querySelectorAll('video.slot-video').forEach(v => v.remove());
+  slotEl.querySelectorAll('video.slot-video').forEach(v => {
+    const oldSrc = v.getAttribute('src') || '';
+    v.remove();
+    if (oldSrc.startsWith('blob:')) revokeMediaBlobUrlIfUnused(oldSrc);
+  });
   if (placeholder) placeholder.classList.remove('hidden');
   slotEl.classList.remove('has-image', 'border-solid');
   slotEl.classList.add('border-dashed');
@@ -1354,8 +1400,10 @@ function executeReplaceMediaPreserveProps(file) {
   if (!file) return;
   const imgEl = getActiveImageElement(), vidEl = getSelectedVideoElement();
   if (file.type.startsWith('video/') && vidEl) {
+    const prevVidSrc = vidEl.getAttribute('src') || '';
     if (window.__pptSessionMediaBlobs instanceof Map) window.__pptSessionMediaBlobs.set(file.name, file);
-    vidEl.setAttribute('src', URL.createObjectURL(file)); vidEl.setAttribute('data-media-name', file.name);
+    vidEl.setAttribute('src', createTrackedMediaBlobUrl(file)); vidEl.setAttribute('data-media-name', file.name);
+    if (prevVidSrc.startsWith('blob:')) revokeMediaBlobUrlIfUnused(prevVidSrc, vidEl);
     clearVideoMissingFallback(vidEl); initVideoErrorFallbacks(vidEl.parentElement); syncVideoSourceInspectorUI(vidEl); vidEl.load();
     saveHistorySnapshot('동영상 속성 유지 교체'); return;
   }
@@ -1449,7 +1497,7 @@ function insertAudioFile(file) {
     obj.innerHTML = innerHtml; layer.appendChild(obj); selectElementForInspector(obj); refreshLayerList(); saveHistorySnapshot('오디오 삽입');
   };
   if (file.size <= 8 * 1024 * 1024) { const reader = new FileReader(); reader.onload = (ev) => finishInsert(ev.target.result, false); reader.readAsDataURL(file); }
-  else finishInsert(URL.createObjectURL(file), true);
+  else finishInsert(createTrackedMediaBlobUrl(file), true);
 }
 function toggleAudioPersist(btn) {
   const wrap = btn ? btn.closest('.ppt-audio-widget') : null, aud = wrap ? wrap.querySelector('audio') : null;
