@@ -40,6 +40,7 @@ function buildBeforeAfterWidgetHtml() {
         <button type="button" data-on-click="event.stopPropagation(); uploadBeforeAfterImage(this, 'before')">Before 사진</button>
         <button type="button" data-on-click="event.stopPropagation(); uploadBeforeAfterImage(this, 'after')">After 사진</button>
         <button type="button" data-on-click="event.stopPropagation(); resetBeforeAfterSplit(this)">50:50</button>
+        <button type="button" class="iw-ba-fill-btn" data-on-click="event.stopPropagation(); toggleBeforeAfterFillCard(this)" title="50:50 비교 위젯을 카드 전체에 여백 없이 꽉 채우기">⤢ 카드 채우기</button>
         <button type="button" class="iw-embed-card-btn" data-on-click="event.stopPropagation(); embedWidgetIntoCard(this)">카드로 넣기</button>
       </div>
     </div>
@@ -358,6 +359,65 @@ function embedWidgetIntoCard(btn) {
   saveHistorySnapshot('위젯 카드 내부 배치');
   showToast('위젯이 카드 내부로 배치되었습니다! 핸들로 높이를 자유롭게 조절할 수 있습니다.');
 }
+
+function syncBeforeAfterFillCardContainers(scopeRoot) {
+  const root = scopeRoot || document;
+  if (!root || !root.querySelectorAll) return;
+  const hostCandidates = [];
+  if (root.matches && root.matches('.slide-card, .ppt-free-obj[data-shape-type="freeCard"], #fcRichBodyEditor, #floatingCardLightboxContent, .fc-multi-card-item')) {
+    hostCandidates.push(root);
+  }
+  root.querySelectorAll('.slide-card, .ppt-free-obj[data-shape-type="freeCard"], #fcRichBodyEditor, #floatingCardLightboxContent, .fc-multi-card-item').forEach(el => hostCandidates.push(el));
+  hostCandidates.forEach(host => {
+    const fillW = host.querySelector('[data-iw-fill-card="true"], .iw-fill-card');
+    const isFill = Boolean(fillW);
+    host.classList.toggle('has-iw-fill-card', isFill);
+    if (host.id === 'fcRichBodyEditor') {
+      const box = host.closest('#fcPreviewResizeBox');
+      if (box) box.classList.toggle('has-iw-fill-card', isFill);
+    }
+  });
+}
+
+function toggleBeforeAfterFillCard(btnOrWidget, forceState) {
+  if (isWidgetMutationLocked(btnOrWidget)) return false;
+  const widget = btnOrWidget
+    ? (btnOrWidget.classList && btnOrWidget.classList.contains('ppt-interactive-widget') ? btnOrWidget : btnOrWidget.closest('.ppt-interactive-widget'))
+    : null;
+  if (!widget) return false;
+  const hostCard = widget.closest('#fcRichBodyEditor, .slide-card, .ppt-free-obj[data-shape-type="freeCard"]');
+  if (!hostCard) {
+    showToast('먼저 [카드로 넣기]로 위젯을 카드 안에 넣은 뒤 [카드 채우기]를 눌러 주세요.');
+    return false;
+  }
+  const curFill = widget.getAttribute('data-iw-fill-card') === 'true' || widget.classList.contains('iw-fill-card');
+  const nextFill = typeof forceState === 'boolean' ? forceState : !curFill;
+
+  if (nextFill) {
+    if (!widget.hasAttribute('data-prev-inline-w')) widget.setAttribute('data-prev-inline-w', widget.style.width || '100%');
+    if (!widget.hasAttribute('data-prev-inline-h')) widget.setAttribute('data-prev-inline-h', widget.style.height || '280px');
+    widget.setAttribute('data-iw-fill-card', 'true');
+    widget.classList.add('iw-fill-card');
+  } else {
+    widget.removeAttribute('data-iw-fill-card');
+    widget.classList.remove('iw-fill-card');
+    const prevW = widget.getAttribute('data-prev-inline-w');
+    const prevH = widget.getAttribute('data-prev-inline-h');
+    widget.style.width = prevW || '100%';
+    widget.style.height = prevH || '280px';
+  }
+  const fillBtn = widget.querySelector('.iw-ba-fill-btn');
+  if (fillBtn) fillBtn.textContent = nextFill ? '⤡ 채우기 해제' : '⤢ 카드 채우기';
+  syncBeforeAfterFillCardContainers(hostCard);
+  if (hostCard.id === 'fcRichBodyEditor' && typeof syncFcPreviewViewportScale === 'function') {
+    syncFcPreviewViewportScale();
+  }
+  if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
+  recordWidgetChangeHistory(widget, nextFill ? '50:50 위젯 카드 전체 채우기' : '50:50 위젯 카드 채우기 해제');
+  showToast(nextFill ? '50:50 위젯이 카드 전체에 여백 없이 꽉 채워졌습니다!' : '50:50 위젯이 기본 크기로 복원되었습니다.');
+  return nextFill;
+}
+
 function resetBeforeAfterSplit(btn) {
   if (isWidgetMutationLocked(btn)) return;
   const widget = btn ? btn.closest('.ppt-interactive-widget') : null;

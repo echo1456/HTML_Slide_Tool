@@ -110,11 +110,16 @@ function renderChartWidgetInnerHtml(data) {
     return `<div class="flex items-center justify-between gap-2 mb-2"><h4 ${editableAttr} data-on-blur="onChartTitleInlineEdit(this)" class="text-sm md:text-base font-extrabold text-ink">${escapeAttr(data.title)}</h4>${scenarioBarHtml || '<span class="font-mono text-[10px] text-subtle">LINE TREND</span>'}</div>${legendPos === 'right' ? `<div class="flex-1 flex items-center gap-3 min-h-0">${coreSvg}${legendHtml}</div>` : `${legendPos === 'top' ? legendHtml : ''}${coreSvg}${legendPos === 'bottom' ? legendHtml : ''}`}`;
   }
   if (data.type === 'donut') {
-    const sum = totalSum, r = 42, c = 2 * Math.PI * r; let offset = 0;
-    const segments = data.items.map((it, idx) => { const dash = (Math.max(0, Number(it.value) || 0) / sum) * c; const seg = `<circle ${chartPartAttrs(it, idx)} data-on-click="selectChartPartForColor(event, this, ${idx})" cx="55" cy="55" r="${r}" fill="none" stroke="${resolveChartItemColor(data, idx)}" stroke-width="16" stroke-dasharray="${dash.toFixed(2)} ${(c - dash).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" class="cursor-pointer" />`; offset += dash; return seg; }).join('');
+    const sum = totalSum;
+    const donutPx = Math.max(80, Math.min(360, Number(data.donutSize) || 140));
+    const strokeW = Math.max(6, Math.min(30, Number(data.donutThickness) || 16));
+    const r = Math.max(18, 52 - strokeW / 2);
+    const c = 2 * Math.PI * r;
+    let offset = 0;
+    const segments = data.items.map((it, idx) => { const dash = (Math.max(0, Number(it.value) || 0) / sum) * c; const seg = `<circle ${chartPartAttrs(it, idx)} data-on-click="selectChartPartForColor(event, this, ${idx})" cx="55" cy="55" r="${r.toFixed(2)}" fill="none" stroke="${resolveChartItemColor(data, idx)}" stroke-width="${strokeW}" stroke-dasharray="${dash.toFixed(2)} ${(c - dash).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" class="cursor-pointer" />`; offset += dash; return seg; }).join('');
     const legends = data.items.map((it, idx) => { const pct = Math.round((Math.max(0, Number(it.value) || 0) / sum) * 100); return `<div class="flex items-center justify-between gap-2 text-xs"><span class="inline-flex items-center gap-1.5 font-bold text-ink truncate"><span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${resolveChartItemColor(data, idx)};"></span><span ${editableAttr} data-on-blur="onChartLabelInlineEdit(this, ${idx})">${escapeAttr(it.label)}</span></span><span class="font-mono text-[11px] font-bold text-muted">${(data.valuePrefix || data.valueSuffix) ? `${formatChartValueDisplay(it.value, data)} (${pct}%)` : `${pct}%`}</span></div>`; }).join('');
-    const showLegend = legendPos !== 'none', wrapClass = legendPos === 'bottom' || legendPos === 'top' ? 'flex-1 flex flex-col items-center justify-center gap-2' : 'flex-1 flex items-center justify-center gap-4';
-    return `<div class="flex items-center justify-between gap-2 mb-2"><h4 ${editableAttr} data-on-blur="onChartTitleInlineEdit(this)" class="text-sm md:text-base font-extrabold text-ink">${escapeAttr(data.title)}</h4>${scenarioBarHtml || '<span class="font-mono text-[10px] text-subtle">DONUT SHARE</span>'}</div><div class="${wrapClass}">${legendPos === 'top' && showLegend ? `<div class="w-full space-y-1">${legends}</div>` : ''}<svg viewBox="0 0 110 110" class="w-28 h-28 shrink-0 -rotate-90">${segments}</svg>${legendPos !== 'top' && showLegend ? `<div class="flex-1 w-full space-y-1.5 min-w-0">${legends}</div>` : ''}</div>`;
+    const showLegend = legendPos !== 'none', wrapClass = legendPos === 'bottom' || legendPos === 'top' ? 'flex-1 flex flex-col items-center justify-center gap-3 min-h-0' : 'flex-1 flex items-center justify-center gap-5 min-h-0';
+    return `<div class="flex items-center justify-between gap-2 mb-2"><h4 ${editableAttr} data-on-blur="onChartTitleInlineEdit(this)" class="text-sm md:text-base font-extrabold text-ink">${escapeAttr(data.title)}</h4>${scenarioBarHtml || '<span class="font-mono text-[10px] text-subtle">DONUT SHARE</span>'}</div><div class="${wrapClass}">${legendPos === 'top' && showLegend ? `<div class="w-full space-y-1">${legends}</div>` : ''}<svg viewBox="0 0 110 110" class="donut-chart-svg shrink-0 -rotate-90" style="width:${donutPx}px;height:${donutPx}px;max-width:100%;">${segments}</svg>${legendPos !== 'top' && showLegend ? `<div class="flex-1 w-full space-y-1.5 min-w-0">${legends}</div>` : ''}</div>`;
   }
   if (data.type === 'kpi') {
     const cardsHtml = data.items.map((it, idx) => `<div data-cell-key="kpi-${idx}" data-on-click="selectChartCellForFill(event, this)" class="p-3 rounded-xl border border-borderline bg-canvas/70 flex flex-col justify-between cursor-pointer" style="${buildCellInlineStyle(data, `kpi-${idx}`, '')}"><span ${editableAttr} data-on-blur="onChartLabelInlineEdit(this, ${idx})" class="text-[11px] font-bold text-muted">${escapeAttr(it.label)}</span><div ${editableAttr} data-kpi-val="${escapeAttr(String(it.value))}" data-kpi-prefix="${escapeAttr(data.valuePrefix || '')}" data-kpi-suffix="${escapeAttr(data.valueSuffix || '')}" data-on-blur="onChartValueInlineEdit(this, ${idx})" class="text-2xl font-black tracking-tight my-1" style="color:${resolveChartItemColor(data, idx)};">${formatChartValueDisplay(it.value, data)}</div><span ${editableAttr} data-on-blur="onChartSubInlineEdit(this, ${idx})" class="font-mono text-[10px] text-subtle">${escapeAttr(it.sub || 'METRIC')}</span></div>`).join('');
@@ -192,7 +197,14 @@ function isChartMutationLocked(widget, notify) {
   return false;
 }
 function recordChartChangeHistory(label) { const isFcActive = (typeof isFloatingCardCanvasActive === 'function') ? isFloatingCardCanvasActive() : isFloatingCardStudioOpen(); if (isFcActive) { if (typeof recordFcSnapshot === 'function') recordFcSnapshot(); } else saveHistorySnapshot(label || '차트/표 편집'); }
-function writeChartDataAndRender(widget, data) { widget.setAttribute('data-chart-json', JSON.stringify(data)); widget.innerHTML = renderChartWidgetInnerHtml(data); syncChartInspectorUI(widget); }
+function writeChartDataAndRender(widget, data) {
+  widget.setAttribute('data-chart-json', JSON.stringify(data));
+  widget.innerHTML = renderChartWidgetInnerHtml(data);
+  if (widget.closest && widget.closest('#fcRichBodyEditor') && typeof makeFcBlockResizable === 'function') {
+    makeFcBlockResizable(widget);
+  }
+  syncChartInspectorUI(widget);
+}
 function syncTableCellSizeInputs(cellEl) {
   if (!cellEl) return;
   const scale = cellEl.closest('#fcRichBodyEditor') ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : (typeof getStageScale === 'function' ? getStageScale() : 1), rect = cellEl.getBoundingClientRect();
@@ -400,6 +412,34 @@ function updateChartItemField(idx, field, val, isLiveInput) { if (isChartMutatio
 }
 function setChartValueAffix(kind, rawVal) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w), c = String(rawVal || '').slice(0, 12); if (kind === 'prefix') d.valuePrefix = c; else d.valueSuffix = c; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 데이터 단위 설정'); }
 function setChartLegendPosition(pos) { if (isChartMutationLocked(getSelectedChartWidget(), true)) return; const w = getSelectedChartWidget(); if (!w) return; const d = readChartData(w); d.legendPosition = pos || 'none'; writeChartDataAndRender(w, d); recordChartChangeHistory('차트 범례 위치 변경'); }
+function setDonutChartSize(rawPx, isLiveInput) {
+  const w = getSelectedChartWidget();
+  if (isChartMutationLocked(w, !isLiveInput)) return;
+  if (!w) return;
+  const d = readChartData(w);
+  if (d.type !== 'donut') return;
+  const px = Math.max(80, Math.min(360, Math.round(Number(rawPx) || 140)));
+  d.donutSize = px;
+  if ($studio('donutSizeLabel')) $studio('donutSizeLabel').textContent = `${px}px`;
+  writeChartDataAndRender(w, d);
+  if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
+  if (!isLiveInput) {
+    if (w.closest('#fcRichBodyEditor') && typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale();
+    recordChartChangeHistory(`도넛 그래프 크기 변경 (${px}px)`);
+  }
+}
+function setDonutChartThickness(rawThick, isLiveInput) {
+  const w = getSelectedChartWidget();
+  if (isChartMutationLocked(w, !isLiveInput)) return;
+  if (!w) return;
+  const d = readChartData(w);
+  if (d.type !== 'donut') return;
+  const thick = Math.max(6, Math.min(30, Math.round(Number(rawThick) || 16)));
+  d.donutThickness = thick;
+  if ($studio('donutThicknessLabel')) $studio('donutThicknessLabel').textContent = String(thick);
+  writeChartDataAndRender(w, d);
+  if (!isLiveInput) recordChartChangeHistory(`도넛 링 두께 변경 (${thick})`);
+}
 function toggleCsvPastePanel() { const p = $studio('csvPasteImportPanel'); if (!p) return; p.classList.toggle('hidden'); if (!p.classList.contains('hidden')) { const ta = $studio('csvPasteTextarea'); if (ta) ta.focus(); } }
 function parseDelimitedTableText(rawText) {
   const text = String(rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
@@ -854,12 +894,29 @@ function removeChartDataRow(idx) { if (isChartMutationLocked(getSelectedChartWid
 function syncChartInspectorUI(el) {
   const widget = el ? (el.classList.contains('ppt-chart-widget') ? el : el.querySelector('.ppt-chart-widget')) : getSelectedChartWidget();
   const listWrap = $studio('chartItemsEditorList'), syncChk = $studio('chartSyncAccentCheckbox');
-  if (!widget) { if (listWrap) listWrap.innerHTML = `<div class="text-[10px] text-muted text-center py-1">그래프/표를 선택하면 항목과 색상을 편집할 수 있습니다.</div>`; return; }
+  const donutRow = $studio('donutSizeControlRow');
+  if (!widget) {
+    if (donutRow) donutRow.classList.add('hidden');
+    if (listWrap) listWrap.innerHTML = `<div class="text-[10px] text-muted text-center py-1">그래프/표를 선택하면 항목과 색상을 편집할 수 있습니다.</div>`;
+    return;
+  }
   const data = readChartData(widget);
   if (syncChk) syncChk.checked = Boolean(data.syncAccent);
   if ($studio('chartPrefixInput')) $studio('chartPrefixInput').value = data.valuePrefix || '';
   if ($studio('chartSuffixInput')) $studio('chartSuffixInput').value = data.valueSuffix || '';
   if ($studio('chartLegendPosSelect')) $studio('chartLegendPosSelect').value = data.legendPosition || 'none';
+  if (donutRow) {
+    const isDonut = data.type === 'donut';
+    donutRow.classList.toggle('hidden', !isDonut);
+    if (isDonut) {
+      const dSize = Math.max(80, Math.min(360, Number(data.donutSize) || 140));
+      const dThick = Math.max(6, Math.min(30, Number(data.donutThickness) || 16));
+      if ($studio('donutSizeSlider')) $studio('donutSizeSlider').value = String(dSize);
+      if ($studio('donutSizeLabel')) $studio('donutSizeLabel').textContent = `${dSize}px`;
+      if ($studio('donutThicknessSlider')) $studio('donutThicknessSlider').value = String(dThick);
+      if ($studio('donutThicknessLabel')) $studio('donutThicknessLabel').textContent = String(dThick);
+    }
+  }
   if ($studio('tblHeaderToggleBtn')) $studio('tblHeaderToggleBtn').classList.toggle('is-active', data.showHeaderRow !== false);
   if ($studio('tblFirstColToggleBtn')) $studio('tblFirstColToggleBtn').classList.toggle('is-active', Boolean(data.highlightFirstCol));
   if ($studio('tblZebraToggleBtn')) $studio('tblZebraToggleBtn').classList.toggle('is-active', data.zebraStriping !== false);

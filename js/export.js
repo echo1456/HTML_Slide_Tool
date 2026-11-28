@@ -592,7 +592,8 @@ function drawChartWidgetOnCanvas(ctx, widgetEl, x, y, w, h) {
     });
   } else if (data.type === 'donut' && items.length > 0) {
     const total = Math.max(1, items.reduce((acc, it) => acc + Math.max(0, Number(it.value) || 0), 0));
-    const radius = Math.max(24, Math.min(plotH * 0.44, plotW * 0.25));
+    const desiredRadius = Number(data.donutSize) > 0 ? (Number(data.donutSize) / 2) : Math.min(plotH * 0.44, plotW * 0.25);
+    const radius = Math.max(24, Math.min(plotH * 0.48, plotW * 0.42, desiredRadius));
     const cx = plotX + radius + 14;
     const cy = plotY + plotH / 2;
     let startAng = -Math.PI / 2;
@@ -608,7 +609,8 @@ function drawChartWidgetOnCanvas(ctx, widgetEl, x, y, w, h) {
       startAng += sweep;
     });
     ctx.beginPath();
-    ctx.arc(cx, cy, radius * 0.56, 0, Math.PI * 2);
+    const thickRatio = Math.max(0.14, Math.min(0.65, (Number(data.donutThickness) || 16) / 55));
+    ctx.arc(cx, cy, radius * (1 - thickRatio), 0, Math.PI * 2);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.font = '800 13px JetBrains Mono, monospace';

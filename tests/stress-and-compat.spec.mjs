@@ -1952,4 +1952,105 @@ test.describe('HTML Slide Tool — Extended CI Suite (Real Pointer, Stress, Deep
     expect(parity.textDeltaY).toBeLessThan(4);
     expect(parity.stayedInsideFc).toBe(true);
   });
+
+  test('34. v5.8.8 User-Reported Fixes (Donut Independent Size/Thickness Control, Stable 1:1 FC Chart/Block Handle Resizing Without Jumps & 50:50 Full-Bleed Card Fill on Slide + Floating Card)', async ({ page }) => {
+    await page.keyboard.press('e');
+    await expect(page.locator('body')).toHaveClass(/edit-mode/);
+
+    const v588Ok = await page.evaluate(() => {
+      // 1) Donut Chart independent size (240px) & thickness (24) control + FC grip survival after re-render!
+      openFloatingCardEditor(null);
+      const toggle = document.getElementById('fcUseWidthPresetToggle');
+      toggle.checked = false;
+      onFcWidthPresetToggle(false);
+      document.getElementById('fcCustomWidthInput').value = '960';
+      document.getElementById('fcCustomHeightInput').value = '560';
+      updateFloatingCardPreviewStyle();
+
+      insertChartOrTable('donut');
+      const fcEd = document.getElementById('fcRichBodyEditor');
+      const donutW = fcEd.querySelector('.ppt-chart-widget');
+      const rowVisible = !document.getElementById('donutSizeControlRow').classList.contains('hidden');
+      setDonutChartSize(240, false);
+      setDonutChartThickness(24, false);
+      const svg = donutW.querySelector('svg.donut-chart-svg');
+      const donutSizeOk = rowVisible && svg && svg.style.width === '240px' && svg.style.height === '240px' &&
+                          readChartData(donutW).donutSize === 240 && readChartData(donutW).donutThickness === 24;
+      const gripsSurvivedRerender = Boolean(donutW.querySelector('.fc-item-resize-grip') && donutW.querySelector('.fc-item-resize-grip-e'));
+
+      // 2) Stable 1:1 FC handle resize: dragging SE corner handle by (+60, +40) logical px produces exact predictable delta (no wild jump/shrink!)
+      donutW.style.width = '400px';
+      donutW.style.height = '260px';
+      const scaleBefore = getFcPreviewScale();
+      const gripSe = donutW.querySelector('.fc-item-resize-grip');
+      gripSe.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 300, clientY: 300, button: 0 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 300 + Math.round(60 * scaleBefore), clientY: 300 + Math.round(40 * scaleBefore) }));
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+      const wAfterGrip = parseInt(donutW.style.width, 10);
+      const hAfterGrip = parseInt(donutW.style.height, 10);
+      const fcGripResizeStable = Math.abs(wAfterGrip - 460) <= 3 && Math.abs(hAfterGrip - 300) <= 3;
+
+      // Also test #pptSelectionOverlay SE handle on FC chart -> free X/Y tracking (+40, -30) without wild uniformScale jump!
+      selectElementForInspector(donutW, false);
+      const ovSe = document.querySelector('#pptSelectionOverlay .ov-handle[data-dir="se"]');
+      ovSe.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 400, clientY: 400, button: 0 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: 400 + Math.round(40 * scaleBefore), clientY: 400 - Math.round(30 * scaleBefore) }));
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+      const wAfterOv = parseInt(donutW.style.width, 10);
+      const hAfterOv = parseInt(donutW.style.height, 10);
+      const ovResizeStable = Math.abs(wAfterOv - 500) <= 4 && Math.abs(hAfterOv - 270) <= 4;
+
+      // 3) 50:50 Before/After Full-Bleed Card Fill inside Floating Card -> matches card bounds 1:1 in both Studio & Lightbox!
+      donutW.remove();
+      insertInteractiveWidget('before-after');
+      const fcBa = fcEd.querySelector('[data-iw-type="before-after"]');
+      toggleBeforeAfterFillCard(fcBa, true);
+      const fcFillRect = fcBa.getBoundingClientRect();
+      const fcEdRect = fcEd.getBoundingClientRect();
+      const fcFillMatches = Math.abs(fcFillRect.width - fcEdRect.width) <= 3 && Math.abs(fcFillRect.height - fcEdRect.height) <= 3;
+
+      const fcId = activeEditingFloatingCardId;
+      saveFloatingCardFromEditor();
+      toggleEditMode(false);
+      openFloatingCardLightbox(fcId);
+      const lbBox = document.getElementById('floatingCardLightboxContent');
+      lbBox.style.animation = 'none';
+      const lbBa = document.getElementById('floatingCardLightboxBody').querySelector('[data-iw-type="before-after"]');
+      const lbScale = parseFloat(document.getElementById('floatingCardLightbox').style.getPropertyValue('--fc-lb-scale') || '1');
+      const lbBoxR = lbBox.getBoundingClientRect();
+      const lbBaR = lbBa.getBoundingClientRect();
+      const lbFillMatches = lbBox.classList.contains('has-iw-fill-card') &&
+                            Math.abs(lbBaR.width - (lbBoxR.width - 4 * lbScale)) <= 6 &&
+                            Math.abs(lbBaR.height - (lbBoxR.height - 4 * lbScale)) <= 6;
+      closeFloatingCardLightbox();
+      lbBox.style.animation = '';
+
+      // 4) 50:50 Full-Bleed Card Fill inside Slide Card (.slide-card) -> fills entire card edge-to-edge & toggles back!
+      toggleEditMode(true);
+      goToSlide(3);
+      const sCard = slides[2].querySelector('.slide-card');
+      selectElementForInspector(sCard, false);
+      insertInteractiveWidget('before-after', 'card');
+      const slideBa = sCard.querySelector('[data-iw-type="before-after"]');
+      toggleBeforeAfterFillCard(slideBa, true);
+      const scR = sCard.getBoundingClientRect();
+      const sBaR = slideBa.getBoundingClientRect();
+      const slideCardFillOk = sCard.classList.contains('has-iw-fill-card') &&
+                              Math.abs(sBaR.width - scR.width) <= 4 &&
+                              Math.abs(sBaR.height - scR.height) <= 4;
+      toggleBeforeAfterFillCard(slideBa, false);
+      const slideCardUnfillOk = !sCard.classList.contains('has-iw-fill-card') && !slideBa.classList.contains('iw-fill-card');
+
+      return { donutSizeOk, gripsSurvivedRerender, fcGripResizeStable, ovResizeStable, fcFillMatches, lbFillMatches, slideCardFillOk, slideCardUnfillOk };
+    });
+
+    expect(v588Ok.donutSizeOk).toBe(true);
+    expect(v588Ok.gripsSurvivedRerender).toBe(true);
+    expect(v588Ok.fcGripResizeStable).toBe(true);
+    expect(v588Ok.ovResizeStable).toBe(true);
+    expect(v588Ok.fcFillMatches).toBe(true);
+    expect(v588Ok.lbFillMatches).toBe(true);
+    expect(v588Ok.slideCardFillOk).toBe(true);
+    expect(v588Ok.slideCardUnfillOk).toBe(true);
+  });
 });

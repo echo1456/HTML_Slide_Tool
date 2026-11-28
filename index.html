@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="generator" content="HTML Slide Tool v5.8.7">
+  <meta name="generator" content="HTML Slide Tool v5.8.8">
   <meta name="theme-color" content="#0055FF">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -541,7 +541,7 @@
           </div>
           <div class="p-6 md:px-10 md:py-6 flex items-center justify-between bg-canvas">
             <span data-editable="" class="font-mono text-xs text-muted">HTML SLIDE TOOL</span>
-            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.8.7 READY</span>
+            <span data-editable="" class="px-3 py-1 rounded-full bg-gopro/10 text-gopro font-mono text-xs font-bold">v5.8.8 READY</span>
           </div>
         </div>
       </div>
@@ -1022,6 +1022,18 @@
               <label class="inline-flex items-center gap-1 px-1.5 py-1 rounded bg-white border border-borderline font-sans cursor-pointer"><input type="checkbox" id="chartSyncAccentCheckbox" checked data-on-change="toggleChartAccentSync(this.checked)"><span>포인트연동</span></label>
               <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1"><span>셀W</span><input type="number" id="tableCellWidthInput" min="24" max="900" value="120" class="w-11 text-right bg-canvas rounded px-0.5" data-on-change="applySelectedTableCellDimension('width', this.value)"></label>
               <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1"><span>셀H</span><input type="number" id="tableCellHeightInput" min="24" max="480" value="36" class="w-11 text-right bg-canvas rounded px-0.5" data-on-change="applySelectedTableCellDimension('height', this.value)"></label>
+            </div>
+            <div id="donutSizeControlRow" class="hidden grid grid-cols-2 gap-1 text-[10px] font-bold">
+              <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1" title="도넛 그래프 원형 크기(px)를 독립적으로 조절합니다">
+                <span class="shrink-0">도넛크기</span>
+                <input id="donutSizeSlider" type="range" min="80" max="340" step="4" value="140" class="flex-1 min-w-0 cursor-pointer" data-on-input="setDonutChartSize(this.value, true)" data-on-change="setDonutChartSize(this.value, false)">
+                <span id="donutSizeLabel" class="font-mono text-gopro text-[9px] w-8 text-right shrink-0">140px</span>
+              </label>
+              <label class="px-1.5 py-1 rounded bg-white border border-borderline flex items-center gap-1" title="도넛 링 두께를 조절합니다">
+                <span class="shrink-0">링두께</span>
+                <input id="donutThicknessSlider" type="range" min="6" max="30" step="1" value="16" class="flex-1 min-w-0 cursor-pointer" data-on-input="setDonutChartThickness(this.value, true)" data-on-change="setDonutChartThickness(this.value, false)">
+                <span id="donutThicknessLabel" class="font-mono text-gopro text-[9px] w-5 text-right shrink-0">16</span>
+              </label>
             </div>
             <div id="chartItemsEditorList" class="max-h-28 overflow-y-auto safe-scroll space-y-1"><div class="text-[10px] text-muted text-center py-1">차트/표를 선택하면 수치를 편집할 수 있습니다.</div></div>
           </div></div>

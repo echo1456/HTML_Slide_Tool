@@ -260,8 +260,9 @@ function bindGlobalEditorListeners() {
       return;
     }
 
-    // Case C: Direct Resize for Media Cards / Media Frames, Sub-boxes & Card-Embedded Shapes
-    if (targetEl.classList.contains('image-slot-box') || targetEl.classList.contains('card-inline-media') || targetEl.classList.contains('sub-box') || targetEl.classList.contains('ppt-chart-widget') || targetEl.classList.contains('card-embedded-obj') || targetEl.classList.contains('slide-header-bar') || targetEl.classList.contains('card-inner-textbox')) {
+    // Case C: Direct Resize for Slide Media Cards / Media Frames, Sub-boxes & Card-Embedded Shapes (FC Studio routes to unified 1:1 Case D!)
+    if (!targetEl.closest('#fcRichBodyEditor') && (targetEl.classList.contains('image-slot-box') || targetEl.classList.contains('card-inline-media') || targetEl.classList.contains('sub-box') || targetEl.classList.contains('ppt-chart-widget') || targetEl.classList.contains('card-embedded-obj') || targetEl.classList.contains('slide-header-bar') || targetEl.classList.contains('card-inner-textbox'))) {
+      if (targetEl.classList.contains('iw-fill-card') || targetEl.getAttribute('data-iw-fill-card') === 'true') return;
       const box = targetEl;
       const initScale = getStageScale();
       const initRect = box.getBoundingClientRect();
@@ -342,21 +343,27 @@ function bindGlobalEditorListeners() {
     // Strictly isolated to the target element so sibling elements inside the card NEVER shift or resize!
     if (targetEl.closest('.slide-card, #fcRichBodyEditor')) {
       const innerEl = targetEl;
+      if (innerEl.classList.contains('iw-fill-card') || innerEl.getAttribute('data-iw-fill-card') === 'true') return;
       const isInsideFc = Boolean(innerEl.closest('#fcRichBodyEditor'));
-      const getActiveCoordScale = () => isInsideFc ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : getStageScale();
-      const initScale = getActiveCoordScale();
+      const isFcBlock = isInsideFc && innerEl.classList.contains('fc-resizable-item');
+      const lockedScale = Math.max(0.2, isInsideFc ? (typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1) : getStageScale());
       const initRect = innerEl.getBoundingClientRect();
-      const initLogicalW = initRect.width / initScale;
-      const initLogicalH = initRect.height / initScale;
+      const initLogicalW = Math.max(24, innerEl.offsetWidth || (initRect.width / lockedScale));
+      const initLogicalH = Math.max(18, innerEl.offsetHeight || (initRect.height / lockedScale));
       const parentCard = innerEl.closest('.slide-card, #fcRichBodyEditor');
-      const parentRect = parentCard.getBoundingClientRect();
-      const parentLogicalW = parentRect.width / initScale;
-      const parentLogicalH = parentRect.height / initScale;
+      const containerEl = innerEl.parentElement || parentCard;
+      const containerCs = window.getComputedStyle(containerEl);
+      const containerPadX = (parseFloat(containerCs.paddingLeft) || 0) + (parseFloat(containerCs.paddingRight) || 0);
+      const containerPadY = (parseFloat(containerCs.paddingTop) || 0) + (parseFloat(containerCs.paddingBottom) || 0);
+      const containerContentW = Math.max(80, (containerEl.clientWidth || (containerEl.getBoundingClientRect().width / lockedScale)) - containerPadX);
+      const parentLogicalH = parentCard.getBoundingClientRect().height / lockedScale;
+      const maxStageH = Math.max(480, ((typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810) - 48);
+      const maxInnerH = isInsideFc ? maxStageH : Math.max(initLogicalH, parentLogicalH - containerPadY);
       const initFontPx = parseFloat(window.getComputedStyle(innerEl).fontSize) || 16;
-      const initOffX = parseFloat(innerEl.getAttribute('data-offset-x') || '0') || 0;
-      const initOffY = parseFloat(innerEl.getAttribute('data-offset-y') || '0') || 0;
+      const initOffX = parseFloat(innerEl.getAttribute(isFcBlock ? 'data-fc-offset-x' : 'data-offset-x') || '0') || 0;
+      const initOffY = parseFloat(innerEl.getAttribute(isFcBlock ? 'data-fc-offset-y' : 'data-offset-y') || '0') || 0;
       const isCorner = (dir === 'nw' || dir === 'ne' || dir === 'se' || dir === 'sw');
-      const isPureText = innerEl.matches('h1, h2, h3, h4, p, span, blockquote, li, a') && !innerEl.classList.contains('ppt-chart-widget');
+      const isPureText = innerEl.matches('h1, h2, h3, h4, p, span, blockquote, li, a') && !innerEl.classList.contains('ppt-chart-widget') && !innerEl.classList.contains('fc-resizable-item');
 
       if (window.getComputedStyle(innerEl).display === 'inline') {
         innerEl.style.display = 'inline-block';
@@ -369,27 +376,33 @@ function bindGlobalEditorListeners() {
         initPx: parseFloat(window.getComputedStyle(ch).fontSize) || initFontPx
       }));
 
+      const applyInnerOffset = (nx, ny) => {
+        if (isFcBlock && typeof applyFcInnerBlockOffsetClamped === 'function') {
+          applyFcInnerBlockOffsetClamped(innerEl, Math.round(nx), Math.round(ny));
+        } else {
+          applyTextOffsetXY(innerEl, Math.round(nx), Math.round(ny));
+        }
+      };
+
       const onInnerResizeMove = (me) => {
-        const scale = getActiveCoordScale();
-        const dx = (me.clientX - startX) / scale;
-        const dy = (me.clientY - startY) / scale;
-        const maxInnerW = Math.max(40, parentLogicalW - 24);
+        const dx = (me.clientX - startX) / lockedScale;
+        const dy = (me.clientY - startY) / lockedScale;
+        const maxInnerW = Math.max(40, Math.round(containerContentW));
         let nextW = initLogicalW;
         let nextH = initLogicalH;
 
-        if (dir.includes('e')) nextW = Math.max(24, Math.min(maxInnerW, initLogicalW + dx));
-        if (dir.includes('w')) nextW = Math.max(24, Math.min(maxInnerW, initLogicalW - dx));
-        if (dir.includes('s')) nextH = Math.max(18, Math.min(parentLogicalH - 24, initLogicalH + dy));
-        if (dir.includes('n')) nextH = Math.max(18, Math.min(parentLogicalH - 24, initLogicalH - dy));
+        if (dir.includes('e')) nextW = Math.max(40, Math.min(maxInnerW, initLogicalW + dx));
+        if (dir.includes('w')) nextW = Math.max(40, Math.min(maxInnerW, initLogicalW - dx));
+        if (dir.includes('s')) nextH = Math.max(24, Math.min(maxInnerH, initLogicalH + dy));
+        if (dir.includes('n')) nextH = Math.max(24, Math.min(maxInnerH, initLogicalH - dy));
 
         if (isCorner) {
-          const scaleX = nextW / Math.max(1, initLogicalW);
-          const scaleY = nextH / Math.max(1, initLogicalH);
-          const uniformScale = Math.abs(dx) >= Math.abs(dy) ? scaleX : scaleY;
-          const scaledW = Math.max(24, Math.min(maxInnerW, Math.round(initLogicalW * uniformScale)));
-          innerEl.style.width = scaledW + 'px';
-
           if (isPureText) {
+            const scaleX = nextW / Math.max(1, initLogicalW);
+            const scaleY = nextH / Math.max(1, initLogicalH);
+            const uniformScale = Math.abs(dx) >= Math.abs(dy) ? scaleX : scaleY;
+            const scaledW = Math.max(24, Math.min(maxInnerW, Math.round(initLogicalW * uniformScale)));
+            innerEl.style.width = scaledW + 'px';
             const nextFont = Math.max(10, Math.min(140, Math.round(initFontPx * uniformScale)));
             innerEl.style.setProperty('font-size', nextFont + 'px', 'important');
             childFontSnapshots.forEach(item => {
@@ -398,20 +411,28 @@ function bindGlobalEditorListeners() {
               }
             });
             if ($studio('fontSizeInput')) $studio('fontSizeInput').value = String(nextFont);
+            if (dir.includes('w')) applyInnerOffset(initOffX + (initLogicalW - scaledW), initOffY);
           } else {
-            const scaledH = Math.max(24, Math.min(parentLogicalH - 24, Math.round(initLogicalH * uniformScale)));
-            innerEl.style.height = scaledH + 'px';
-          }
-
-          if (dir.includes('w')) {
-            applyTextOffsetXY(innerEl, Math.round(initOffX + (initLogicalW - scaledW)), initOffY);
+            // Non-text blocks (charts, widgets, FC boxes, images): exact 1:1 free X/Y tracking; Shift locks aspect ratio!
+            let finalW = Math.round(nextW);
+            let finalH = Math.round(nextH);
+            if (me.shiftKey && initLogicalW > 0 && initLogicalH > 0) {
+              const ratio = initLogicalH / initLogicalW;
+              finalH = Math.max(24, Math.min(maxInnerH, Math.round(finalW * ratio)));
+            }
+            innerEl.style.width = finalW + 'px';
+            innerEl.style.minHeight = '';
+            innerEl.style.height = finalH + 'px';
+            innerEl.style.maxHeight = 'none';
+            const nextOffX = dir.includes('w') ? (initOffX + (initLogicalW - finalW)) : initOffX;
+            const nextOffY = dir.includes('n') ? (initOffY + (initLogicalH - finalH)) : initOffY;
+            if (dir.includes('w') || dir.includes('n')) applyInnerOffset(nextOffX, nextOffY);
           }
         } else {
           if (dir.includes('e') || dir.includes('w')) {
-            innerEl.style.width = Math.round(nextW) + 'px';
-            if (dir.includes('w')) {
-              applyTextOffsetXY(innerEl, Math.round(initOffX + (initLogicalW - nextW)), initOffY);
-            }
+            const finalW = Math.round(nextW);
+            innerEl.style.width = finalW + 'px';
+            if (dir.includes('w')) applyInnerOffset(initOffX + (initLogicalW - finalW), initOffY);
           }
           if (dir.includes('s') || dir.includes('n')) {
             if (isPureText) {
@@ -423,7 +444,11 @@ function bindGlobalEditorListeners() {
               innerEl.style.minHeight = Math.round(nextH) + 'px';
               innerEl.style.height = 'auto';
             } else {
-              innerEl.style.height = Math.round(nextH) + 'px';
+              const finalH = Math.round(nextH);
+              innerEl.style.minHeight = '';
+              innerEl.style.height = finalH + 'px';
+              innerEl.style.maxHeight = 'none';
+              if (dir.includes('n')) applyInnerOffset(initOffX, initOffY + (initLogicalH - finalH));
             }
           }
         }

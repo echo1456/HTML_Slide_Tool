@@ -502,39 +502,58 @@ function makeFcBlockResizable(blockEl) {
     handleEl.onmousedown = (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (blockEl.classList.contains('iw-fill-card') || blockEl.getAttribute('data-iw-fill-card') === 'true') return;
       selectFcInnerBlock(blockEl);
       const doc = getFcStudioDoc();
+      const winRef = doc.defaultView || window;
       const editor = $fc('fcRichBodyEditor');
+      const containerEl = blockEl.parentElement || editor;
       const startX = e.clientX;
       const startY = e.clientY;
-      const initScale = typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1;
+      // Lock scale & container logical content bounds at mousedown to eliminate feedback jumps!
+      const lockedScale = Math.max(0.2, typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1);
       const initRect = blockEl.getBoundingClientRect();
-      const initLogicalW = blockEl.offsetWidth || (initRect.width / initScale);
-      const initLogicalH = blockEl.offsetHeight || (initRect.height / initScale);
-      const maxW = editor ? Math.max(160, editor.clientWidth - 80) : 592;
+      const initLogicalW = Math.max(40, Math.round(blockEl.offsetWidth || (initRect.width / lockedScale)));
+      const initLogicalH = Math.max(28, Math.round(blockEl.offsetHeight || (initRect.height / lockedScale)));
+      let maxW = 592;
+      if (containerEl) {
+        const cCs = winRef.getComputedStyle(containerEl);
+        const padX = (parseFloat(cCs.paddingLeft) || 0) + (parseFloat(cCs.paddingRight) || 0);
+        maxW = Math.max(120, Math.round((containerEl.clientWidth || 672) - padX));
+      }
+      const maxStageH = Math.max(480, ((typeof LOGICAL_STAGE_HEIGHT === 'number' && LOGICAL_STAGE_HEIGHT > 0) ? LOGICAL_STAGE_HEIGHT : 810) - 48);
+      blockEl.style.boxSizing = 'border-box';
+      blockEl.style.maxWidth = '100%';
 
       const onMove = (me) => {
-        const scale = typeof getFcPreviewScale === 'function' ? getFcPreviewScale() : 1;
+        const dx = (me.clientX - startX) / lockedScale;
+        const dy = (me.clientY - startY) / lockedScale;
+        let nextW = Math.max(80, Math.min(maxW, Math.round(initLogicalW + dx)));
+        let nextH = Math.max(36, Math.min(maxStageH, Math.round(initLogicalH + dy)));
+        if (axis === 'se' && me.shiftKey && initLogicalW > 0 && initLogicalH > 0) {
+          const ratio = initLogicalH / initLogicalW;
+          nextH = Math.max(36, Math.min(maxStageH, Math.round(nextW * ratio)));
+        }
         if (axis === 'se' || axis === 'e') {
-          const nextW = Math.max(80, Math.min(maxW, Math.round(initLogicalW + (me.clientX - startX) / scale)));
-          const wPct = Math.max(15, Math.min(100, Math.round((nextW / maxW) * 100)));
-          blockEl.style.width = `${wPct}%`;
+          blockEl.style.width = `${nextW}px`;
         }
         if (axis === 'se' || axis === 's') {
-          const nextH = Math.max(36, Math.min(680, Math.round(initLogicalH + (me.clientY - startY) / scale)));
+          blockEl.style.minHeight = '';
           blockEl.style.height = `${nextH}px`;
           blockEl.style.maxHeight = 'none';
-          const innerImg = blockEl.querySelector('img');
+          const innerImg = blockEl.querySelector('img:not(.iw-ba-img):not(.iw-hs-base-img)');
           if (innerImg) {
             innerImg.style.height = '100%';
             innerImg.style.maxHeight = 'none';
           }
-            }
+        }
+        if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
       };
       const onUp = () => {
         doc.removeEventListener('mousemove', onMove);
         doc.removeEventListener('mouseup', onUp);
         if (typeof syncFcPreviewViewportScale === 'function') syncFcPreviewViewportScale();
+        if (typeof positionSelectionOverlay === 'function') positionSelectionOverlay();
         recordFcSnapshot();
       };
       startManagedDragSession(doc, onMove, onUp);
@@ -988,6 +1007,7 @@ function updateFloatingCardPreviewStyle() {
     frameEl.style.removeProperty('--fx-border-width');
   }
   editor.style.color = textCol;
+  if (typeof syncBeforeAfterFillCardContainers === 'function') syncBeforeAfterFillCardContainers(editor);
   applyFcPreviewSizeFromInputs();
 }
 
@@ -2197,6 +2217,8 @@ function hydrateFloatingCardSurface(boxEl, recordEl, bodyTargetEl, extraTopHtml,
   bodyTargetEl.querySelectorAll('.fc-item-resize-grip, .fc-item-resize-grip-e, .fc-item-resize-grip-s, .fc-item-move-grip, .table-col-resizer, .table-row-resizer, .iw-edit-bar, .embed-widget-drag-bar, .yt-local-hint-bar, .card-edit-controls, .ppt-slide-comment-badge').forEach(g => g.remove());
   bodyTargetEl.querySelectorAll('.iw-flip-scene.is-editing-back').forEach(s => s.classList.remove('is-editing-back'));
   bodyTargetEl.querySelectorAll('.chart-cell-selected, .ppt-multi-selected, .is-selected, .fc-item-selected').forEach(el => el.classList.remove('chart-cell-selected', 'ppt-multi-selected', 'is-selected', 'fc-item-selected'));
+  const hasFillBa = Boolean(bodyTargetEl.querySelector('[data-iw-fill-card="true"], .iw-fill-card'));
+  boxEl.classList.toggle('has-iw-fill-card', hasFillBa);
   if (typeof hydrateYouTubeEmbedsForProtocol === 'function') hydrateYouTubeEmbedsForProtocol(bodyTargetEl);
   if (typeof animateSlideKpisAndCharts === 'function') requestAnimationFrame(() => animateSlideKpisAndCharts(bodyTargetEl));
 }

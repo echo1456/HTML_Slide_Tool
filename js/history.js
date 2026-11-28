@@ -237,6 +237,7 @@ function restoreStageHtml(entryOrHtml, fromHistory) {
     if (typeof syncSpeakerNotesUI === 'function') syncSpeakerNotesUI();
     if (typeof refreshLayerList === 'function') refreshLayerList();
     if (typeof renderLeftFilmstripThumbnails === 'function') renderLeftFilmstripThumbnails();
+    if (typeof syncBeforeAfterFillCardContainers === 'function') syncBeforeAfterFillCardContainers(stage);
   } finally { __isRestoringHistory = false; }
 }
 function updateHistoryButtons() {

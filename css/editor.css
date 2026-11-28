@@ -613,3 +613,15 @@ body.edit-mode:not(.interactive-test-mode) .slide .ppt-interactive-widget[data-m
   pointer-events: none;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
 }
+
+/* Full-Bleed 50:50 Widget Inside Floating Card Studio (#fcRichBodyEditor) */
+#fcRichBodyEditor.has-iw-fill-card {
+  min-height: 360px;
+  overflow: hidden !important;
+}
+#fcRichBodyEditor .fc-resizable-item.iw-fill-card > .fc-item-move-grip,
+#fcRichBodyEditor .fc-resizable-item.iw-fill-card > .fc-item-resize-grip,
+#fcRichBodyEditor .fc-resizable-item.iw-fill-card > .fc-item-resize-grip-e,
+#fcRichBodyEditor .fc-resizable-item.iw-fill-card > .fc-item-resize-grip-s {
+  display: none !important;
+}

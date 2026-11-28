@@ -1994,3 +1994,64 @@ body:not(.edit-mode) .ppt-chart-widget [data-chart-part]:hover {
 .slide-card.card-theme-dark .iw-hs-popover .text-muted:not([style*="color"]) {
   color: #4B5563 !important;
 }
+
+/* Full-Bleed Card Fill Mode for 50:50 Before/After Widget (v5.8.8) */
+.slide-card.has-iw-fill-card,
+.ppt-free-obj[data-shape-type="freeCard"].has-iw-fill-card {
+  overflow: hidden !important;
+}
+.ppt-free-obj[data-shape-type="freeCard"].has-iw-fill-card > div:not(.card-bg-layer):not(.card-hover-bg-layer):not(.card-bg-tint) {
+  position: static !important;
+}
+#floatingCardLightboxContent.has-iw-fill-card,
+#floatingCardLightboxStage #floatingCardLightboxContent.has-iw-fill-card,
+.fc-multi-card-item.has-iw-fill-card {
+  padding: 0 !important;
+  min-height: 360px;
+}
+#floatingCardLightboxContent.has-iw-fill-card > #floatingCardLightboxBody,
+.fc-multi-card-item.has-iw-fill-card > .fc-multi-card-body {
+  position: static !important;
+}
+.ppt-interactive-widget.iw-fill-card,
+.card-embedded-obj.ppt-interactive-widget.iw-fill-card {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: inherit !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: hidden !important;
+  z-index: 6;
+}
+.ppt-interactive-widget.iw-fill-card > .iw-ba-stage {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  border-radius: inherit !important;
+}
+.ppt-interactive-widget.iw-fill-card > .iw-edit-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  border-radius: 0;
+}
+.ppt-interactive-widget.iw-fill-card .iw-ba-badge {
+  top: 14px;
+}
+body.edit-mode .ppt-interactive-widget.iw-fill-card .iw-ba-badge {
+  top: 40px;
+}

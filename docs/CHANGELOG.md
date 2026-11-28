@@ -1,5 +1,20 @@
 # Changelog
 
+## [v5.8.8] - 2026-11-28 — 도넛 그래프 독립 크기/두께 조절 · 플로팅 카드 내부 핸들 리사이즈 안정화 · 50:50 위젯 카드 전체 채우기
+
+### Added & Fixed
+- **[Feature] 도넛 그래프 독립 크기(`80~340px`) 및 링 두께(`6~30`) 슬라이더 추가 (`index.html`, `js/charts.js`, `js/export.js`)**:
+  - 기존 고정 `112px`(`w-28 h-28`)으로 묶여 있던 도넛 SVG를 `data.donutSize`·`data.donutThickness` 기반으로 독립 조절할 수 있도록 `#donutSizeControlRow`를 추가하고, PNG/PPTX 캔버스 내보내기에도 동일 비율 반영.
+  - 플로팅 카드 내부 차트 재렌더링(`writeChartDataAndRender`) 시 `.fc-item-resize-grip` 핸들이 사라지지 않도록 자동 재부착 보강.
+- **[P0] 플로팅 카드 스튜디오 내부 요소 핸들 리사이즈 튐·오작동 완전 수정 (`js/floating-cards.js`, `js/main.js`)**:
+  - 드래그 시작 시점의 배율(`lockedScale`)과 실제 부모 컨테이너의 내부 폭(`containerContentW`)을 고정 측정하고, 정수 `%` 반올림 대신 정확한 논리 `px` 단위로 조절해 2단 배치나 서브박스 내부에서도 첫 클릭 튐 없이 1:1로 부드럽게 조절되도록 개선.
+  - 차트·위젯·이미지·블록 모서리 핸들 드래그 시 `scaleX`/`scaleY` 급전환으로 크기가 멋대로 튀던 문제를 X/Y 자유 조절(`Shift` 키로 비율 잠금)로 교체하고, 좌/상 핸들 오프셋(`data-fc-offset-x/y`)과 선택 오버레이 실시간 추적 통합.
+- **[Feature] 50:50 (Before/After) 위젯 카드 전체 꽉 채우기 모드 (`⤢ 카드 채우기` — `js/widgets.js`, `js/floating-cards.js`, `css/slides.css`, `css/editor.css`, `js/history.js`)**:
+  - 위젯 상단 바에 `⤢ 카드 채우기` / `⤡ 채우기 해제` 1클릭 토글을 추가해 슬라이드 카드(`.slide-card`, `freeCard`)와 플로팅 팝업 카드(`#fcRichBodyEditor` ↔ `#floatingCardLightboxContent`) 모두 여백·테두리 틈 없이 카드 전체를 100% 풀블리드로 채울 수 있도록 구현.
+- **[Testing] Playwright Chromium E2E `Test 34` 신설 (`tests/stress-and-compat.spec.mjs`)**: 총 34개 CI E2E 스위트로 영구 회귀 검증.
+
+---
+
 ## [v5.8.7] - 2026-11-28 — 플로팅 카드 스튜디오 스케일 즉시 반영(`transition` 지연 제거) · 숨김 상태 0.25 축소 오염 방지 · 호버 배율 합성 수정 (CI 33종 전수 통과)
 
 ### Fixed
